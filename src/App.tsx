@@ -86,7 +86,7 @@ const AppContent = () => {
           </div>
         </div>
         
-        <div className="flex justify-center mt-6 pb-2">
+        <div className="flex justify-center mt-2 pb-2">
           <LanguageSwitcher />
         </div>
       </footer>
