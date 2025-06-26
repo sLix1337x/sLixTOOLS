@@ -48,9 +48,9 @@ jobs:
         env:
           NODE_ENV: production
         run: |
-          # Build the app with root path
-          echo "Building application with root path..."
-          npx vite build --base=/
+          # Build the app with GitHub Pages path
+          echo "Building application with base path /sLixTOOLS/..."
+          npx vite build --base=/sLixTOOLS/
           
           # Show build output
           echo "Build output:"
@@ -73,7 +73,7 @@ jobs:
             for CSS_FILE in $CSS_FILES; do
               CSS_PATH=${CSS_FILE#dist/}
               echo "Injecting CSS: $CSS_PATH"
-              sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/$CSS_PATH\">\n</head>|g" dist/index.html
+              sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/sLixTOOLS/$CSS_PATH\">\n</head>|g" dist/index.html
             done
           else
             echo "No separate CSS files found. CSS might be inlined or included in JS bundles."
@@ -90,7 +90,7 @@ jobs:
               if [[ "$JS_FILE" != *polyfills* ]]; then
                 JS_PATH=${JS_FILE#dist/}
                 echo "Injecting JS: $JS_PATH"
-                sed -i "s|</body>|<script type=\"module\" src=\"/$JS_PATH\"></script>\n</body>|g" dist/index.html
+                sed -i "s|</body>|<script type=\"module\" src=\"/sLixTOOLS/$JS_PATH\"></script>\n</body>|g" dist/index.html
               fi
             done
           else
