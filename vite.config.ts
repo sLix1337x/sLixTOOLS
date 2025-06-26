@@ -3,8 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
-const isProduction = process.env.NODE_ENV === 'production';
-const base = isProduction ? '/sLixTOOLS/' : '/';
+const base = '/sLixTOOLS/';
 
 export default defineConfig({
   base,
@@ -13,19 +12,22 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src'),
     },
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    minify: 'terser',
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
       },
       output: {
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][ext]',
+        entryFileNames: 'assets/[name].[hash].js',
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash][ext]',
+        manualChunks: undefined
       },
     },
   },
@@ -36,5 +38,6 @@ export default defineConfig({
   },
   define: {
     'import.meta.env.BASE_URL': JSON.stringify(base),
+    'process.env.NODE_ENV': JSON.stringify('production')
   },
 });
