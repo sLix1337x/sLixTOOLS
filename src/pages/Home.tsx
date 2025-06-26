@@ -71,7 +71,7 @@ const Home: React.FC = () => {
             <img 
               src="https://i.ibb.co/MkhkkNG6/funkykong.gif" 
               alt="Funky Kong Dancing" 
-              className="max-w-[120px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[240px] absolute
+              className="max-w-[80px] sm:max-w-[100px] md:max-w-[120px] lg:max-w-[150px] absolute
                        right-[20%] sm:right-[15%] md:right-[10%] lg:right-[5%] bottom-[110px]
                        transition-all duration-300" 
             />
