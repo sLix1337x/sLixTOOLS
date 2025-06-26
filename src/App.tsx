@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, HashRouter, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { LanguageProvider } from "./contexts/LanguageContext";
+import { useTranslation } from "./utils/i18n";
 
 // Page imports
 import Home from "./pages/Home";
@@ -32,12 +34,14 @@ import "./App.css";
 import MainNav from "@/components/MainNav";
 import SmoothScroll from "@/components/SmoothScroll";
 import CookieConsent from "@/components/common/CookieConsent";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const { t } = useTranslation();
 
   return (
     <>
@@ -65,19 +69,25 @@ const AppContent = () => {
       
       <footer className={`border-t border-dashed border-green-400 py-4 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}>
 
-        <div className="container mx-auto px-4 text-center text-sm">
-          <p>© {new Date().getFullYear()} sLixTOOLS - Free online tools for all your file conversion needs</p>
-          <div className="mt-2">
-            <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors">Privacy Policy</Link>
-            <span>•</span>
-            <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors">Terms of Service</Link>
-            <span>•</span>
-            <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors">Impressum</Link>
-            <span>•</span>
-            <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors">Contact</Link>
-            <span>•</span>
-            <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors">GitHub</a>
+        <div className="container mx-auto px-4 text-sm">
+          <div className="text-center">
+            <p>{t('footer.copyright', { year: new Date().getFullYear() })}</p>
+            <div className="mt-2">
+              <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.privacyPolicy')}</Link>
+              <span>•</span>
+              <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.termsOfService')}</Link>
+              <span>•</span>
+              <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.impressum')}</Link>
+              <span>•</span>
+              <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.contact')}</Link>
+              <span>•</span>
+              <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors">GitHub</a>
+            </div>
           </div>
+        </div>
+        
+        <div className="flex justify-center mt-6 pb-2">
+          <LanguageSwitcher />
         </div>
       </footer>
     </>
@@ -86,26 +96,28 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <HelmetProvider>
-        <Sonner />
-        <HashRouter>
-          <SmoothScroll>
-            <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-              <header className="flex-shrink-0">
-                <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
-                  <MainNav />
+    <HelmetProvider>
+      <TooltipProvider>
+        <LanguageProvider>
+          <HashRouter>
+            <SmoothScroll>
+              <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+                <header className="flex-shrink-0">
+                  <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
+                    <MainNav />
+                  </div>
+                </header>
+                <div className="flex-grow flex flex-col">
+                  <AppContent />
                 </div>
-              </header>
-              <div className="flex-grow flex flex-col">
-                <AppContent />
+                <CookieConsent />
               </div>
-              <CookieConsent />
-            </div>
-          </SmoothScroll>
-        </HashRouter>
-      </HelmetProvider>
-    </TooltipProvider>
+            </SmoothScroll>
+          </HashRouter>
+        </LanguageProvider>
+      </TooltipProvider>
+      <Sonner className="toaster" position="bottom-right" />
+    </HelmetProvider>
   </QueryClientProvider>
 );
 
