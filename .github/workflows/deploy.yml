@@ -21,18 +21,27 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci --legacy-peer-deps
-          npm install --save-dev @vitejs/plugin-react typescript @types/node
+          npm install --save-dev vite @vitejs/plugin-react typescript @types/node
+          npm install -g vite
+
+      - name: Debug Environment
+        run: |
+          echo "Node version:"
+          node -v
+          echo "NPM version:"
+          npm -v
+          echo "Installed packages:"
+          npm list --depth=0
+          echo "PATH:"
+          echo $PATH
 
       - name: Build
         env:
           NODE_ENV: production
         run: |
-          # Install dependencies
-          npm install
-          
           # Build the app with base path
           echo "Building application with base path /sLixTOOLS/..."
-          npm run build -- --base=/sLixTOOLS/
+          npx vite build --base=/sLixTOOLS/
           
           # Show build output
           echo "Build output:"
