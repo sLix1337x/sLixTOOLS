@@ -34,10 +34,10 @@ const CookieConsent = () => {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-300">
             <p>
-              Diese Website verwendet Cookies, um Ihre Erfahrung zu verbessern. Durch die Nutzung unserer Website stimmen Sie allen Cookies gemäß unserer{' '}
+              This website uses cookies to enhance your experience. By using our website, you consent to all cookies in accordance with our{' '}
               <Link to="/privacy-policy" className="text-blue-400 hover:text-blue-300">
-                Datenschutzrichtlinie
-              </Link> zu.
+                Privacy Policy
+              </Link>.
             </p>
           </div>
           <div className="flex gap-3">
@@ -45,13 +45,13 @@ const CookieConsent = () => {
               onClick={acceptEssential}
               className="px-4 py-2 text-xs bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
             >
-              Nur essentielle Cookies
+              Essential Cookies Only
             </button>
             <button 
               onClick={acceptAll}
               className="px-4 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-500 transition-colors"
             >
-              Alle akzeptieren
+              Accept All
             </button>
           </div>
         </div>
