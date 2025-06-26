@@ -60,6 +60,19 @@ jobs:
           echo "Copying public files..."
           cp -r public/* dist/ 2>/dev/null || :
           
+          # Find main JS file and update index.html
+          echo "Finding main JS file and updating index.html..."
+          MAIN_JS=$(find dist/assets -name "index-*.js" | head -n 1)
+          if [ -n "$MAIN_JS" ]; then
+            MAIN_JS_FILENAME=$(basename "$MAIN_JS")
+            echo "Found main JS file: $MAIN_JS_FILENAME"
+            # Insert script tag before closing body tag
+            sed -i 's|</body>|<script type="module" src="/sLixTOOLS/assets/'"$MAIN_JS_FILENAME"'"></script>\n</body>|g' dist/index.html
+            cat dist/index.html | grep -A 2 "</script>"
+          else
+            echo "WARNING: Could not find main JS file!"
+          fi
+          
           # Create 404.html for SPA routing
           echo "Creating 404.html for SPA routing..."
           cp dist/index.html dist/404.html
