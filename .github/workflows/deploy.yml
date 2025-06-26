@@ -46,4 +46,4 @@ jobs:
           folder: dist
           branch: gh-pages
           clean: true
-          target-folder: .
+          target-folder: sLixTOOLS
