@@ -1,0 +1,102 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Custom transparent section */
+.transparent-section {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Completely transparent tools section - super aggressive */
+#tools-section,
+#tools-section::before,
+#tools-section::after,
+#tools-section *,
+#tools-section *::before,
+#tools-section *::after,
+[id="tools-section"],
+[id="tools-section"] *,
+[id="all-tools"],
+[id="all-tools"] * {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any background effects and ensure proper z-index */
+#tools-section {
+  position: relative;
+  z-index: 10;
+  contain: none !important;
+}
+
+/* Create visual section separators */
+.section-separator {
+  height: 1px;
+  width: 80%;
+  margin: 0 auto;
+  background: linear-gradient(to right, transparent, rgba(66, 197, 116, 0.3), transparent);
+  position: relative;
+  border: none;
+  z-index: 10;
+}
+
+.section-separator::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background: rgba(66, 197, 116, 0.15);
+  border: 1px solid rgba(66, 197, 116, 0.3);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(66, 197, 116, 0.2);
+}

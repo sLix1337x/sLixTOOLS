@@ -1,0 +1,182 @@
+/* Indie Website Theme with Dotted Borders */
+:root {
+  --bg-color: #000000;
+  --text-color: #39ff14; /* Bright green text */
+  --border-color: #39ff14;
+  --border-style: 2px dashed var(--border-color);
+  --border-radius: 0;
+  --accent-color: #ff00ff; /* Magenta accent color */
+  --hover-color: #00ffff; /* Cyan hover effect */
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+/* Base styles */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* Animated background */
+.bg-particles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  background-color: var(--text-color);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.2;
+}
+
+@keyframes floating {
+  from {
+    transform: translateY(0) translateX(0);
+  }
+  to {
+    transform: translateY(-100px) translateX(20px);
+  }
+}
+
+/* Container styles */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  position: relative;
+}
+
+/* Card styles */
+.card {
+  background-color: rgba(0, 0, 0, 0.7);
+  border: var(--border-style);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0 15px var(--accent-color);
+  border-color: var(--hover-color);
+}
+
+/* Navigation buttons */
+header button {
+  border: none !important;
+  outline: none !important;
+}
+
+header button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Button styles */
+button, .btn {
+  background-color: transparent;
+  color: var(--text-color);
+  border: var(--border-style);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover, .btn:hover {
+  background-color: var(--accent-color);
+  color: #000;
+  border-color: var(--accent-color);
+}
+
+/* Input styles */
+input, select, textarea {
+  background-color: rgba(0, 0, 0, 0.5);
+  border: var(--border-style);
+  color: var(--text-color);
+  padding: 0.5rem;
+  font-family: var(--font-mono);
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Navigation */
+.nav-container {
+  border-bottom: var(--border-style);
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+/* Scroll animations */
+.scroll-section {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.scroll-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+  border-left: var(--border-style);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border: 1px solid var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+/* Glitch effect for headings */
+@keyframes glitch {
+  0% { text-shadow: 0.05em 0 0 #ff00ff, -0.05em -0.025em 0 #00ffff; }
+  14% { text-shadow: 0.05em 0 0 #ff00ff, -0.05em -0.025em 0 #00ffff; }
+  15% { text-shadow: -0.05em -0.025em 0 #ff00ff, 0.025em 0.05em 0 #00ffff; }
+  49% { text-shadow: -0.05em -0.025em 0 #ff00ff, 0.025em 0.05em 0 #00ffff; }
+  50% { text-shadow: 0.025em 0.05em 0 #ff00ff, 0.05em 0 0 #00ffff; }
+  99% { text-shadow: 0.025em 0.05em 0 #ff00ff, 0.05em 0 0 #00ffff; }
+  100% { text-shadow: -0.025em 0 0 #ff00ff, -0.025em 0 0 #00ffff; }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  animation: glitch 3s infinite;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+}

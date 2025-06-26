@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Favicon Generator</title>
+  <style>
+    body {
+      background: black;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #2AD587;
+      color: black;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .download-container {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    a {
+      color: #2AD587;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Tired Eyes Favicon Generator</h2>
+  <canvas id="faviconCanvas" width="64" height="64"></canvas>
+  <button id="generateBtn">Generate Favicon</button>
+  <div class="download-container">
+    <a id="downloadLink" download="favicon.ico">Download Favicon</a>
+    <p>After downloading, replace the favicon.ico in the public directory</p>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('faviconCanvas');
+      const ctx = canvas.getContext('2d');
+      const downloadLink = document.getElementById('downloadLink');
+      const generateBtn = document.getElementById('generateBtn');
+      
+      function drawTiredEyes() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw background
+        ctx.fillStyle = 'transparent';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw left eye
+        ctx.fillStyle = '#999999'; // Gray color
+        ctx.beginPath();
+        ctx.ellipse(18, 32, 16, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw right eye
+        ctx.beginPath();
+        ctx.ellipse(46, 32, 16, 20, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw left eye stripe
+        ctx.fillStyle = '#e0e0e0'; // Light gray
+        ctx.fillRect(2, 32, 32, 6);
+        
+        // Draw right eye stripe
+        ctx.fillRect(30, 32, 32, 6);
+        
+        // Draw left pupil
+        ctx.fillStyle = '#333'; // Dark gray
+        ctx.beginPath();
+        ctx.ellipse(18, 32, 5, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw right pupil
+        ctx.beginPath();
+        ctx.ellipse(46, 32, 5, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      function updateDownloadLink() {
+        const dataURL = canvas.toDataURL('image/png');
+        downloadLink.href = dataURL;
+      }
+      
+      generateBtn.addEventListener('click', () => {
+        drawTiredEyes();
+        updateDownloadLink();
+      });
+      
+      // Initial render
+      drawTiredEyes();
+      updateDownloadLink();
+    });
+  </script>
+</body>
+</html>

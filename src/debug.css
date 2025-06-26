@@ -1,0 +1,24 @@
+/* Debug styles to identify background issues */
+.debug-highlight {
+  outline: 2px solid red !important;
+}
+
+/* Force transparency on all elements between sections */
+body .section-separator + *,
+body .section-separator + * *,
+body > div > *:nth-child(4),
+body > div > *:nth-child(4) *,
+body > div > *:nth-child(5),
+body > div > *:nth-child(5) * {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Fix for particle animation */
+.tsparticles-canvas-el {
+  z-index: -1 !important;
+  position: fixed !important;
+}
