@@ -67,13 +67,14 @@ const Home: React.FC = () => {
             </AnimatedElement>
           </div>
           
-          <AnimatedElement type="scale" delay={0.3} className="absolute right-0 bottom-0 z-10 w-full">
+          <AnimatedElement type="scale" delay={0.3} className="absolute z-20 right-0 w-full">
             <img 
               src="https://i.ibb.co/MkhkkNG6/funkykong.gif" 
               alt="Funky Kong Dancing" 
-              className="max-w-[80px] sm:max-w-[100px] md:max-w-[120px] lg:max-w-[150px] absolute
-                       right-[15%] sm:right-[10%] md:right-[5%] lg:right-[0%] bottom-[-94px]
-                       transition-all duration-300" 
+              className="max-w-[60px] sm:max-w-[80px] md:max-w-[100px] absolute
+                      -right-[20px] md:-right-[10px] lg:right-[0px]
+                      top-[305px] sm:top-[320px] md:top-[110px] lg:top-[110px] xl:top-[110px]
+                      transition-all duration-300" 
             />
           </AnimatedElement>
         </div>
