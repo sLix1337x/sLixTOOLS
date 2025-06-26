@@ -3,10 +3,8 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
-const base = '/sLixTOOLS/';
-
 export default defineConfig({
-  base,
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -15,11 +13,15 @@ export default defineConfig({
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
   publicDir: 'public',
+  css: {
+    devSourcemap: true,
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
     minify: 'esbuild',
+    cssCodeSplit: true,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
@@ -27,18 +29,22 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash][ext]',
-        manualChunks: undefined
+        assetFileNames: (assetInfo) => {
+          const name = assetInfo.name || '';
+          if (name.endsWith('.css')) {
+            return 'assets/css/[name].[hash][ext]';
+          }
+          return 'assets/[name].[hash][ext]';
+        },
       },
     },
   },
   server: {
     port: 3000,
-    strictPort: true,
+    strictPort: false,
     open: true,
   },
   define: {
-    'import.meta.env.BASE_URL': JSON.stringify(base),
-    'process.env.NODE_ENV': JSON.stringify('production')
+    'import.meta.env.BASE_URL': JSON.stringify('/'),
   },
 });
