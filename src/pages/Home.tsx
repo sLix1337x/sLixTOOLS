@@ -72,7 +72,7 @@ const Home: React.FC = () => {
               src="https://i.ibb.co/MkhkkNG6/funkykong.gif" 
               alt="Funky Kong Dancing" 
               className="max-w-[80px] sm:max-w-[100px] md:max-w-[130px] lg:max-w-[150px] absolute
-                      -right-[40px] md:-right-[30px] lg:-right-[20px]
+                      -right-[60px] md:-right-[50px] lg:-right-[40px]
                       top-[325px] sm:top-[340px] md:top-[130px] lg:top-[130px] xl:top-[130px]
                       transition-all duration-300" 
             />
