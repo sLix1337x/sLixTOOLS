@@ -37,9 +37,9 @@ export default defineConfig({
         assetFileNames: (assetInfo) => {
           const name = assetInfo.name || '';
           if (name.endsWith('.css')) {
-            return 'assets/css/[name].[hash][ext]';
+            return 'assets/css/[name].[hash].[ext]';
           }
-          return 'assets/[name].[hash][ext]';
+          return 'assets/[name].[hash].[ext]';
         },
       },
     },

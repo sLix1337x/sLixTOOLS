@@ -73,10 +73,29 @@ jobs:
             for CSS_FILE in $CSS_FILES; do
               CSS_PATH=${CSS_FILE#dist/}
               echo "Injecting CSS: $CSS_PATH"
-              sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/sLixTOOLS/$CSS_PATH\">\n</head>|g" dist/index.html
+              # Ensure proper path with crossorigin attribute
+              sed -i "s|</head>|<link rel=\"stylesheet\" crossorigin href=\"/sLixTOOLS/$CSS_PATH\">\n</head>|g" dist/index.html
             done
           else
             echo "No separate CSS files found. CSS might be inlined or included in JS bundles."
+            # Check for malformed CSS file names (no dot before extension)
+            MALFORMED_CSS_FILES=$(find dist/ -path "*css" ! -path "*.css" 2>/dev/null || echo "")
+            if [ -n "$MALFORMED_CSS_FILES" ]; then
+              echo "Possible malformed CSS files found: $MALFORMED_CSS_FILES"
+              for CSS_FILE in $MALFORMED_CSS_FILES; do
+                # Extract the path and fix the extension if needed
+                CSS_PATH=${CSS_FILE#dist/}
+                FIXED_PATH=$(echo "$CSS_PATH" | sed -r 's/([^.]+)css$/\1.css/')
+                echo "Injecting fixed CSS path: $FIXED_PATH"
+                sed -i "s|</head>|<link rel=\"stylesheet\" crossorigin href=\"/sLixTOOLS/$FIXED_PATH\">\n</head>|g" dist/index.html
+                # Also rename the actual file if needed
+                if [ "$CSS_PATH" != "$FIXED_PATH" ]; then
+                  echo "Renaming $CSS_FILE to dist/$FIXED_PATH"
+                  mkdir -p "$(dirname "dist/$FIXED_PATH")"
+                  cp "$CSS_FILE" "dist/$FIXED_PATH"
+                fi
+              done
+            fi
           fi
           
           # Then inject main JS (search in all of dist directory)
