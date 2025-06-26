@@ -22,6 +22,7 @@ import Contact from "./pages/Contact";
 import Features from "./pages/Features";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import Impressum from "./pages/Impressum";
 
 // Styles
 import "./styles/indie-theme.css";
@@ -30,6 +31,7 @@ import "./App.css";
 // Components
 import MainNav from "@/components/MainNav";
 import SmoothScroll from "@/components/SmoothScroll";
+import CookieConsent from "@/components/common/CookieConsent";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +57,7 @@ const AppContent = () => {
           <Route path="/features" element={<Features />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/impressum" element={<Impressum />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL \"*\" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -68,6 +71,8 @@ const AppContent = () => {
             <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors">Privacy Policy</Link>
             <span>•</span>
             <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors">Terms of Service</Link>
+            <span>•</span>
+            <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors">Impressum</Link>
             <span>•</span>
             <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors">Contact</Link>
             <span>•</span>
@@ -95,6 +100,7 @@ const App = () => (
               <div className="flex-grow flex flex-col">
                 <AppContent />
               </div>
+              <CookieConsent />
             </div>
           </SmoothScroll>
         </HashRouter>
