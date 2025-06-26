@@ -60,22 +60,18 @@ const AppContent = () => {
         </Routes>
       </main>
       
-      <footer className={`border-t border-dashed border-green-400 py-6 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}>
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-3 md:mb-0 text-center md:text-left">
-              <p className="text-sm">© {new Date().getFullYear()} sLixTOOLS - Free online tools for all your file conversion needs</p>
-            </div>
-            
-            <div className="flex flex-wrap justify-center md:justify-end gap-2 md:gap-4 text-sm">
-              <Link to="/privacy-policy" className="px-2 py-1 hover:text-pink-400 transition-colors duration-200">Privacy Policy</Link>
-              <span className="hidden md:inline">•</span>
-              <Link to="/terms-of-service" className="px-2 py-1 hover:text-pink-400 transition-colors duration-200">Terms of Service</Link>
-              <span className="hidden md:inline">•</span>
-              <Link to="/contact" className="px-2 py-1 hover:text-pink-400 transition-colors duration-200">Contact</Link>
-              <span className="hidden md:inline">•</span>
-              <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="px-2 py-1 hover:text-pink-400 transition-colors duration-200">GitHub</a>
-            </div>
+      <footer className={`border-t border-dashed border-green-400 py-4 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}>
+
+        <div className="container mx-auto px-4 text-center text-sm">
+          <p>© {new Date().getFullYear()} sLixTOOLS - Free online tools for all your file conversion needs</p>
+          <div className="mt-2">
+            <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors">Privacy Policy</Link>
+            <span>•</span>
+            <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors">Terms of Service</Link>
+            <span>•</span>
+            <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors">Contact</Link>
+            <span>•</span>
+            <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors">GitHub</a>
           </div>
         </div>
       </footer>
