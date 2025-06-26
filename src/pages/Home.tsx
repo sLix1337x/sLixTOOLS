@@ -71,9 +71,9 @@ const Home: React.FC = () => {
             <img 
               src="https://i.ibb.co/MkhkkNG6/funkykong.gif" 
               alt="Funky Kong Dancing" 
-              className="max-w-[60px] sm:max-w-[80px] md:max-w-[100px] absolute
-                      -right-[20px] md:-right-[10px] lg:right-[0px]
-                      top-[305px] sm:top-[320px] md:top-[110px] lg:top-[110px] xl:top-[110px]
+              className="max-w-[80px] sm:max-w-[100px] md:max-w-[130px] lg:max-w-[150px] absolute
+                      -right-[40px] md:-right-[30px] lg:-right-[20px]
+                      top-[325px] sm:top-[340px] md:top-[130px] lg:top-[130px] xl:top-[130px]
                       transition-all duration-300" 
             />
           </AnimatedElement>
