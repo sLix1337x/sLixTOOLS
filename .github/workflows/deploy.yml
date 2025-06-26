@@ -5,8 +5,20 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,7 +34,6 @@ jobs:
         run: |
           npm ci --legacy-peer-deps
           npm install --save-dev vite @vitejs/plugin-react typescript @types/node
-          npm install -g vite
 
       - name: Debug Environment
         run: |
@@ -32,8 +43,6 @@ jobs:
           npm -v
           echo "Installed packages:"
           npm list --depth=0
-          echo "PATH:"
-          echo $PATH
 
       - name: Build
         env:
@@ -55,23 +64,24 @@ jobs:
           echo "Creating 404.html for SPA routing..."
           cp dist/index.html dist/404.html
           
-          # Show the contents of index.html
-          echo "Contents of index.html:"
-          cat dist/index.html
-          
           # Show final dist contents
           echo "Final dist contents:"
           find dist -type f | sort
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
-          folder: dist
-          clean: true
-          clean-exclude: |
-            .git
-            .github
-            .gitignore
-            CNAME
+          # Automatically inject basePath in your Next.js configuration file and disable
+          # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
+          static_site_generator: skip
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
