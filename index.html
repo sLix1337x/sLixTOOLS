@@ -20,41 +20,13 @@
     <!-- Favicon -->
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="tired-eyes-favicon.svg" />
-    <style>
-      .loading-message {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        font-family: Arial, sans-serif;
-        font-size: 20px;
-        color: #333;
-        flex-direction: column;
-      }
-      .loading-spinner {
-        border: 4px solid rgba(0, 0, 0, 0.1);
-        border-left-color: #333;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-      }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-    </style>
+    <!-- No loading styles needed -->
   </head>
 
   <body>
-    <div id="root">
-      <div class="loading-message">
-        <div class="loading-spinner"></div>
-        <p>Loading sLixTOOLS...</p>
-      </div>
-    </div>
+    <div id="root"></div>
     
     <!-- Module entry point will be injected by Vite during build -->
-    <!-- Vite will inject the bundled JS here during build -->
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
