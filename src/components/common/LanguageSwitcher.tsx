@@ -16,7 +16,7 @@ const LanguageSwitcher: React.FC = () => {
         <select 
           value={language}
           onChange={handleLanguageChange}
-          className="appearance-none bg-transparent text-xs pl-2 pr-6 py-1 rounded focus:outline-none hover:text-pink-400 transition-colors cursor-pointer"
+          className="appearance-none bg-transparent text-xs pl-2 pr-6 py-1 border-0 focus:outline-none hover:text-pink-400 transition-colors cursor-pointer"
         >
           <option value="en" className="bg-gray-900">{t('languages.en')}</option>
           <option value="de" className="bg-gray-900">{t('languages.de')}</option>
