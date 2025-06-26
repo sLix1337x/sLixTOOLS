@@ -64,26 +64,39 @@ jobs:
           # Inject both JS and CSS into index.html
           echo "Modifying index.html to include JS and CSS..."
           
-          # Inject CSS first
-          CSS_FILES=$(find dist/assets -name "*.css")
-          echo "CSS files found: $CSS_FILES"
-          for CSS_FILE in $CSS_FILES; do
-            CSS_PATH=${CSS_FILE#dist/}
-            echo "Injecting CSS: $CSS_PATH"
-            sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/$CSS_PATH\">\n</head>|g" dist/index.html
-          done
+          # Inject CSS first (if any exist)
+          echo "Looking for CSS files..."
+          CSS_FILES=$(find dist/ -name "*.css" 2>/dev/null || echo "")
           
-          # Then inject main JS
-          JS_FILES=$(find dist/assets -name "*.js" | grep -v "polyfills")
-          echo "JS files found: $JS_FILES"
-          for JS_FILE in $JS_FILES; do
-            # Skip unnecessary files
-            if [[ "$JS_FILE" != *polyfills* ]]; then
-              JS_PATH=${JS_FILE#dist/}
-              echo "Injecting JS: $JS_PATH"
-              sed -i "s|</body>|<script type=\"module\" src=\"/$JS_PATH\"></script>\n</body>|g" dist/index.html
-            fi
-          done
+          if [ -n "$CSS_FILES" ]; then
+            echo "CSS files found: $CSS_FILES"
+            for CSS_FILE in $CSS_FILES; do
+              CSS_PATH=${CSS_FILE#dist/}
+              echo "Injecting CSS: $CSS_PATH"
+              sed -i "s|</head>|<link rel=\"stylesheet\" href=\"/$CSS_PATH\">\n</head>|g" dist/index.html
+            done
+          else
+            echo "No separate CSS files found. CSS might be inlined or included in JS bundles."
+          fi
+          
+          # Then inject main JS (search in all of dist directory)
+          echo "Looking for JS files..."
+          JS_FILES=$(find dist/ -name "*.js" 2>/dev/null || echo "")
+          
+          if [ -n "$JS_FILES" ]; then
+            echo "JS files found: $JS_FILES"
+            for JS_FILE in $JS_FILES; do
+              # Skip unnecessary files
+              if [[ "$JS_FILE" != *polyfills* ]]; then
+                JS_PATH=${JS_FILE#dist/}
+                echo "Injecting JS: $JS_PATH"
+                sed -i "s|</body>|<script type=\"module\" src=\"/$JS_PATH\"></script>\n</body>|g" dist/index.html
+              fi
+            done
+          else
+            echo "ERROR: No JS files found in the build output. Something went wrong with the build process."
+            exit 1
+          fi
           
           # Show modified index.html
           echo "Final index.html content:"
