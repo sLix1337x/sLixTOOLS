@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      const path = window.location.pathname;
+      const base = '/sLixTOOLS';
+      
+      // If we're not already at the base path, redirect to it
+      if (!path.startsWith(base + '/') && path !== base) {
+        window.location.href = base + path;
+      } else {
+        // If we're at the base path, load the app
+        window.location.href = base + '/index.html';
+      }
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to the application...</p>
+  </body>
+</html>
