@@ -16,7 +16,7 @@ export const config = {
     defaultFps: parseInt(import.meta.env.VITE_DEFAULT_FPS || '15'),
     defaultQuality: parseInt(import.meta.env.VITE_DEFAULT_QUALITY || '80'),
     maxDuration: parseInt(import.meta.env.VITE_MAX_GIF_DURATION || '30'),
-    workerPath: import.meta.env.VITE_GIF_WORKER_PATH || '/workers/gif.worker.js',
+    workerPath: import.meta.env.VITE_GIF_WORKER_PATH || `${import.meta.env.BASE_URL}workers/gif.worker.js`,
   },
   
   features: {

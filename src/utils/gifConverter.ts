@@ -2,6 +2,7 @@
 import GIF from 'gif.js';
 import { ConversionOptions } from '@/types';
 import { config } from '@/config';
+import { getGifWorkerUrl } from './gifWorker';
 
 export const convertVideoToGif = (
   videoFile: File,
@@ -53,7 +54,7 @@ export const convertVideoToGif = (
         quality,
         width: targetWidth,
         height: targetHeight,
-        workerScript: config.gif.workerPath,
+        workerScript: getGifWorkerUrl(),
       });
 
       // When GIF is finished
