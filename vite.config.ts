@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 const base = '/sLixTOOLS/';
@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   build: {
@@ -19,19 +19,13 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        main: path.resolve(__dirname, 'index.html'),
-      },
-      output: {
-        manualChunks: undefined,
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
       },
     },
   },
   server: {
     port: 3000,
     strictPort: true,
-    fs: {
-      strict: false,
-    },
   },
   define: {
     'import.meta.env.BASE_URL': JSON.stringify(base)
