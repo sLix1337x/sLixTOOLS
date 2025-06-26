@@ -1,45 +1,81 @@
-name: Deploy to GitHub Pages
+name: Build and Deploy
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      - name: Debug Node and NPM versions
+        run: |
+          node -v
+          npm -v
+          pwd
+          ls -la
+
       - name: Install dependencies
         run: |
           npm ci --legacy-peer-deps
-          npm install --save-dev @vitejs/plugin-react typescript
+          npm install --save-dev @vitejs/plugin-react typescript @types/node
+          npm list --depth=0
 
       - name: Build
         run: |
-          # Ensure TypeScript is properly configured
-          npx tsc --noEmit
-          # Build the app
-          npm run build
+          # Show TypeScript config
+          echo "TypeScript config:"
+          npx tsc --showConfig || true
+          
+          # Check files
+          echo "\nProject files:"
+          find . -type f -not -path "./node_modules/*" | sort
+          
+          # Build with debug info
+          echo "\nBuilding..."
+          npm run build -- --debug || {
+            echo "Build failed, showing dist directory:"
+            ls -la dist/ 2>/dev/null || echo "No dist directory found"
+            exit 1
+          }
+          
+          # Show build output
+          echo "\nBuild output:"
+          ls -la dist/
+          
           # Copy public files
+          echo "\nCopying public files..."
+          mkdir -p dist
           cp -r public/* dist/ 2>/dev/null || :
-          # Ensure index.html has correct base path
-          sed -i 's|/src/main.tsx|"./src/main.tsx"|g' dist/index.html
+          
+          # Verify index.html
+          echo "\nIndex.html contents:"
+          cat dist/index.html || echo "No index.html found"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -47,7 +83,13 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist/*'  # Include all files including _redirects and 404.html
+          path: 'dist'
+
+      - name: Show deployment info
+        if: always()
+        run: |
+          echo "Build completed with status: ${{ job.status }}"
+          echo "Deployment URL: ${{ steps.deployment.outputs.page_url }}"
 
       - name: Deploy to GitHub Pages
         id: deployment
