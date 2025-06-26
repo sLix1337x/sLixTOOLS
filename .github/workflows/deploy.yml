@@ -25,6 +25,9 @@ jobs:
 
       - name: Build
         run: |
+          # Set environment to production
+          echo "NODE_ENV=production" >> $GITHUB_ENV
+          
           # Install dependencies
           npm install
           
@@ -40,9 +43,12 @@ jobs:
           echo "Copying public files..."
           cp -r public/* dist/ 2>/dev/null || :
           
-          # Fix base path in index.html for GitHub Pages
+          # Ensure the base path is correctly set in index.html
           echo "Updating index.html for production..."
-          sed -i 's|/src/|/sLixTOOLS/src/|g' dist/index.html
+          sed -i 's|/sLixTOOLS/src/|/sLixTOOLS/src/|g' dist/index.html
+          
+          # Create _redirects file for SPA routing
+          echo "/* /sLixTOOLS/index.html 200" > dist/_redirects
           
           # Show final dist contents
           echo "Final dist contents:"

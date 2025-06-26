@@ -3,14 +3,15 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
-const base = '/sLixTOOLS/';
+const isProduction = process.env.NODE_ENV === 'production';
+const base = isProduction ? '/sLixTOOLS/' : '/';
 
 export default defineConfig({
   base,
   plugins: [react()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
+      '@': resolve(__dirname, 'src'),
     },
   },
   build: {
@@ -31,5 +32,9 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-  }
+    open: true,
+  },
+  define: {
+    'import.meta.env.BASE_URL': JSON.stringify(base),
+  },
 });
