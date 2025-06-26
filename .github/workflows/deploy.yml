@@ -24,16 +24,15 @@ jobs:
           npm install --save-dev @vitejs/plugin-react typescript @types/node
 
       - name: Build
+        env:
+          NODE_ENV: production
         run: |
-          # Set environment to production
-          echo "NODE_ENV=production" >> $GITHUB_ENV
-          
           # Install dependencies
           npm install
           
-          # Build the app
-          echo "Building application..."
-          npm run build
+          # Build the app with base path
+          echo "Building application with base path /sLixTOOLS/..."
+          npm run build -- --base=/sLixTOOLS/
           
           # Show build output
           echo "Build output:"
@@ -43,12 +42,13 @@ jobs:
           echo "Copying public files..."
           cp -r public/* dist/ 2>/dev/null || :
           
-          # Ensure the base path is correctly set in index.html
-          echo "Updating index.html for production..."
-          sed -i 's|/sLixTOOLS/src/|/sLixTOOLS/src/|g' dist/index.html
+          # Create 404.html for SPA routing
+          echo "Creating 404.html for SPA routing..."
+          cp dist/index.html dist/404.html
           
-          # Create _redirects file for SPA routing
-          echo "/* /sLixTOOLS/index.html 200" > dist/_redirects
+          # Show the contents of index.html
+          echo "Contents of index.html:"
+          cat dist/index.html
           
           # Show final dist contents
           echo "Final dist contents:"
@@ -60,11 +60,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
           folder: dist
-          target-folder: .  # Deploy to root of gh-pages branch
           clean: true
           clean-exclude: |
             .git
             .github
             .gitignore
             CNAME
-            **/*
