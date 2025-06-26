@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/sLixTOOLS/',
+  base: '/',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 3000,
+    historyApiFallback: true,
   },
   plugins: [
     react(),
