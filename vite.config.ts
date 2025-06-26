@@ -14,6 +14,7 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
+  publicDir: 'public',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
