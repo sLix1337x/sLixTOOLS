@@ -1,31 +1,16 @@
-name: Build and Deploy
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,59 +18,32 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Debug Node and NPM versions
-        run: |
-          node -v
-          npm -v
-          pwd
-          ls -la
-
       - name: Install dependencies
         run: |
           npm ci --legacy-peer-deps
           npm install --save-dev @vitejs/plugin-react typescript @types/node
-          npm list --depth=0
 
       - name: Build
         run: |
-          # Install Vite and dependencies
           npm install
-          
-          # Build the app
-          echo "Building application..."
           npm run build
           
-          # Show build output
-          echo "Build output:"
-          ls -la dist/
-          
           # Copy public files
-          echo "Copying public files..."
           cp -r public/* dist/ 2>/dev/null || :
           
-          # Fix base path in index.html for GitHub Pages
-          echo "Updating index.html for production..."
+          # Ensure index.html has correct base path
           sed -i 's|/src/|/sLixTOOLS/src/|g' dist/index.html
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'dist'
-
-      - name: Show deployment info
-        if: always()
-        run: |
-          echo "Build completed with status: ${{ job.status }}"
-          echo "Deployment URL: ${{ steps.deployment.outputs.page_url }}"
-
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
-          clean: true
+          folder: dist
           target-folder: sLixTOOLS
+          clean: true
+          clean-exclude: |
+            .git
+            .github
+            .gitignore
+            CNAME
