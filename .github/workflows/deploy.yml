@@ -25,14 +25,28 @@ jobs:
 
       - name: Build
         run: |
+          # Install dependencies
           npm install
+          
+          # Build the app
+          echo "Building application..."
           npm run build
           
+          # Show build output
+          echo "Build output:"
+          ls -la dist/
+          
           # Copy public files
+          echo "Copying public files..."
           cp -r public/* dist/ 2>/dev/null || :
           
-          # Ensure index.html has correct base path
+          # Fix base path in index.html for GitHub Pages
+          echo "Updating index.html for production..."
           sed -i 's|/src/|/sLixTOOLS/src/|g' dist/index.html
+          
+          # Show final dist contents
+          echo "Final dist contents:"
+          find dist -type f | sort
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -40,10 +54,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
           folder: dist
-          target-folder: sLixTOOLS
+          target-folder: .  # Deploy to root of gh-pages branch
           clean: true
           clean-exclude: |
             .git
             .github
             .gitignore
             CNAME
+            **/*
