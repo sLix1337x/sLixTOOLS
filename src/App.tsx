@@ -1,21 +1,10 @@
 
 // Core imports
 import { Toaster as Sonner } from "@/components/ui/sonner";
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, HashRouter, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-
-
-import { Suspense, lazy, useEffect, useState } from "react";
-import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
-import { usePerformanceOptimization } from "@/hooks/usePerformanceOptimization";
-import { initializePerformanceOptimizations } from "@/utils/preloader";
-import { initializeServiceWorker } from "@/utils/serviceWorker";
-import { initializeOptimizedLoading } from "./utils/optimizedLazyLoading.tsx";
-import { initializePerformanceMonitoring } from "./utils/performanceMonitor.tsx";
-
-import { PERFORMANCE_CONFIG, PERFORMANCE_BUDGETS } from "@/config/performance";
+import { Suspense, lazy } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 
@@ -51,7 +40,6 @@ import "./App.css";
 import MainNav from "@/components/MainNav";
 import SmoothScroll from "@/components/SmoothScroll";
 import CookieConsent from "@/components/common/CookieConsent";
-
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 
 const queryClient = new QueryClient();
@@ -60,96 +48,10 @@ const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
 
-  const { trackPageLoad } = usePerformanceMonitor();
-
-  
-  // Initialize comprehensive performance optimizations
-  const {
-    performanceScore,
-    recommendations,
-    optimizeMemory,
-    optimizeCache,
-    optimizeNetwork,
-    optimizeBundle,
-    optimizeWorkers,
-    optimizeImages
-  } = usePerformanceOptimization({
-    enableMemoryOptimization: true,
-    enableCacheOptimization: true,
-    enableNetworkOptimization: true,
-    enableBundleOptimization: true,
-    enableWorkerOptimization: true,
-    enableImageOptimization: true,
-    performanceThreshold: PERFORMANCE_BUDGETS.lcp
-  });
-
-  useEffect(() => {
-    // Initialize all performance optimizations
-    const initializeOptimizations = async () => {
-      try {
-        // Core optimizations
-        const cleanup = initializePerformanceOptimizations();
-        initializeServiceWorker().catch(error => {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(error);
-      }
-    });
-        const endPageLoad = trackPageLoad('app-initial');
-        
-        // Advanced optimizations
-        initializeOptimizedLoading();
-        initializePerformanceMonitoring();
-
-        
-        // Apply automatic optimizations based on performance score
-        if (performanceScore < 70) {
-          if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 Applying automatic performance optimizations...');
-      }
-          await Promise.all([
-            optimizeMemory(),
-            optimizeCache(),
-            optimizeNetwork(),
-            optimizeBundle()
-          ]);
-        }
-        
-        if (process.env.NODE_ENV === 'development') {
-        console.log('✅ All performance optimizations initialized');
-        console.log(`📊 Current performance score: ${performanceScore}`);
-      }
-        
-        // Return cleanup function
-        return () => {
-          cleanup();
-          endPageLoad();
-        };
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ Some optimizations failed to initialize:', error);
-      }
-      }
-    };
-    
-    let cleanup;
-    initializeOptimizations().then(cleanupFn => {
-      cleanup = cleanupFn;
-    });
-    
-    return () => {
-      if (cleanup) cleanup();
-    };
-  }, [trackPageLoad, performanceScore, optimizeMemory, optimizeCache, optimizeNetwork, optimizeBundle]);
-
 
 
   return (
-    <ErrorBoundary 
-      enableRecovery={true}
-      maxRetries={3}
-      showErrorDetails={process.env.NODE_ENV === 'development'}
-      componentName="AppContent"
-    >
+    <ErrorBoundary>
 
       
       <main className={`${!isHomePage && location.pathname !== '/contact' ? 'container mx-auto px-4 py-6' : 'flex flex-col min-h-0'}`}>
@@ -263,12 +165,7 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <ErrorBoundary 
-    enableRecovery={true}
-    maxRetries={2}
-    showErrorDetails={process.env.NODE_ENV === 'development'}
-    componentName="App"
-  >
+  <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
 
