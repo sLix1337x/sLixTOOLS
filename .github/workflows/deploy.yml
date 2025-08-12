@@ -48,86 +48,14 @@ jobs:
         env:
           NODE_ENV: production
         run: |
-          # Build the app with GitHub Pages path
-          echo "Building application with base path /sLixTOOLS/..."
-          npx vite build --base=/sLixTOOLS/
-          
-          # Show build output
-          echo "Build output:"
-          ls -la dist/
-          ls -la dist/assets/
-          
-          # Copy public files
-          echo "Copying public files..."
-          cp -r public/* dist/ 2>/dev/null || :
-          
-          # Inject both JS and CSS into index.html
-          echo "Modifying index.html to include JS and CSS..."
-          
-          # Inject CSS first (if any exist)
-          echo "Looking for CSS files..."
-          CSS_FILES=$(find dist/ -name "*.css" 2>/dev/null || echo "")
-          
-          if [ -n "$CSS_FILES" ]; then
-            echo "CSS files found: $CSS_FILES"
-            for CSS_FILE in $CSS_FILES; do
-              CSS_PATH=${CSS_FILE#dist/}
-              echo "Injecting CSS: $CSS_PATH"
-              # Ensure proper path with crossorigin attribute
-              sed -i "s|</head>|<link rel=\"stylesheet\" crossorigin href=\"/sLixTOOLS/$CSS_PATH\">\n</head>|g" dist/index.html
-            done
-          else
-            echo "No separate CSS files found. CSS might be inlined or included in JS bundles."
-            # Check for malformed CSS file names (no dot before extension)
-            MALFORMED_CSS_FILES=$(find dist/ -path "*css" ! -path "*.css" 2>/dev/null || echo "")
-            if [ -n "$MALFORMED_CSS_FILES" ]; then
-              echo "Possible malformed CSS files found: $MALFORMED_CSS_FILES"
-              for CSS_FILE in $MALFORMED_CSS_FILES; do
-                # Extract the path and fix the extension if needed
-                CSS_PATH=${CSS_FILE#dist/}
-                FIXED_PATH=$(echo "$CSS_PATH" | sed -r 's/([^.]+)css$/\1.css/')
-                echo "Injecting fixed CSS path: $FIXED_PATH"
-                sed -i "s|</head>|<link rel=\"stylesheet\" crossorigin href=\"/sLixTOOLS/$FIXED_PATH\">\n</head>|g" dist/index.html
-                # Also rename the actual file if needed
-                if [ "$CSS_PATH" != "$FIXED_PATH" ]; then
-                  echo "Renaming $CSS_FILE to dist/$FIXED_PATH"
-                  mkdir -p "$(dirname "dist/$FIXED_PATH")"
-                  cp "$CSS_FILE" "dist/$FIXED_PATH"
-                fi
-              done
-            fi
-          fi
-          
-          # Then inject main JS (search in all of dist directory)
-          echo "Looking for JS files..."
-          JS_FILES=$(find dist/ -name "*.js" 2>/dev/null || echo "")
-          
-          if [ -n "$JS_FILES" ]; then
-            echo "JS files found: $JS_FILES"
-            for JS_FILE in $JS_FILES; do
-              # Skip unnecessary files
-              if [[ "$JS_FILE" != *polyfills* ]]; then
-                JS_PATH=${JS_FILE#dist/}
-                echo "Injecting JS: $JS_PATH"
-                sed -i "s|</body>|<script type=\"module\" src=\"/sLixTOOLS/$JS_PATH\"></script>\n</body>|g" dist/index.html
-              fi
-            done
-          else
-            echo "ERROR: No JS files found in the build output. Something went wrong with the build process."
-            exit 1
-          fi
-          
-          # Show modified index.html
-          echo "Final index.html content:"
-          cat dist/index.html
+          npm run build
           
           # Create 404.html for SPA routing
-          echo "Creating 404.html for SPA routing..."
           cp dist/index.html dist/404.html
           
-          # Show final dist contents
-          echo "Final dist contents:"
-          find dist -type f | sort
+          # Show build output
+          echo "Build completed successfully!"
+          ls -la dist/
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
