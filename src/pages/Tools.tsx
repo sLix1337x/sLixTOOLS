@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,19 +14,19 @@ interface ToolItemProps {
   comingSoon?: boolean;
 }
 
-const ToolCard: React.FC<ToolItemProps> = ({ title, icon, path, comingSoon }) => {
+const ToolCard: React.FC<ToolItemProps> = React.memo(({ title, icon, path, comingSoon }) => {
   const cardContent = (
     <div className={`flex flex-col items-center justify-between h-full p-6 rounded-2xl shadow-xl border border-gray-700/50 bg-gray-900/80 transition-transform duration-200 group ${comingSoon ? 'opacity-60 grayscale' : 'hover:-translate-y-1 hover:shadow-2xl'}`}>
-      <div className={`flex items-center justify-center h-16 w-16 rounded-full mb-4 ${comingSoon ? 'bg-gray-800' : 'bg-gradient-to-br from-green-400/20 to-cyan-400/20'}`}>
+      <div className={`flex items-center justify-center h-16 w-16 rounded-full mb-4 ${comingSoon ? 'bg-gray-800' : 'bg-gradient-to-br from-green-400/20 to-blue-400/20'}`}>
         {React.cloneElement(icon as React.ReactElement, {
-          className: `h-9 w-9 ${comingSoon ? 'text-gray-500' : 'text-green-400 group-hover:text-cyan-400 transition-colors'}`
+          className: `h-9 w-9 ${comingSoon ? 'text-gray-500' : 'text-green-400 group-hover:text-blue-400 transition-colors'}`
         })}
       </div>
       <h3 className={`text-xl font-bold mb-2 ${comingSoon ? 'text-gray-400' : 'text-white'}`}>{title}</h3>
       {comingSoon ? (
         <span className="text-sm text-gray-500">Coming Soon</span>
       ) : (
-        <Link to={path!} className="mt-4 w-full">
+        <Link to={path!} className="mt-4 w-full" data-tool-name={path!.split('/').pop()}>
           <Button className="w-full bg-[#2AD587] hover:bg-[#25c27a] text-black font-bold py-2.5 px-4 rounded-lg transition-colors duration-200">
             Open Tool
           </Button>
@@ -39,9 +39,14 @@ const ToolCard: React.FC<ToolItemProps> = ({ title, icon, path, comingSoon }) =>
       {cardContent}
     </AnimatedElement>
   );
-};
+});
 
-const ToolItem: React.FC<ToolItemProps> = ({ title, icon, path, comingSoon }) => {
+ToolCard.displayName = 'ToolCard';
+
+const ToolItem: React.FC<ToolItemProps> = React.memo(({ title, icon, path, comingSoon }) => {
+  // Extract tool name from path for preloading
+  const toolName = path ? path.split('/').pop() : '';
+  
   const content = (
     <div className={`py-1 text-base group ${comingSoon ? 'opacity-60' : 'hover:text-[#42C574]'}`}>
       <div className="flex items-center space-x-2">
@@ -54,11 +59,13 @@ const ToolItem: React.FC<ToolItemProps> = ({ title, icon, path, comingSoon }) =>
   if (comingSoon || !path) {
     return <div className="cursor-not-allowed">{content}</div>;
   }
-  return <Link to={path} className="block">{content}</Link>;
-};
+  return <Link to={path} className="block" data-tool-name={toolName}>{content}</Link>;
+});
 
-const Tools: React.FC = () => {
-  const tools = [
+ToolItem.displayName = 'ToolItem';
+
+const Tools: React.FC = React.memo(() => {
+  const tools = useMemo(() => [
     {
       title: 'MP4 to GIF',
       icon: <FileVideo />,
@@ -98,12 +105,14 @@ const Tools: React.FC = () => {
     {
       title: 'Image Converter',
       icon: <FileImage />,
-      comingSoon: true
+      path: '/tools/image-converter',
+      comingSoon: false
     },
     {
       title: 'Video Converter',
       icon: <FileVideo />,
-      comingSoon: true
+      path: '/tools/video-converter',
+      comingSoon: false
     },
     {
       title: 'Audio Downloader',
@@ -121,7 +130,7 @@ const Tools: React.FC = () => {
       icon: <FileArchive />,
       comingSoon: true
     }
-  ];
+  ], []);
 
   return (
     <div className="text-white relative min-h-0">
@@ -131,10 +140,10 @@ const Tools: React.FC = () => {
         <meta name="description" content="Explore all the free online tools available at sLixTOOLS for your file conversion needs." />
         <link rel="canonical" href="https://slixtools.io/tools" />
       </Helmet>
-      <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
+      <div className="container mx-auto px-4 pt-2 pb-4 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent" style={{fontSize: '10rem', lineHeight: '0.8', textTransform: 'none', letterSpacing: 'normal', animation: 'none', fontWeight: '900', marginTop: '0', marginBottom: '0.5rem', display: 'block', maxWidth: 'none', width: 'auto'}}>
               All Tools
             </h1>
           </AnimatedElement>
@@ -144,6 +153,27 @@ const Tools: React.FC = () => {
               <br />
               <span className="text-green-400">All processing happens in your browser</span> – your files never leave your computer.
             </p>
+          </AnimatedElement>
+          
+          <AnimatedElement type="fadeIn" delay={0.8} className="w-full text-center mt-12">
+            <Link to="/">
+              <button 
+                className="bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover flex items-center justify-center mx-auto"
+                style={{
+                  outline: 'none',
+                  border: 'none',
+                  WebkitAppearance: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  minWidth: '200px'
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.outline = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <span className="relative z-10">Back to Home</span>
+              </button>
+            </Link>
           </AnimatedElement>
         </div>
 
@@ -212,30 +242,11 @@ const Tools: React.FC = () => {
             </div>
           </AnimatedElement>
         </div>
-
-        <AnimatedElement type="fadeIn" delay={0.8} className="w-full text-center mt-12">
-          <Link to="/">
-            <button 
-              className="bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover flex items-center justify-center mx-auto"
-              style={{
-                outline: 'none',
-                border: 'none',
-                WebkitAppearance: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                minWidth: '200px'
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = 'none';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              <span className="relative z-10">Back to Home</span>
-            </button>
-          </Link>
-        </AnimatedElement>
       </div>
     </div>
   );
-};
+});
+
+Tools.displayName = 'Tools';
 
 export default Tools;

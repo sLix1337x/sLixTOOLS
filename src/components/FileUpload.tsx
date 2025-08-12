@@ -81,7 +81,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
 
   return (
     <motion.div 
-      className={`relative flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed ${isDragging ? 'border-cyan-400 bg-black/50' : 'border-green-400/50 bg-black/30'} rounded-lg transition-all duration-300 w-full max-w-2xl mx-auto`}
+      className={`relative flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed ${isDragging ? 'border-blue-400 bg-black/50' : 'border-green-400/50 bg-black/30'} rounded-lg transition-all duration-300 w-full max-w-2xl mx-auto`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -90,7 +90,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
     >
       {isDragging ? (
         <motion.div 
-          className="absolute inset-0 bg-cyan-400/10 border-2 border-dashed border-cyan-400 rounded-lg"
+          className="absolute inset-0 bg-blue-400/10 border-2 border-dashed border-blue-400 rounded-lg"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -104,7 +104,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
         transition={{ delay: 0.1 }}
       >
         <div className="relative mb-4">
-          <div className="absolute -inset-1 bg-cyan-400/30 rounded-full blur-sm"></div>
+          <div className="absolute -inset-1 bg-blue-400/30 rounded-full blur-sm"></div>
           <div className="relative p-4 bg-black/80 border-2 border-dashed border-green-400/50 rounded-full">
             <Video className="h-10 w-10 text-green-400" />
           </div>
@@ -117,10 +117,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
         {fileName ? (
           <div className="mt-2 p-3 bg-black/50 border border-dashed border-green-400/30 rounded-md w-full max-w-md">
             <div className="flex items-center justify-center gap-2">
-              <FileVideo className="h-5 w-5 text-cyan-400" />
+              <FileVideo className="h-5 w-5 text-blue-400" />
               <div className="text-left">
                 <p className="text-green-300 font-mono text-sm truncate max-w-xs">{fileName}</p>
-                <p className="text-cyan-300 text-xs">{fileSize}</p>
+                <p className="text-blue-300 text-xs">{fileSize}</p>
               </div>
             </div>
           </div>

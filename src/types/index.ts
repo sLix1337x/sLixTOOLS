@@ -67,5 +67,5 @@ export interface ValidationResult {
 export interface AppError {
   message: string;
   code?: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }

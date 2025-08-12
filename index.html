@@ -6,6 +6,21 @@
     <title>sLixTOOLS - Free Online File Conversion Tools</title>
     <meta name="description" content="Free online tools for all your file conversion needs. Convert videos, images, documents and more with our easy-to-use tools." />
     <meta name="author" content="sLixTOOLS" />
+    
+    <!-- Content Security Policy for enhanced security -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      font-src 'self' data:;
+      connect-src 'self' blob:;
+      worker-src 'self' blob:;
+      child-src 'self' blob:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+    ">
 
     <!-- Custom social media embeds with slixtool-banner.svg -->
     <meta property="og:type" content="website" />

@@ -79,7 +79,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
   return (
     <div className="space-y-6">
       <div className="flex items-center mb-4">
-        <Settings className="w-6 h-6 mr-2 text-cyan-400" />
+        <Settings className="w-6 h-6 mr-2 text-green-400" />
         <h3 className="text-2xl font-bold">CONVERSION OPTIONS</h3>
       </div>
       
@@ -89,7 +89,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
             <Label htmlFor="fps" className="text-green-300 text-lg">
               FRAMES PER SECOND:
             </Label>
-            <span className="text-cyan-400 font-bold">{options.fps} FPS</span>
+            <span className="text-blue-400 font-bold">{options.fps} FPS</span>
           </div>
           <div className="px-2">
             <Slider 
@@ -110,7 +110,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
             <Label htmlFor="quality" className="text-green-300 text-lg">
               QUALITY:
             </Label>
-            <span className="text-cyan-400 font-bold">{options.quality} (LOWER = BETTER)</span>
+            <span className="text-blue-400 font-bold">{options.quality} (LOWER = BETTER)</span>
           </div>
           <div className="px-2">
             <Slider 
@@ -136,7 +136,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
         </div>
 
         {options.trimEnabled && (
-          <div className="mt-4 space-y-4 pl-4 border-l-2 border-dashed border-cyan-400/50">
+          <div className="mt-4 space-y-4 pl-4 border-l-2 border-dashed border-blue-400/50">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startTime" className="text-green-300 text-sm">

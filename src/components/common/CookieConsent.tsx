@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+
 
 const CookieConsent = () => {
   const [show, setShow] = useState(false);
+
   
   useEffect(() => {
     // Check if consent was already given
@@ -34,7 +36,7 @@ const CookieConsent = () => {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-300">
             <p>
-              This website uses cookies to enhance your experience. By using our website, you consent to all cookies in accordance with our{' '}
+              We use cookies to enhance your experience.{' '}
               <Link to="/privacy-policy" className="text-blue-400 hover:text-blue-300">
                 Privacy Policy
               </Link>.
@@ -45,7 +47,7 @@ const CookieConsent = () => {
               onClick={acceptEssential}
               className="px-4 py-2 text-xs bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
             >
-              Essential Cookies Only
+              Essential Only
             </button>
             <button 
               onClick={acceptAll}

@@ -1,9 +1,45 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 
-// Particle Background Component
-const ParticleBackground = () => {
+interface ParticleBackgroundProps {
+  className?: string;
+  particleCount?: number;
+  animationSpeed?: number;
+  enableReducedMotion?: boolean;
+}
+
+// Optimized Particle Background Component
+const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({ 
+  className = '',
+  particleCount = 25, // Increased for better visibility
+  animationSpeed = 1,
+  enableReducedMotion = false
+}) => {
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+  
+  // Check for reduced motion preference
+  const prefersReducedMotion = useCallback(() => {
+    return enableReducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, [enableReducedMotion]);
+  
+  // Visibility API to pause animations when tab is not active
   useEffect(() => {
-    // Add CSS animations
+    const handleVisibilityChange = () => {
+      setIsVisible(!document.hidden);
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    // Skip animations if reduced motion is preferred
+    if (prefersReducedMotion()) {
+      return;
+    }
+    
+    // Add CSS animations with better performance
     const style = document.createElement('style');
     style.textContent = `
       @keyframes float {
@@ -23,24 +59,48 @@ const ParticleBackground = () => {
         color: white !important;
         border-color: transparent !important;
       }
+      .particle-bg-container {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 1 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+      }
+      .particle {
+        will-change: transform, opacity;
+        backface-visibility: hidden;
+        transform: translateZ(0);
+        position: absolute !important;
+        background-color: #a855f7 !important;
+        border-radius: 50% !important;
+        pointer-events: none !important;
+        z-index: 2 !important;
+      }
     `;
     document.head.appendChild(style);
 
     const container = document.createElement('div');
-    // Using z-index: 0 to ensure particles are visible above sections with negative z-index
-    container.className = 'fixed inset-0 z-0 opacity-30 pointer-events-none';
-    container.innerHTML = '<div class="absolute inset-0 bg-particles"></div>';
+    container.className = 'particle-bg-container';
+    container.style.opacity = '0.8';
+    container.innerHTML = '<div class="absolute inset-0" style="z-index: 1;"></div>';
     document.body.appendChild(container);
+    containerRef.current = container;
 
-    const particleContainer = container.querySelector('.bg-particles');
+    const particleContainer = container.querySelector('div');
     if (!particleContainer) return;
 
     const createParticle = () => {
-      const particle = document.createElement('div');
-      particle.className = 'absolute rounded-full bg-purple-200 dark:bg-purple-800';
+      // Don't create particles if tab is not visible
+      if (!isVisible) return;
       
-      // Random size between 2x2 and 6x6
-      const size = Math.random() * 4 + 2;
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      
+      // Random size between 3x3 and 8x8
+      const size = Math.random() * 5 + 3;
       particle.style.width = `${size}px`;
       particle.style.height = `${size}px`;
       
@@ -48,39 +108,66 @@ const ParticleBackground = () => {
       particle.style.left = `${Math.random() * 100}%`;
       particle.style.top = `${Math.random() * 100}%`;
       
-      // Animation
-      const duration = Math.random() * 10 + 10;
+      // Animation with speed control
+      const duration = (Math.random() * 10 + 10) / animationSpeed;
       particle.style.animation = `float ${duration}s linear infinite`;
       particle.style.animationDelay = `${Math.random() * 5}s`;
       
       particleContainer.appendChild(particle);
       
-      // Clean up
-      setTimeout(() => {
-        particle.remove();
+      // Clean up with better memory management
+      const cleanup = setTimeout(() => {
+        if (particle.parentNode) {
+          particle.remove();
+        }
       }, duration * 1000);
+      
+      // Store cleanup reference for early cleanup if needed
+      particle.dataset.cleanup = cleanup.toString();
     };
 
-    // Create initial particles
-    for (let i = 0; i < 20; i++) {
-      setTimeout(createParticle, i * 500);
+    // Create initial particles with staggered timing
+    const initialParticles = Math.min(particleCount, 25); // Cap at 25 for performance
+    for (let i = 0; i < initialParticles; i++) {
+      setTimeout(createParticle, i * 300); // Reduced interval
     }
 
-    // Add new particles periodically
-    const interval = setInterval(createParticle, 2000);
+    // Add new particles periodically, but only when visible
+    const startInterval = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        if (isVisible) {
+          createParticle();
+        }
+      }, 3000); // Increased interval for better performance
+    };
+    
+    startInterval();
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
       if (style.parentNode) {
         document.head.removeChild(style);
       }
       if (container.parentNode) {
+        // Clean up any remaining particles
+        const particles = container.querySelectorAll('.particle');
+        particles.forEach(particle => {
+          const cleanup = particle.dataset.cleanup;
+          if (cleanup) {
+            clearTimeout(parseInt(cleanup));
+          }
+        });
         document.body.removeChild(container);
       }
     };
-  }, []);
+  }, [particleCount, animationSpeed, isVisible, prefersReducedMotion]);
 
   return null;
-};
+});
+
+ParticleBackground.displayName = 'ParticleBackground';
 
 export default ParticleBackground;

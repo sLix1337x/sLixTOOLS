@@ -2,7 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
-import './debug.css'
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('root');
@@ -16,8 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <App />
       </React.StrictMode>
     );
+    if (process.env.NODE_ENV === 'development') {
     console.log('React app mounted successfully!');
-  } else {
+  }
+} else {
+  if (process.env.NODE_ENV === 'development') {
     console.error('Could not find root element to mount React app!');
+  }
   }
 });

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { FileImage, Loader2, Download, Zap, Lock, Sparkles, Upload } from 'lucide-react';
 import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
+import { compressGif, getOptimalCompressionSettings, type CompressionProgress } from '@/utils/gifCompressor';
 
 const GifUploader: React.FC<{ onFileSelected: (file: File) => void }> = ({ onFileSelected }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -86,6 +87,8 @@ export default function GifCompressor() {
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   const [gifUrl, setGifUrl] = useState('');
   const [quality, setQuality] = useState(80);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
 
   const handleFileSelected = (selectedFile: File) => {
     setFile(selectedFile);
@@ -121,18 +124,40 @@ export default function GifCompressor() {
   const handleCompress = async () => {
     if (!file) return;
     setIsLoading(true);
+    setProgress(0);
+    setProgressMessage('Starting compression...');
     toast.info('Starting Compression', { description: 'Your GIF is being compressed. Please wait.' });
+    
     try {
-      // Simulate compression
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const placeholderBlob = new Blob(['GIF'], { type: 'image/gif' }); // Placeholder
-      setCompressedBlob(placeholderBlob);
-      toast.success('Compression Successful!', { description: 'Your compressed GIF is ready.' });
+      const compressionOptions = {
+        quality,
+        ...getOptimalCompressionSettings(file.size)
+      };
+
+      const onProgress = (progressData: CompressionProgress) => {
+        setProgress(progressData.progress);
+        setProgressMessage(progressData.message);
+      };
+
+      const compressedGif = await compressGif(file, compressionOptions, onProgress);
+      setCompressedBlob(compressedGif);
+      
+      const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      const compressedSizeMB = (compressedGif.size / (1024 * 1024)).toFixed(2);
+      const compressionRatio = (((file.size - compressedGif.size) / file.size) * 100).toFixed(1);
+      
+      toast.success('Compression Successful!', { 
+        description: `Reduced from ${originalSizeMB}MB to ${compressedSizeMB}MB (${compressionRatio}% reduction)` 
+      });
     } catch (error) {
       console.error('Compression failed:', error);
-      toast.error('Compression Failed', { description: 'Something went wrong. Please try again.' });
+      toast.error('Compression Failed', { 
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.' 
+      });
     } finally {
       setIsLoading(false);
+      setProgress(0);
+      setProgressMessage('');
     }
   };
 
@@ -150,7 +175,7 @@ export default function GifCompressor() {
 
   const features = [
     { icon: <Zap className="h-8 w-8 text-green-400" />, title: 'Lightning Fast', description: 'Compress GIFs in seconds with our optimized engine.' },
-    { icon: <Sparkles className="h-8 w-8 text-cyan-400" />, title: 'Smart Optimization', description: 'Keeps colors vibrant & reduces artifacts for high quality results.' },
+    { icon: <Sparkles className="h-8 w-8 text-green-400" />, title: 'Smart Optimization', description: 'Keeps colors vibrant & reduces artifacts for high quality results.' },
     { icon: <Lock className="h-8 w-8 text-purple-400" />, title: 'Secure & Private', description: 'Your files are processed in your browser, never uploaded.' }
   ];
 
@@ -166,7 +191,7 @@ export default function GifCompressor() {
 
       <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
         <AnimatedElement type="fadeIn" className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent mb-4">GIF Compressor</h1>
+          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent mb-4">GIF Compressor</h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto">Reduce the file size of your animated GIFs while maintaining quality and vibrancy.</p>
         </AnimatedElement>
 
@@ -212,7 +237,7 @@ export default function GifCompressor() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-4">
-                    <FileImage className="h-10 w-10 text-cyan-400" />
+                    <FileImage className="h-10 w-10 text-green-400" />
                     <div>
                       <p className="font-medium text-gray-200">{file.name}</p>
                       <p className="text-sm text-gray-400">{(file.size / 1024).toFixed(2)} KB</p>
@@ -259,16 +284,32 @@ export default function GifCompressor() {
                   }}
                 >
                   {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Compressing...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-5 w-5" /> Compress GIF
-                  <Sparkles className="mr-2 h-5 w-5" /> Compress GIF
-                    </>
-                  )}
+                     <>
+                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                       Compressing...
+                     </>
+                   ) : (
+                     <>
+                       <Zap className="mr-2 h-4 w-4" />
+                       Compress GIF
+                     </>
+                   )}
                 </button>
+                
+                {isLoading && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between text-sm text-gray-400">
+                      <span>{progressMessage}</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-green-400 to-blue-400 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </AnimatedElement>

@@ -1,8 +1,11 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Clock, FileAudio, FileImage, FileText, FileVideo, Image as ImageIcon, Zap } from 'lucide-react';
+import { preloadRoute } from '@/utils/preloader';
+import { useComponentOptimization } from '@/hooks/usePerformanceOptimization';
+import { PERFORMANCE_CONFIG } from '@/config/performance';
 
 // Add rainbow hover effect styles
 const rainbowStyles = `
@@ -41,11 +44,26 @@ type ToolsCategory = {
   items: { name: string; path: string }[];
 };
 
-const MainNav: React.FC = () => {
+const MainNav: React.FC = React.memo(() => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Performance optimization for navigation component
+  const { measureRenderTime, optimizeComponent } = useComponentOptimization('MainNav');
+  
+  // Preload routes on hover with performance-aware delays
+  const handleRouteHover = useCallback((path: string) => {
+    const delay = PERFORMANCE_CONFIG.lazyLoading.preloadDelay;
+    setTimeout(() => {
+      preloadRoute(path).catch(error => {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(error);
+          }
+        });
+    }, delay);
+  }, []);
 
-  const availableTools = [
+  const availableTools = useMemo(() => [
     { 
       name: "MP4 to GIF", 
       path: "/tools/video-to-gif",
@@ -61,9 +79,9 @@ const MainNav: React.FC = () => {
       path: "/tools/image-compressor",
       icon: <ImageIcon className="h-4 w-4 flex-shrink-0" />
     }
-  ];
+  ], []);
 
-  const comingSoonTools = [
+  const comingSoonTools = useMemo(() => [
     { 
       name: "Video Converter", 
       path: "#",
@@ -79,19 +97,27 @@ const MainNav: React.FC = () => {
       path: "#",
       icon: <FileText className="h-4 w-4 flex-shrink-0 opacity-50" />
     }
-  ];
+  ], []);
 
   // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setToolsOpen(false);
-      }
-    };
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      setToolsOpen(false);
+    }
+  }, []);
 
+  const toggleTools = useCallback(() => {
+    setToolsOpen(prev => !prev);
+  }, []);
+
+  const closeTools = useCallback(() => {
+    setToolsOpen(false);
+  }, []);
+
+  useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [handleClickOutside]);
 
   return (
     <nav className="w-full">
@@ -112,14 +138,14 @@ const MainNav: React.FC = () => {
                 target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
               }}
             />
-            <span className="ml-2 font-bold text-xl bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">sLixTOOLS</span>
+            <span className="ml-2 font-bold text-xl bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">sLixTOOLS</span>
           </Link>
         </div>
         
         <nav className="hidden md:flex items-center space-x-4">
           <div className="relative" ref={menuRef}>
             <button 
-              onClick={() => setToolsOpen(!toolsOpen)} 
+              onClick={toggleTools} 
               className="flex items-center text-sm font-medium text-white hover:text-white transition-all bg-gray-800/80 hover:bg-gray-700/90 px-4 py-2.5 rounded-lg border border-gray-600/40 hover:border-gray-500/60"
             >
               <span>Tools</span>
@@ -148,7 +174,8 @@ const MainNav: React.FC = () => {
                           <Link 
                             to={tool.path}
                             className="flex items-center space-x-2.5 px-3 py-0.5 text-sm rounded-lg transition-all duration-200 text-white hover:bg-gray-800/80 hover:text-green-400 group"
-                            onClick={() => setToolsOpen(false)}
+                            onClick={closeTools}
+                            onMouseEnter={() => handleRouteHover(tool.path)}
                           >
                             <span className="text-green-400 group-hover:scale-110 transition-transform">
                               {tool.icon}
@@ -163,7 +190,7 @@ const MainNav: React.FC = () => {
                   {/* Coming Soon */}
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-yellow-400" />
+                      <Clock className="h-4 w-4 text-blue-400" />
                       <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Coming Soon</h3>
                     </div>
                     <ul className="space-y-1.5">
@@ -188,7 +215,8 @@ const MainNav: React.FC = () => {
                   <Link 
                     to="/tools"
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-800/50 hover:bg-gray-700/70 rounded-lg text-sm font-medium text-white transition-colors duration-200"
-                    onClick={() => setToolsOpen(false)}
+                    onClick={closeTools}
+                    onMouseEnter={() => handleRouteHover('/tools')}
                   >
                     <span>View All Tools</span>
                     <ChevronRight className="h-4 w-4" />
@@ -197,9 +225,13 @@ const MainNav: React.FC = () => {
               </div>
             </div>
           </div>
-          <Link to="/features" className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50">Features</Link>
-          <Link to="/about" className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50">About</Link>
-          <Link to="/contact" className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50">Contact</Link>
+          <Link 
+            to="/features" 
+            className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50"
+            onMouseEnter={() => handleRouteHover('/features')}
+          >
+            Features
+          </Link>
         </nav>
         
         <div className="flex items-center space-x-3">
@@ -207,12 +239,19 @@ const MainNav: React.FC = () => {
             className="bg-[#2AD587] text-black font-medium rainbow-hover" 
             asChild
           >
-            <Link to="/tools">All Tools</Link>
+            <Link 
+              to="/tools"
+              onMouseEnter={() => handleRouteHover('/tools')}
+            >
+              All Tools
+            </Link>
           </Button>
         </div>
       </div>
     </nav>
   );
-};
+});
+
+MainNav.displayName = 'MainNav';
 
 export default MainNav;

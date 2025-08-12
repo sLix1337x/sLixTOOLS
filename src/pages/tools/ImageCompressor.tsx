@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Image, Download, Loader2, ImagePlus, SlidersHorizontal, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -148,7 +148,7 @@ const ImageCompressor: React.FC = () => {
     setCompressedUrl(null);
   };
 
-  const compressImage = () => {
+  const compressImage = useCallback(() => {
     if (!imageFile) return;
     
     setIsCompressing(true);
@@ -189,7 +189,7 @@ const ImageCompressor: React.FC = () => {
     };
     
     reader.readAsDataURL(imageFile);
-  };
+  }, [imageFile, quality]);
 
   const loadImageFromUrl = async () => {
     if (!imageUrl) return;
@@ -235,7 +235,7 @@ const ImageCompressor: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [imageFile, quality]);
+  }, [imageFile, quality, compressImage]);
 
   return (
     <div className="text-white relative min-h-0">
@@ -250,7 +250,7 @@ const ImageCompressor: React.FC = () => {
       <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
               Image Compressor
             </h1>
           </AnimatedElement>

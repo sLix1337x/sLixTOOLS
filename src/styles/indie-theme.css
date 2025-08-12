@@ -153,15 +153,26 @@ input, select, textarea {
   background: var(--accent-color);
 }
 
-/* Glitch effect for headings */
+/* Glitch effect for headings - optimized */
 @keyframes glitch {
-  0% { text-shadow: 0.05em 0 0 #ff00ff, -0.05em -0.025em 0 #00ffff; }
-  14% { text-shadow: 0.05em 0 0 #ff00ff, -0.05em -0.025em 0 #00ffff; }
-  15% { text-shadow: -0.05em -0.025em 0 #ff00ff, 0.025em 0.05em 0 #00ffff; }
-  49% { text-shadow: -0.05em -0.025em 0 #ff00ff, 0.025em 0.05em 0 #00ffff; }
-  50% { text-shadow: 0.025em 0.05em 0 #ff00ff, 0.05em 0 0 #00ffff; }
-  99% { text-shadow: 0.025em 0.05em 0 #ff00ff, 0.05em 0 0 #00ffff; }
-  100% { text-shadow: -0.025em 0 0 #ff00ff, -0.025em 0 0 #00ffff; }
+  0%, 100% {
+    text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #ff0000;
+  }
+  15% {
+    text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #ff0000;
+  }
+  16% {
+    text-shadow: -0.05em 0 0 #ff00ff, 0.05em 0 0 #00ffff, 0 -0.05em 0 #ff0000;
+  }
+  49% {
+    text-shadow: -0.05em 0 0 #ff00ff, 0.05em 0 0 #00ffff, 0 -0.05em 0 #ff0000;
+  }
+  50% {
+    text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #ff0000;
+  }
+  99% {
+    text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #ff0000;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {

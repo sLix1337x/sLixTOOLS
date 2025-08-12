@@ -1,30 +1,47 @@
 
 // Core imports
 import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, HashRouter, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { LanguageProvider } from "./contexts/LanguageContext";
-import { useTranslation } from "./utils/i18n";
 
-// Page imports
+
+import { Suspense, lazy, useEffect, useState } from "react";
+import { usePerformanceMonitor } from "@/hooks/usePerformanceMonitor";
+import { usePerformanceOptimization } from "@/hooks/usePerformanceOptimization";
+import { initializePerformanceOptimizations } from "@/utils/preloader";
+import { initializeServiceWorker } from "@/utils/serviceWorker";
+import { initializeOptimizedLoading } from "./utils/optimizedLazyLoading.tsx";
+import { initializePerformanceMonitoring } from "./utils/performanceMonitor.tsx";
+
+import { PERFORMANCE_CONFIG, PERFORMANCE_BUDGETS } from "@/config/performance";
+import ErrorBoundary from "./components/ErrorBoundary";
+
+
+// Immediate load components (critical path)
 import Home from "./pages/Home";
 import Tools from "./pages/Tools";
-import VideoToGif from "./pages/tools/VideoToGif";
-import GifCompressor from "./pages/tools/GifCompressor";
-import ImageCompressor from "./pages/tools/ImageCompressor";
-import ImageResizer from "./pages/tools/ImageResizer";
-import AudioDownloader from "./pages/tools/AudioDownloader";
-import ImageToPdf from "./pages/tools/ImageToPdf";
-import PdfToImage from "./pages/tools/PdfToImage";
 import NotFound from "./pages/NotFound";
-import About from "./pages/About";
-import Contact from "./pages/Contact";
-import Features from "./pages/Features";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfService from "./pages/TermsOfService";
-import Impressum from "./pages/Impressum";
+
+// Lazy load heavy tool components
+const VideoToGif = lazy(() => import("./pages/tools/VideoToGif"));
+const GifCompressor = lazy(() => import("./pages/tools/GifCompressor"));
+const ImageCompressor = lazy(() => import("./pages/tools/ImageCompressor"));
+const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
+const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
+const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
+const AudioDownloader = lazy(() => import("./pages/tools/AudioDownloader"));
+const ImageToPdf = lazy(() => import("./pages/tools/ImageToPdf"));
+const PdfToImage = lazy(() => import("./pages/tools/PdfToImage"));
+
+// Lazy load info pages
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Features = lazy(() => import("./pages/Features"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const Impressum = lazy(() => import("./pages/Impressum"));
 
 // Styles
 import "./styles/indie-theme.css";
@@ -34,35 +51,187 @@ import "./App.css";
 import MainNav from "@/components/MainNav";
 import SmoothScroll from "@/components/SmoothScroll";
 import CookieConsent from "@/components/common/CookieConsent";
-import LanguageSwitcher from "@/components/common/LanguageSwitcher";
+
+import LoadingSpinner from "@/components/common/LoadingSpinner";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
-  const { t } = useTranslation();
+
+  const { trackPageLoad } = usePerformanceMonitor();
+
+  
+  // Initialize comprehensive performance optimizations
+  const {
+    performanceScore,
+    recommendations,
+    optimizeMemory,
+    optimizeCache,
+    optimizeNetwork,
+    optimizeBundle,
+    optimizeWorkers,
+    optimizeImages
+  } = usePerformanceOptimization({
+    enableMemoryOptimization: true,
+    enableCacheOptimization: true,
+    enableNetworkOptimization: true,
+    enableBundleOptimization: true,
+    enableWorkerOptimization: true,
+    enableImageOptimization: true,
+    performanceThreshold: PERFORMANCE_BUDGETS.lcp
+  });
+
+  useEffect(() => {
+    // Initialize all performance optimizations
+    const initializeOptimizations = async () => {
+      try {
+        // Core optimizations
+        const cleanup = initializePerformanceOptimizations();
+        initializeServiceWorker().catch(error => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(error);
+      }
+    });
+        const endPageLoad = trackPageLoad('app-initial');
+        
+        // Advanced optimizations
+        initializeOptimizedLoading();
+        initializePerformanceMonitoring();
+
+        
+        // Apply automatic optimizations based on performance score
+        if (performanceScore < 70) {
+          if (process.env.NODE_ENV === 'development') {
+        console.log('🔧 Applying automatic performance optimizations...');
+      }
+          await Promise.all([
+            optimizeMemory(),
+            optimizeCache(),
+            optimizeNetwork(),
+            optimizeBundle()
+          ]);
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+        console.log('✅ All performance optimizations initialized');
+        console.log(`📊 Current performance score: ${performanceScore}`);
+      }
+        
+        // Return cleanup function
+        return () => {
+          cleanup();
+          endPageLoad();
+        };
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Some optimizations failed to initialize:', error);
+      }
+      }
+    };
+    
+    let cleanup;
+    initializeOptimizations().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
+    
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [trackPageLoad, performanceScore, optimizeMemory, optimizeCache, optimizeNetwork, optimizeBundle]);
+
+
 
   return (
-    <>
+    <ErrorBoundary 
+      enableRecovery={true}
+      maxRetries={3}
+      showErrorDetails={process.env.NODE_ENV === 'development'}
+      componentName="AppContent"
+    >
+
+      
       <main className={`${!isHomePage && location.pathname !== '/contact' ? 'container mx-auto px-4 py-6' : 'flex flex-col min-h-0'}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/tools" element={<Tools />} />
-          <Route path="/tools/video-to-gif" element={<VideoToGif />} />
-          <Route path="/tools/gif-compressor" element={<GifCompressor />} />
-          <Route path="/tools/image-compressor" element={<ImageCompressor />} />
-          <Route path="/tools/image-resizer" element={<ImageResizer />} />
-          <Route path="/tools/audio-downloader" element={<AudioDownloader />} />
-          <Route path="/tools/image-to-pdf" element={<ImageToPdf />} />
-          <Route path="/tools/pdf-to-image" element={<PdfToImage />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-of-service" element={<TermsOfService />} />
-          <Route path="/impressum" element={<Impressum />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL \"*\" ROUTE */}
+          <Route path="/tools/video-to-gif" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Video to GIF converter..." />}>
+              <VideoToGif />
+            </Suspense>
+          } />
+          <Route path="/tools/gif-compressor" element={
+            <Suspense fallback={<LoadingSpinner text="Loading GIF compressor..." />}>
+              <GifCompressor />
+            </Suspense>
+          } />
+          <Route path="/tools/image-compressor" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Image compressor..." />}>
+              <ImageCompressor />
+            </Suspense>
+          } />
+          <Route path="/tools/image-resizer" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Image resizer..." />}>
+              <ImageResizer />
+            </Suspense>
+          } />
+          <Route path="/tools/audio-downloader" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Audio downloader..." />}>
+              <AudioDownloader />
+            </Suspense>
+          } />
+          <Route path="/tools/image-to-pdf" element={
+            <Suspense fallback={<LoadingSpinner text="Loading PDF converter..." />}>
+              <ImageToPdf />
+            </Suspense>
+          } />
+          <Route path="/tools/pdf-to-image" element={
+            <Suspense fallback={<LoadingSpinner text="Loading PDF to Image converter..." />}>
+              <PdfToImage />
+            </Suspense>
+          } />
+          <Route path="/tools/video-converter" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Video converter..." />}>
+              <VideoConverter />
+            </Suspense>
+          } />
+          <Route path="/tools/image-converter" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Image converter..." />}>
+              <ImageConverter />
+            </Suspense>
+          } />
+          <Route path="/about" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <About />
+            </Suspense>
+          } />
+          <Route path="/contact" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <Contact />
+            </Suspense>
+          } />
+          <Route path="/features" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <Features />
+            </Suspense>
+          } />
+          <Route path="/privacy-policy" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <PrivacyPolicy />
+            </Suspense>
+          } />
+          <Route path="/terms-of-service" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <TermsOfService />
+            </Suspense>
+          } />
+          <Route path="/impressum" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <Impressum />
+            </Suspense>
+          } />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -71,54 +240,69 @@ const AppContent = () => {
 
         <div className="container mx-auto px-4 text-sm">
           <div className="text-center">
-            <p>{t('footer.copyright', { year: new Date().getFullYear() })}</p>
+            <p>© {new Date().getFullYear()} sLixTOOLS. All rights reserved.</p>
             <div className="mt-2">
-              <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.privacyPolicy')}</Link>
+              <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="privacy-policy">Privacy Policy</Link>
               <span>•</span>
-              <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.termsOfService')}</Link>
+              <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="terms-of-service">Terms of Service</Link>
               <span>•</span>
-              <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.impressum')}</Link>
+              <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="impressum">Impressum</Link>
               <span>•</span>
-              <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors">{t('footer.contact')}</Link>
+              <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="contact">Contact</Link>
               <span>•</span>
-              <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors">GitHub</a>
+              <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="github">GitHub</a>
+              {process.env.NODE_ENV === 'development' && (
+                <>
+                  <span>•</span>
+                  <button 
+                    onClick={() => {}}
+                    className="mx-2 hover:text-pink-400 transition-colors text-xs"
+                    title={`Performance Score: ${performanceScore}`}
+                  >
+                    📊 Perf ({performanceScore})
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
         
-        <div className="flex justify-center mt-2 pb-2">
-          <LanguageSwitcher />
-        </div>
+
       </footer>
-    </>
+    </ErrorBoundary>
   );
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <HelmetProvider>
-      <TooltipProvider>
-        <LanguageProvider>
-          <HashRouter>
-            <SmoothScroll>
-              <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-                <header className="flex-shrink-0">
-                  <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
-                    <MainNav />
+  <ErrorBoundary 
+    enableRecovery={true}
+    maxRetries={2}
+    showErrorDetails={process.env.NODE_ENV === 'development'}
+    componentName="App"
+  >
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
+
+            <HashRouter>
+              <SmoothScroll>
+                <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+                  <header className="flex-shrink-0">
+                    <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
+                      <MainNav />
+                    </div>
+                  </header>
+                  <div className="flex-grow flex flex-col">
+                    <AppContent />
                   </div>
-                </header>
-                <div className="flex-grow flex flex-col">
-                  <AppContent />
+                  <CookieConsent />
                 </div>
-                <CookieConsent />
-              </div>
-            </SmoothScroll>
-          </HashRouter>
-        </LanguageProvider>
-      </TooltipProvider>
-      <Sonner className="toaster" position="bottom-right" />
-    </HelmetProvider>
-  </QueryClientProvider>
+              </SmoothScroll>
+            </HashRouter>
+
+        <Sonner className="toaster" position="bottom-right" />
+      </HelmetProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

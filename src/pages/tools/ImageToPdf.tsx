@@ -194,7 +194,7 @@ const ImageToPdf = () => {
       
       <div className="container mx-auto px-4 py-8 relative z-10">
         <AnimatedElement type="fadeIn" delay={0.1} className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-center bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl md:text-3xl font-bold text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
             Image to PDF Converter
           </h1>
           <p className="mt-2 text-center text-gray-300 max-w-2xl mx-auto">

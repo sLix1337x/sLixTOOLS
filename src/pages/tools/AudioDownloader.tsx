@@ -32,25 +32,55 @@ const AudioDownloader: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // In a real implementation, you would call your backend API here
-      // For now, we'll simulate an API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Validate URL format
+      let videoUrl: URL;
+      try {
+        videoUrl = new URL(url);
+      } catch {
+        toast.error('Please enter a valid URL');
+        return;
+      }
+
+      // Check if it's a supported platform
+      const hostname = videoUrl.hostname.toLowerCase();
+      const isYouTube = hostname.includes('youtube.com') || hostname.includes('youtu.be');
+      const isSoundCloud = hostname.includes('soundcloud.com');
       
-      // Simulate successful response
-      const simulatedResponse = {
-        success: true,
-        downloadUrl: 'https://example.com/download',
-        info: {
-          title: 'Sample Audio Track',
-          thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-          duration: '3:45'
-        }
-      };
+      if (!isYouTube && !isSoundCloud) {
+        toast.error('Currently only YouTube and SoundCloud URLs are supported');
+        return;
+      }
+
+      // Show informational message about client-side limitations
+      toast.info('Note: This is a demo version. Audio downloading requires server-side processing for copyright compliance.');
       
-      setDownloadUrl(simulatedResponse.downloadUrl);
-      setVideoInfo(simulatedResponse.info);
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      toast.success('Audio is ready to download!');
+      // Extract video ID for YouTube or track info for SoundCloud
+      let videoId = '';
+      let title = 'Audio Track';
+      
+      if (isYouTube) {
+        const urlParams = new URLSearchParams(videoUrl.search);
+        videoId = urlParams.get('v') || videoUrl.pathname.split('/').pop() || '';
+        title = `YouTube Audio - ${videoId}`;
+      } else if (isSoundCloud) {
+        title = `SoundCloud Audio - ${videoUrl.pathname.split('/').pop() || 'track'}`;
+      }
+      
+      // Create a demo download (this would normally be the processed audio file)
+      const demoBlob = new Blob(['Demo audio file content'], { type: 'audio/mpeg' });
+      const demoUrl = URL.createObjectURL(demoBlob);
+      
+      setDownloadUrl(demoUrl);
+      setVideoInfo({
+        title: title,
+        thumbnail: isYouTube ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : '/placeholder-audio.png',
+        duration: '3:45'
+      });
+      
+      toast.success('Demo file ready! In production, this would be the actual audio file.');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to process the audio. Please try again.');
@@ -87,7 +117,7 @@ const AudioDownloader: React.FC = () => {
       <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
               Audio Downloader
             </h1>
           </AnimatedElement>
@@ -121,7 +151,7 @@ const AudioDownloader: React.FC = () => {
                           </SelectItem>
                           <SelectItem value="soundcloud" className="hover:bg-gray-700 cursor-pointer">
                             <div className="flex items-center space-x-2">
-                              <Music className="h-4 w-4 text-orange-500" />
+                              <Music className="h-4 w-4 text-blue-500" />
                               <span>SoundCloud</span>
                             </div>
                           </SelectItem>

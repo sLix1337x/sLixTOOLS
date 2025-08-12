@@ -11,8 +11,7 @@
     --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
  
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+
  
     --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
@@ -35,14 +34,25 @@
  
     --radius: 0.5rem;
     
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 217 32.6% 17.5%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215.4 16.3% 46.9%;
-    --sidebar-ring: 212.7 26.8% 83.9%;
+    /* Indie Theme Variables - Essential for proper styling */
+    --bg-color: #000000;
+    --text-color: #39ff14; /* Bright green text */
+    --border-color: #39ff14;
+    --border-style: 2px dashed var(--border-color);
+    --border-radius: 0;
+    --accent-color: #ff00ff; /* Magenta accent color */
+    --hover-color: #00ffff; /* Cyan hover effect */
+    --font-mono: 'Courier New', Courier, monospace;
+    
+    /* Spacing System - Values divisible by 4 */
+    --spacing-xs: 0.25rem;  /* 4px */
+    --spacing-s: 0.5rem;    /* 8px */
+    --spacing-m: 0.75rem;   /* 12px */
+    --spacing-l: 1.25rem;   /* 20px */
+    --spacing-xl: 2.5rem;   /* 40px */
+    --spacing-xxl: 4rem;    /* 64px */
+    
+
   }
  
   * {
@@ -130,21 +140,14 @@
   animation: pulse 2s infinite;
 }
 
-/* New animations and effects */
+/* New animations and effects - optimized */
 .floating {
   animation: floating 3s ease-in-out infinite;
 }
 
 @keyframes floating {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
 }
 
 .bg-particles {
@@ -237,4 +240,89 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* Typography Spacing System */
+h1, h2, h3, h4, h5, h6, p {
+  margin-top: var(--spacing-xl);
+}
+
+h1:first-child, h2:first-child, h3:first-child, 
+h4:first-child, h5:first-child, h6:first-child, 
+p:first-child {
+  margin-top: 0;
+}
+
+/* Major section breaks */
+.section-break {
+  margin-top: var(--spacing-xxl);
+}
+
+/* Hero Section Styles */
+.hero-container {
+  padding-top: var(--spacing-xxl);
+  padding-bottom: var(--spacing-xxl);
+}
+
+.hero-content {
+  gap: var(--spacing-xl);
+}
+
+.hero-text {
+  gap: var(--spacing-l);
+}
+
+.hero-cta {
+  margin-top: var(--spacing-xl);
+}
+
+.social-proof {
+  margin-top: var(--spacing-l);
+  gap: var(--spacing-m);
+}
+
+.feature-grid {
+  gap: var(--spacing-l);
+  margin-top: var(--spacing-xxl);
+}
+
+.feature-card {
+  padding: var(--spacing-l);
+}
+
+/* Mobile responsive spacing */
+@media (max-width: 768px) {
+  .hero-container {
+    padding-top: var(--spacing-xl);
+    padding-bottom: var(--spacing-xl);
+  }
+  
+  .hero-content {
+    gap: var(--spacing-l);
+  }
+  
+  .feature-grid {
+    gap: var(--spacing-m);
+  }
+}
+
+/* Override global h1 styles for tools main heading */
+h1.tools-main-heading,
+.tools-main-heading {
+  font-size: clamp(8rem, 25vw, 25rem) !important;
+  line-height: 0.8 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  animation: none !important;
+  font-weight: 900 !important;
+  display: block !important;
+  max-width: none !important;
+  width: auto !important;
+  margin-top: 0 !important;
+}
+
+/* Even more specific override */
+body h1.tools-main-heading {
+  font-size: clamp(8rem, 25vw, 25rem) !important;
+  line-height: 0.8 !important;
 }

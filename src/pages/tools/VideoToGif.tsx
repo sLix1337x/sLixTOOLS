@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ConversionOptions as ConversionOptionsType, VideoPreviewProps, GifPreviewProps, ConversionOptionsProps, FileUploadProps } from '@/types';
-import { validateVideoFile } from '@/utils/validation';
+import { validateVideoFileLegacy as validateVideoFile } from '@/utils/fileValidation';
+import { convertVideoToGif } from '@/utils/gifConverter';
 import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
 
@@ -40,7 +41,14 @@ const GifPreview: React.FC<GifPreviewProps> = ({ gifBlob, onDownload, isConverti
   const gifUrl = URL.createObjectURL(gifBlob);
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
-      <img src={gifUrl} alt="Generated GIF" className="w-full rounded-lg shadow-lg mb-4 border border-gray-700/50" />
+      <img 
+                      src={gifUrl} 
+                      alt="Generated GIF" 
+                      className="w-full rounded-lg shadow-lg mb-4 border border-gray-700/50" 
+                      loading="lazy"
+                      decoding="async"
+                      style={{ contentVisibility: 'auto' }}
+                    />
       <Button onClick={onDownload} disabled={isConverting} className="bg-[#2AD587] hover:bg-[#25c27a] text-black font-bold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0">
         <Download className="mr-2 h-5 w-5" />
         Download GIF
@@ -75,11 +83,11 @@ const ConversionOptions: React.FC<ConversionOptionsProps> = ({ options, onOption
           <div className="space-y-4 pt-4 border-t border-gray-700/50">
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">Start Time: {options.startTime.toFixed(1)}s</label>
-              <input type="range" name="startTime" min="0" max={videoDuration} step="0.1" value={options.startTime} onChange={handleChange} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400" />
+              <input type="range" name="startTime" min="0" max={videoDuration} step="0.1" value={options.startTime} onChange={handleChange} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-400" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">End Time: {options.endTime.toFixed(1)}s</label>
-              <input type="range" name="endTime" min="0" max={videoDuration} step="0.1" value={options.endTime} onChange={handleChange} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400" />
+              <input type="range" name="endTime" min="0" max={videoDuration} step="0.1" value={options.endTime} onChange={handleChange} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-400" />
             </div>
           </div>
         )}
@@ -217,13 +225,28 @@ const VideoToGif = () => {
     toast.info('Starting Conversion', { description: 'Your video is being converted to a GIF. Please wait.' });
     try {
       console.log('Converting with options:', conversionOptions);
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const placeholderBlob = new Blob(['GIF'], { type: 'image/gif' });
-      setGifBlob(placeholderBlob);
+      
+      // Use the actual GIF conversion function
+      const gifBlob = await convertVideoToGif(videoFile, {
+        fps: conversionOptions.fps,
+        quality: conversionOptions.quality,
+        startTime: conversionOptions.trimEnabled ? conversionOptions.startTime : 0,
+        duration: conversionOptions.trimEnabled ? (conversionOptions.endTime - conversionOptions.startTime) : undefined,
+        trimEnabled: conversionOptions.trimEnabled
+      }, (progress) => {
+        // Handle progress updates
+        if (typeof progress === 'object') {
+          toast.info(`${progress.stage}: ${progress.message}`, { description: `${Math.round(progress.progress)}% complete` });
+        } else {
+          toast.info('Converting...', { description: `${Math.round(progress * 100)}% complete` });
+        }
+      });
+      
+      setGifBlob(gifBlob);
       toast.success('Conversion Successful!', { description: 'Your GIF is ready for download.' });
     } catch (error) {
       console.error('Conversion failed:', error);
-      toast.error('Conversion Failed', { description: 'Something went wrong. Please try again.' });
+      toast.error('Conversion Failed', { description: error instanceof Error ? error.message : 'Something went wrong. Please try again.' });
     } finally {
       setIsConverting(false);
     }
@@ -248,7 +271,7 @@ const VideoToGif = () => {
       description: 'Convert videos to GIFs in seconds with our optimized conversion engine.'
     },
     {
-      icon: <Sparkles className="h-8 w-8 text-cyan-400" />,
+      icon: <Sparkles className="h-8 w-8 text-green-400" />,
       title: 'High Quality',
       description: 'Get crisp, clear GIFs with support for HD quality and custom settings.'
     },
@@ -272,7 +295,7 @@ const VideoToGif = () => {
       <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
               MP4 to GIF Converter
             </h1>
           </AnimatedElement>
@@ -328,7 +351,7 @@ const VideoToGif = () => {
               {gifBlob && (
                 <AnimatedElement type="fadeIn" delay={0.2}>
                   <div className="mt-8">
-                    <h2 className="text-2xl font-bold mb-4 text-center bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+                    <h2 className="text-2xl font-bold mb-4 text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
                       Your GIF is Ready!
                     </h2>
                     <GifPreview gifBlob={gifBlob} onDownload={handleDownload} isConverting={isConverting} />
@@ -342,7 +365,7 @@ const VideoToGif = () => {
         <div className="max-w-5xl mx-auto w-full mt-12">
           <div className="text-center mb-8">
             <AnimatedElement type="fadeIn" delay={0.2}>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
                 Why Choose Our GIF Maker?
               </h2>
             </AnimatedElement>

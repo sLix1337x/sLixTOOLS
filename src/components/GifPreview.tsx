@@ -49,7 +49,7 @@ const GifPreview: React.FC<GifPreviewProps> = ({ gifBlob, onDownload, onCopyLink
     <div className="flex flex-col gap-6 bg-black/50 p-6 border-2 border-dashed border-green-400/50 rounded-lg">
       <h3 className="text-2xl font-bold text-green-300">YOUR GIF IS READY!</h3>
       
-      <div className="relative rounded-lg overflow-hidden bg-black/50 border-2 border-dashed border-cyan-400/50">
+      <div className="relative rounded-lg overflow-hidden bg-black/50 border-2 border-dashed border-blue-400/50">
         <img 
           src={gifUrl} 
           alt="Converted GIF" 
@@ -69,7 +69,7 @@ const GifPreview: React.FC<GifPreviewProps> = ({ gifBlob, onDownload, onCopyLink
         <Button 
           onClick={handleCopyLink}
           disabled={copied}
-          className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-none border-2 border-cyan-400 hover:border-cyan-300 transition-all duration-200 transform hover:scale-105"
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-none border-2 border-green-400 hover:border-green-300 transition-all duration-200 transform hover:scale-105"
         >
           {copied ? (
             <>
