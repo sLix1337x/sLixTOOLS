@@ -251,18 +251,7 @@ const AppContent = () => {
               <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="contact">Contact</Link>
               <span>•</span>
               <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="github">GitHub</a>
-              {process.env.NODE_ENV === 'development' && (
-                <>
-                  <span>•</span>
-                  <button 
-                    onClick={() => {}}
-                    className="mx-2 hover:text-pink-400 transition-colors text-xs"
-                    title={`Performance Score: ${performanceScore}`}
-                  >
-                    📊 Perf ({performanceScore})
-                  </button>
-                </>
-              )}
+
             </div>
           </div>
         </div>

@@ -2,24 +2,70 @@
  * Performance optimization utilities for preloading and resource hints
  */
 
-// Preload route components
-export const preloadRoute = (routePath: string): Promise<void> => {
-  const routeMap: Record<string, () => Promise<{ default: React.ComponentType<unknown> }>> = {
-    '/tools': () => import('../pages/Tools'),
-    '/features': () => import('../pages/Features'),
-    '/video-to-gif': () => import('../pages/tools/VideoToGif'),
-    '/gif-compressor': () => import('../pages/tools/GifCompressor'),
-    '/image-compressor': () => import('../pages/tools/ImageCompressor'),
-    '/image-resizer': () => import('../pages/tools/ImageResizer'),
-    '/image-to-pdf': () => import('../pages/tools/ImageToPdf'),
-    '/pdf-to-image': () => import('../pages/tools/PdfToImage')
-  };
+// Lazy route component map with priority levels
+const routeMap: Record<string, { 
+  loader: () => Promise<{ default: React.ComponentType<unknown> }>,
+  priority: 'high' | 'medium' | 'low',
+  dependencies?: string[]
+}> = {
+  '/tools': { 
+    loader: () => import('../pages/Tools'), 
+    priority: 'high' 
+  },
+  '/features': { 
+    loader: () => import('../pages/Features'), 
+    priority: 'medium' 
+  },
+  '/video-to-gif': { 
+    loader: () => import('../pages/tools/VideoToGif'), 
+    priority: 'medium',
+    dependencies: ['ffmpeg-libs']
+  },
+  '/gif-compressor': { 
+    loader: () => import('../pages/tools/GifCompressor'), 
+    priority: 'medium',
+    dependencies: ['gif-libs']
+  },
+  '/image-compressor': { 
+    loader: () => import('../pages/tools/ImageCompressor'), 
+    priority: 'high' 
+  },
+  '/image-resizer': { 
+    loader: () => import('../pages/tools/ImageResizer'), 
+    priority: 'high' 
+  },
+  '/image-to-pdf': { 
+    loader: () => import('../pages/tools/ImageToPdf'), 
+    priority: 'low',
+    dependencies: ['pdf-libs']
+  },
+  '/pdf-to-image': { 
+    loader: () => import('../pages/tools/PdfToImage'), 
+    priority: 'low',
+    dependencies: ['pdf-viewer']
+  }
+};
 
-  const preloader = routeMap[routePath];
-  if (preloader) {
-    return preloader().then(() => {
+// Preload route components with priority and dependency awareness
+export const preloadRoute = (routePath: string): Promise<void> => {
+
+  const routeConfig = routeMap[routePath];
+  if (routeConfig) {
+    // Check if we should preload based on priority and connection
+    const connection = (navigator as any).connection;
+    const isSlowConnection = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g');
+    
+    // Skip low priority routes on slow connections
+    if (isSlowConnection && routeConfig.priority === 'low') {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Preloaded route: ${routePath}`);
+        console.log(`Skipping low priority route ${routePath} due to slow connection`);
+      }
+      return Promise.resolve();
+    }
+    
+    return routeConfig.loader().then(() => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Preloaded route: ${routePath} (priority: ${routeConfig.priority})`);
       }
     }).catch((error) => {
       if (process.env.NODE_ENV === 'development') {
@@ -43,41 +89,80 @@ export const preloadChunk = (chunkName: string): Promise<void> => {
   });
 };
 
-// Preload tool components based on user behavior
-export const preloadToolComponents = () => {
-  const toolPreloaders: Record<string, () => Promise<{ default: React.ComponentType<unknown> }>> = {
-    'video-to-gif': () => import('../pages/tools/VideoToGif'),
-    'gif-compressor': () => import('../pages/tools/GifCompressor'),
-    'image-compressor': () => import('../pages/tools/ImageCompressor'),
-    'image-resizer': () => import('../pages/tools/ImageResizer'),
-    'image-to-pdf': () => import('../pages/tools/ImageToPdf'),
-    'pdf-to-image': () => import('../pages/tools/PdfToImage')
-  };
+// Tool component map with priority and dependency tracking
+const toolComponentMap = {
+  'video-to-gif': { 
+    loader: () => import('../pages/tools/VideoToGif'),
+    priority: 'medium',
+    dependencies: ['ffmpeg-libs']
+  },
+  'gif-compressor': { 
+    loader: () => import('../pages/tools/GifCompressor'),
+    priority: 'medium',
+    dependencies: ['gif-libs']
+  },
+  'image-compressor': { 
+    loader: () => import('../pages/tools/ImageCompressor'),
+    priority: 'high'
+  },
+  'image-resizer': { 
+    loader: () => import('../pages/tools/ImageResizer'),
+    priority: 'high'
+  },
+  'image-to-pdf': { 
+    loader: () => import('../pages/tools/ImageToPdf'),
+    priority: 'low',
+    dependencies: ['pdf-libs']
+  },
+  'pdf-to-image': { 
+    loader: () => import('../pages/tools/PdfToImage'),
+    priority: 'low',
+    dependencies: ['pdf-viewer']
+  }
+};
 
-  return toolPreloaders;
+// Preload tool components with intelligent priority handling
+export const preloadToolComponents = () => {
+  return toolComponentMap;
+};
+
+// Smart tool preloader that respects connection and priority
+export const preloadTool = (toolName: string): Promise<void> => {
+  const toolConfig = toolComponentMap[toolName as keyof typeof toolComponentMap];
+  if (!toolConfig) return Promise.resolve();
+  
+  // Check connection quality
+  const connection = (navigator as any).connection;
+  const isSlowConnection = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g');
+  const isLimitedData = connection && connection.saveData;
+  
+  // Skip low priority tools on constrained connections
+  if ((isSlowConnection || isLimitedData) && toolConfig.priority === 'low') {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Skipping low priority tool ${toolName} due to connection constraints`);
+    }
+    return Promise.resolve();
+  }
+  
+  return toolConfig.loader().then(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Preloaded tool: ${toolName} (priority: ${toolConfig.priority})`);
+    }
+  }).catch((error) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Failed to preload tool ${toolName}:`, error);
+    }
+  });
 };
 
 // Intelligent preloading based on user interaction
 export const setupIntelligentPreloading = () => {
-  const toolPreloaders = preloadToolComponents();
   let preloadTimeout: NodeJS.Timeout;
 
-  // Preload on hover with delay
+  // Preload on hover with delay using smart preloader
   const handleToolHover = (toolName: string) => {
     preloadTimeout = setTimeout(() => {
-      if (toolPreloaders[toolName as keyof typeof toolPreloaders]) {
-        toolPreloaders[toolName as keyof typeof toolPreloaders]()
-          .then(() => {
-            if (process.env.NODE_ENV === 'development') {
-        console.log(`Preloaded ${toolName} component`);
-      }
-          })
-          .catch((error) => {
-            if (process.env.NODE_ENV === 'development') {
-        console.warn(`Failed to preload ${toolName}:`, error);
-      }
-          });
-      }
+      preloadTool(toolName);
     }, 200); // 200ms delay to avoid unnecessary preloads
   };
 

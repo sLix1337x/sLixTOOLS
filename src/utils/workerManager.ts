@@ -29,8 +29,38 @@ interface WorkerPool {
   results: Map<string, { resolve: (value: WorkerResult) => void; reject: (reason?: unknown) => void }>;
 }
 
-// Worker script templates
+// Worker script paths for lazy loading
 const WORKER_SCRIPTS = {
+  imageProcessor: '/workers/image.worker.js',
+  gifProcessor: '/workers/gif-processor.worker.js',
+  pdfProcessor: '/workers/pdf.worker.js'
+};
+
+// Lazy worker creation function
+const createWorkerFromScript = (scriptPath: string): Worker => {
+  try {
+    return new Worker(scriptPath);
+  } catch (error) {
+    console.warn(`Failed to load worker from ${scriptPath}, falling back to inline worker`);
+    // Fallback to basic inline worker if external file fails
+    const fallbackScript = `
+      self.onmessage = function(e) {
+        const { id, type, data } = e.data;
+        self.postMessage({
+          id,
+          success: false,
+          error: 'Worker not available',
+          duration: 0
+        });
+      };
+    `;
+    const blob = new Blob([fallbackScript], { type: 'application/javascript' });
+    return new Worker(URL.createObjectURL(blob));
+  }
+};
+
+// Legacy inline scripts (kept as fallback)
+const LEGACY_WORKER_SCRIPTS = {
   imageProcessor: `
     self.onmessage = function(e) {
       const { id, type, data } = e.data;
@@ -255,8 +285,24 @@ export class WorkerManager {
     const available: boolean[] = [];
     
     for (let i = 0; i < size; i++) {
-      const blob = new Blob([workerScript], { type: 'application/javascript' });
-      const worker = new Worker(URL.createObjectURL(blob));
+      let worker: Worker;
+      
+      // Try to use external worker file first
+      const externalWorkerPath = WORKER_SCRIPTS[poolName as keyof typeof WORKER_SCRIPTS];
+      if (externalWorkerPath) {
+        try {
+          worker = createWorkerFromScript(externalWorkerPath);
+        } catch (error) {
+          console.warn(`Failed to load external worker for ${poolName}, using inline fallback`);
+          // Fallback to inline worker
+          const blob = new Blob([workerScript], { type: 'application/javascript' });
+          worker = new Worker(URL.createObjectURL(blob));
+        }
+      } else {
+        // Use inline worker as fallback
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        worker = new Worker(URL.createObjectURL(blob));
+      }
       
       worker.onerror = (error) => {
         console.error(`Worker error in pool ${poolName}:`, error);
@@ -279,7 +325,7 @@ export class WorkerManager {
 
   private getOrCreatePool(poolName: string): WorkerPool {
     if (!this.pools.has(poolName)) {
-      const script = WORKER_SCRIPTS[poolName as keyof typeof WORKER_SCRIPTS];
+      const script = LEGACY_WORKER_SCRIPTS[poolName as keyof typeof LEGACY_WORKER_SCRIPTS];
       if (!script) {
         throw new Error(`Unknown worker pool: ${poolName}`);
       }

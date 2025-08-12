@@ -51,11 +51,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
       },
-      external: [
-        // Mark heavy optional dependencies as external
-        '@ffmpeg/ffmpeg',
-        '@ffmpeg/util'
-      ],
+      // Remove external marking to allow proper chunking
+      // external: [],
       output: {
         manualChunks: {
           // Core React libraries
@@ -77,6 +74,7 @@ export default defineConfig({
           'pdf-viewer': ['pdfjs-dist'],
           'gif-libs': ['gif.js'],
           'file-libs': ['jszip'],
+          'ffmpeg-libs': ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
           
           // Animation and 3D
           'animation': ['framer-motion', 'lenis'],
@@ -115,7 +113,9 @@ export default defineConfig({
     exclude: [
       'gif.js',
       'jspdf',
-      'pdfjs-dist'
+      'pdfjs-dist',
+      '@ffmpeg/ffmpeg',
+      '@ffmpeg/util'
     ]
   },
   server: {
