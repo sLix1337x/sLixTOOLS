@@ -2,7 +2,7 @@
 // Core imports
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import React, { Suspense, lazy } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -161,8 +161,7 @@ const App = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
-          <BrowserRouter
-            basename="/sLixTOOLS"
+          <HashRouter
             future={{
               v7_startTransition: true,
               v7_relativeSplatPath: true
@@ -182,7 +181,7 @@ const App = () => {
                 <CookieConsent />
               </div>
             </SmoothScroll>
-          </BrowserRouter>
+          </HashRouter>
           
           <Sonner className="toaster" position="bottom-right" />
         </HelmetProvider>
