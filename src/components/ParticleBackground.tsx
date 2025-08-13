@@ -65,7 +65,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         left: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        z-index: 1 !important;
+        z-index: -10 !important;
         pointer-events: none !important;
         overflow: hidden !important;
       }
@@ -77,7 +77,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         background-color: #a855f7 !important;
         border-radius: 50% !important;
         pointer-events: none !important;
-        z-index: 2 !important;
+        z-index: -9 !important;
       }
     `;
     document.head.appendChild(style);
@@ -85,7 +85,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
     const container = document.createElement('div');
     container.className = 'particle-bg-container';
     container.style.opacity = '0.8';
-    container.innerHTML = '<div class="absolute inset-0" style="z-index: 1;"></div>';
+    container.innerHTML = '<div class="absolute inset-0" style="z-index: -9;"></div>';
     document.body.appendChild(container);
     containerRef.current = container;
 

@@ -1,8 +1,8 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
 
 .logo {
@@ -50,30 +50,10 @@
   isolation: isolate;
 }
 
-/* Completely transparent tools section - super aggressive */
-#tools-section,
-#tools-section::before,
-#tools-section::after,
-#tools-section *,
-#tools-section *::before,
-#tools-section *::after,
-[id="tools-section"],
-[id="tools-section"] *,
-[id="all-tools"],
-[id="all-tools"] * {
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: none !important;
-}
-
-/* Remove any background effects and ensure proper z-index */
+/* Tools section styling - removed aggressive transparency overrides */
 #tools-section {
   position: relative;
   z-index: 10;
-  contain: none !important;
 }
 
 /* Create visual section separators */
