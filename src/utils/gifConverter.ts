@@ -163,6 +163,25 @@ export const convertVideoToGif = async (
             background: '#ffffff'
           });
 
+          // Cleanup function
+          const cleanupResources = () => {
+            if (video) {
+              video.pause();
+              video.removeAttribute('src');
+              video.load();
+              if (video.src) {
+                URL.revokeObjectURL(video.src);
+              }
+              video = null;
+            }
+            if (canvas) {
+              canvas.width = 0;
+              canvas.height = 0;
+              canvas = null;
+            }
+            ctx = null;
+          };
+
           // When GIF is finished
           gif.on('finished', (blob: Blob) => {
             enhancedProgress('complete', 100, 'GIF conversion complete!');
@@ -185,25 +204,6 @@ export const convertVideoToGif = async (
             const encodingProgress = 80 + (progress * 20);
             enhancedProgress('encoding', encodingProgress, `Encoding... ${Math.round(progress * 100)}%`);
           });
-      
-          // Cleanup function
-          const cleanupResources = () => {
-            if (video) {
-              video.pause();
-              video.removeAttribute('src');
-              video.load();
-              if (video.src) {
-                URL.revokeObjectURL(video.src);
-              }
-              video = null;
-            }
-            if (canvas) {
-              canvas.width = 0;
-              canvas.height = 0;
-              canvas = null;
-            }
-            ctx = null;
-          };
           
           // Enhanced frame capture with batching
           let frameCount = 0;
