@@ -1,4 +1,4 @@
-import { getPerformanceMonitor } from './performanceMonitor.tsx';
+import { getPerformanceMonitor } from './performancemonitor';
 
 // Enhanced error handling for video processing
 class VideoProcessingError extends Error {
@@ -20,17 +20,7 @@ interface VideoCompressionOptions {
   maintainAspectRatio: boolean;
 }
 
-interface VideoToGifOptions {
-  startTime: number; // seconds
-  duration: number; // seconds
-  width: number;
-  height: number;
-  fps: number;
-  quality: number; // 0-100
-  dithering: boolean;
-  optimizeColors: boolean;
-  maxColors: number; // 2-256
-}
+// VideoToGifOptions removed - use gifConverter.ts for GIF conversion
 
 interface VideoEditOptions {
   trim?: { start: number; end: number };
@@ -184,6 +174,34 @@ class VideoElementManager {
     return this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  // Critical fix: Batch frame processing with yielding to prevent main thread blocking
+  async captureFramesBatch(
+    startTime: number,
+    endTime: number,
+    fps: number,
+    onProgress?: (progress: number, frameCount: number) => void
+  ): Promise<ImageData[]> {
+    const frames: ImageData[] = [];
+    const totalFrames = Math.ceil((endTime - startTime) * fps);
+    const BATCH_SIZE = 5; // Process 5 frames at a time
+    let currentFrame = 0;
+    
+    for (let time = startTime; time < endTime; time += 1 / fps) {
+      // Yield to main thread every batch
+      if (currentFrame % BATCH_SIZE === 0 && currentFrame > 0) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+      
+      await this.seekTo(time);
+      frames.push(this.captureFrame());
+      currentFrame++;
+      
+      onProgress?.(currentFrame / totalFrames, currentFrame);
+    }
+    
+    return frames;
+  }
+
   getVideoInfo() {
     return {
       duration: this.video.duration,
@@ -272,151 +290,7 @@ export const compressVideo = async (
   }
 };
 
-// Convert video to GIF with enhanced error handling
-export const convertVideoToGif = async (
-  videoFile: File,
-  options: VideoToGifOptions,
-  onProgress?: ProgressCallback
-): Promise<Blob> => {
-  const monitor = getPerformanceMonitor();
-  const endRender = monitor.startComponentRender('videoProcessor');
-  
-  let videoManager: VideoElementManager | null = null;
-  
-  try {
-    onProgress?.({ stage: 'loading', progress: 0, message: 'Loading GIF converter...' });
-    
-    // Load GIF.js library
-    const GIF = await safeDynamicImport(
-      () => import('gif.js'),
-      null,
-      3
-    );
-    
-    if (!GIF) {
-      throw new VideoProcessingError('Failed to load GIF library', 'loading');
-    }
-    
-    onProgress?.({ stage: 'loading', progress: 20, message: 'Loading video...' });
-    
-    videoManager = new VideoElementManager();
-    await videoManager.loadVideo(videoFile);
-    
-    const videoInfo = videoManager.getVideoInfo();
-    
-    // Validate options
-    if (options.startTime >= videoInfo.duration) {
-      throw new VideoProcessingError('Start time exceeds video duration', 'validation');
-    }
-    
-    if (options.startTime + options.duration > videoInfo.duration) {
-      options.duration = videoInfo.duration - options.startTime;
-    }
-    
-    onProgress?.({ stage: 'processing', progress: 30, message: 'Initializing GIF creation...' });
-    
-    // Setup canvas
-    videoManager.setupCanvas(options.width, options.height);
-    
-    // Create GIF encoder
-    const gif = new (GIF.default || GIF)({
-      workers: Math.min(4, navigator.hardwareConcurrency || 2),
-      quality: Math.round((100 - options.quality) / 10), // GIF.js uses inverse quality
-      width: options.width,
-      height: options.height,
-      dither: options.dithering,
-      globalPalette: options.optimizeColors,
-      colors: options.maxColors
-    });
-    
-    // Calculate frame extraction parameters
-    const frameInterval = 1 / options.fps;
-    const totalFrames = Math.ceil(options.duration * options.fps);
-    
-    onProgress?.({ 
-      stage: 'processing', 
-      progress: 40, 
-      message: `Extracting ${totalFrames} frames...`,
-      totalFrames
-    });
-    
-    // Extract frames
-    for (let i = 0; i < totalFrames; i++) {
-      const time = options.startTime + (i * frameInterval);
-      
-      if (time >= options.startTime + options.duration) break;
-      
-      await videoManager.seekToTime(time);
-      const imageData = videoManager.captureFrame();
-      
-      // Add frame to GIF
-      gif.addFrame(imageData, { delay: frameInterval * 1000 });
-      
-      const progress = 40 + ((i + 1) / totalFrames) * 40;
-      onProgress?.({ 
-        stage: 'processing', 
-        progress, 
-        message: `Extracted frame ${i + 1}/${totalFrames}`,
-        currentFrame: i + 1,
-        totalFrames
-      });
-      
-      // Yield to main thread periodically
-      if (i % 10 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1));
-      }
-    }
-    
-    onProgress?.({ stage: 'encoding', progress: 80, message: 'Encoding GIF...' });
-    
-    // Render GIF
-    const gifBlob = await new Promise<Blob>((resolve, reject) => {
-      gif.on('finished', (blob: Blob) => {
-        resolve(blob);
-      });
-      
-      gif.on('progress', (progress: number) => {
-        onProgress?.({
-          stage: 'encoding',
-          progress: 80 + (progress * 0.15), // Scale to 80-95%
-          message: `Encoding... ${Math.round(progress * 100)}%`
-        });
-      });
-      
-      gif.on('error', (error: Error) => {
-        reject(new VideoProcessingError('GIF encoding failed', 'encoding', error));
-      });
-      
-      gif.render();
-    });
-    
-    onProgress?.({ 
-      stage: 'complete', 
-      progress: 100, 
-      message: 'GIF creation complete!',
-      processedSize: gifBlob.size
-    });
-    
-    monitor.trackMemoryUsage('videoProcessor');
-    return gifBlob;
-    
-  } catch (error) {
-    console.error('Video to GIF conversion failed:', error);
-    
-    if (error instanceof VideoProcessingError) {
-      throw error;
-    }
-    
-    throw new VideoProcessingError(
-      `Unexpected error during GIF conversion: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'unknown',
-      error instanceof Error ? error : undefined
-    );
-  } finally {
-    videoManager?.cleanup();
-    endRender();
-  }
-};
+// convertVideoToGif function removed - use gifConverter.ts for GIF conversion
 
 // Edit video with enhanced error handling
 export const editVideo = async (
@@ -724,45 +598,38 @@ export const getOptimalVideoSettings = (videoFile: File): VideoCompressionOption
   };
 };
 
-// Utility function to get optimal GIF settings
-export const getOptimalGifSettings = (duration: number): VideoToGifOptions => {
-  // Adjust settings based on duration
-  let fps = 10;
-  let quality = 80;
-  let maxColors = 128;
+// getOptimalGifSettings removed - use gifConverter.ts for GIF conversion
+
+// Critical fix: Utility for processing large files with frame yielding
+export const processLargeFileWithYielding = async <T>(
+  items: T[],
+  processor: (item: T, index: number) => Promise<void> | void,
+  batchSize: number = 10,
+  onProgress?: (progress: number) => void
+): Promise<void> => {
+  const total = items.length;
   
-  if (duration > 10) {
-    fps = 8;
-    quality = 70;
-    maxColors = 64;
-  } else if (duration > 5) {
-    fps = 12;
-    quality = 75;
-    maxColors = 96;
-  } else if (duration <= 2) {
-    fps = 15;
-    quality = 90;
-    maxColors = 256;
+  for (let i = 0; i < total; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    
+    // Process batch
+    for (let j = 0; j < batch.length; j++) {
+      await processor(batch[j], i + j);
+    }
+    
+    // Yield to main thread after each batch
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    
+    // Report progress
+    const progress = Math.min((i + batchSize) / total, 1);
+    onProgress?.(progress);
   }
-  
-  return {
-    startTime: 0,
-    duration: Math.min(duration, 10), // Limit to 10 seconds
-    width: 480,
-    height: 270,
-    fps,
-    quality,
-    dithering: true,
-    optimizeColors: true,
-    maxColors
-  };
 };
 
 // Export types and error class
 export { 
   VideoProcessingError, 
   type VideoCompressionOptions, 
-  type VideoToGifOptions, 
   type VideoEditOptions, 
   type ProcessingProgress, 
   type ProgressCallback 

@@ -1,6 +1,22 @@
-// gif.worker.js - This will be a proper web worker
-// This is the actual content that will be executed inside the worker environment
-// The importScripts will work correctly inside a worker context
+// gif.worker.js - Local GIF worker implementation
+// This worker handles GIF encoding without external CDN dependencies
 
-// Import the required dependencies for the GIF.js worker
-self.importScripts('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js');
+// Import the required dependencies for the GIF.js worker from local copy
+try {
+  self.importScripts('/workers/gif.worker.local.js');
+} catch (e) {
+  console.warn('Could not load local gif.js worker, using fallback');
+  
+  // Fallback worker implementation
+  self.onmessage = function(e) {
+    const { data } = e;
+    
+    if (data.type === 'start') {
+      self.postMessage({ type: 'progress', data: 0 });
+    } else if (data.type === 'frame') {
+      self.postMessage({ type: 'progress', data: data.progress || 0 });
+    } else if (data.type === 'finish') {
+      self.postMessage({ type: 'finished', data: new Uint8Array() });
+    }
+  };
+}

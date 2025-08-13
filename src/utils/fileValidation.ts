@@ -17,18 +17,12 @@ export interface ValidationResult {
 const MAX_FILE_SIZES = {
   image: 50 * 1024 * 1024, // 50MB
   video: 500 * 1024 * 1024, // 500MB
-  audio: 100 * 1024 * 1024, // 100MB
-  pdf: 100 * 1024 * 1024, // 100MB
-  gif: 100 * 1024 * 1024, // 100MB
 };
 
 // Supported file types
 const SUPPORTED_TYPES = {
   image: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff'],
-  video: ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm', 'video/mkv'],
-  audio: ['audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac', 'audio/flac'],
-  pdf: ['application/pdf'],
-  gif: ['image/gif'],
+  video: ['video/mp4', 'video/webm', 'video/avi', 'video/mpeg', 'video/mkv', 'video/flv', 'video/ogg', 'video/mov', 'video/m4v', 'video/wmv', 'video/asf', 'video/3gpp', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv', 'video/x-flv'],
 };
 
 /**
@@ -122,152 +116,7 @@ export const validateVideoFileLegacy = (file: File): string | null => {
   return result.isValid ? null : result.error || 'Validation failed';
 };
 
-/**
- * Validate audio files
- */
-export const validateAudioFile = (file: File): ValidationResult => {
-  if (!file) {
-    return { isValid: false, error: 'No file provided' };
-  }
-
-  // Check file type
-  if (!SUPPORTED_TYPES.audio.includes(file.type)) {
-    return {
-      isValid: false,
-      error: `Unsupported audio format. Supported formats: ${SUPPORTED_TYPES.audio.join(', ')}`
-    };
-  }
-
-  // Check file size
-  if (file.size > MAX_FILE_SIZES.audio) {
-    return {
-      isValid: false,
-      error: `File size too large. Maximum size: ${MAX_FILE_SIZES.audio / (1024 * 1024)}MB`
-    };
-  }
-
-  // Check if file is empty
-  if (file.size === 0) {
-    return { isValid: false, error: 'File is empty' };
-  }
-
-  return {
-    isValid: true,
-    fileInfo: {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    }
-  };
-};
-
-/**
- * Validate PDF files
- */
-export const validatePdfFile = (file: File): ValidationResult => {
-  if (!file) {
-    return { isValid: false, error: 'No file provided' };
-  }
-
-  // Check file type
-  if (!SUPPORTED_TYPES.pdf.includes(file.type)) {
-    return {
-      isValid: false,
-      error: `Unsupported file format. Expected PDF file.`
-    };
-  }
-
-  // Check file size
-  if (file.size > MAX_FILE_SIZES.pdf) {
-    return {
-      isValid: false,
-      error: `File size too large. Maximum size: ${MAX_FILE_SIZES.pdf / (1024 * 1024)}MB`
-    };
-  }
-
-  // Check if file is empty
-  if (file.size === 0) {
-    return { isValid: false, error: 'File is empty' };
-  }
-
-  return {
-    isValid: true,
-    fileInfo: {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    }
-  };
-};
-
-/**
- * Validate GIF files
- */
-export const validateGifFile = (file: File): ValidationResult => {
-  if (!file) {
-    return { isValid: false, error: 'No file provided' };
-  }
-
-  // Check file type
-  if (!SUPPORTED_TYPES.gif.includes(file.type)) {
-    return {
-      isValid: false,
-      error: `Unsupported file format. Expected GIF file.`
-    };
-  }
-
-  // Check file size
-  if (file.size > MAX_FILE_SIZES.gif) {
-    return {
-      isValid: false,
-      error: `File size too large. Maximum size: ${MAX_FILE_SIZES.gif / (1024 * 1024)}MB`
-    };
-  }
-
-  // Check if file is empty
-  if (file.size === 0) {
-    return { isValid: false, error: 'File is empty' };
-  }
-
-  return {
-    isValid: true,
-    fileInfo: {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    }
-  };
-};
-
-/**
- * Generic file validation
- */
-export const validateFile = (file: File, type: keyof typeof SUPPORTED_TYPES): ValidationResult => {
-  switch (type) {
-    case 'image':
-      return validateImageFile(file);
-    case 'video':
-      return validateVideoFile(file);
-    case 'audio':
-      return validateAudioFile(file);
-    case 'pdf':
-      return validatePdfFile(file);
-    case 'gif':
-      return validateGifFile(file);
-    default:
-      return { isValid: false, error: 'Unknown file type' };
-  }
-};
-
-/**
- * Validate multiple files
- */
-export const validateFiles = (files: File[], type: keyof typeof SUPPORTED_TYPES): ValidationResult[] => {
-  return files.map(file => validateFile(file, type));
-};
+// Unused validation functions removed for bundle optimization
 
 /**
  * Get file extension from filename
@@ -298,14 +147,7 @@ export const validateFileExtension = (file: File): boolean => {
     'wmv': ['video/wmv'],
     'flv': ['video/flv'],
     'webm': ['video/webm'],
-    'mkv': ['video/mkv'],
-    'mp3': ['audio/mp3', 'audio/mpeg'],
-    'wav': ['audio/wav'],
-    'ogg': ['audio/ogg'],
-    'm4a': ['audio/m4a'],
-    'aac': ['audio/aac'],
-    'flac': ['audio/flac'],
-    'pdf': ['application/pdf']
+    'mkv': ['video/mkv']
   };
   
   const expectedMimeTypes = extensionMimeMap[extension];

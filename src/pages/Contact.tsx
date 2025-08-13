@@ -31,7 +31,7 @@ const Contact = () => {
                 className="block hover:opacity-90 transition-opacity transform hover:scale-105"
               >
                 <img 
-                  src="https://i.ibb.co/9DF5wBS/kofi.png" 
+                  src="/images/kofi.svg" 
                   alt="Buy Me a Coffee at ko-fi.com" 
                   className="h-20 w-auto filter brightness-0 invert"
                 />

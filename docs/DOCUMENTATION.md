@@ -39,8 +39,8 @@ The application follows a modern React component architecture:
 ## Available Tools
 
 ### Fully Implemented Tools
-1. **MP4 to GIF**
-   - Convert video files to animated GIFs
+1. **Video to GIF**
+   - Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to animated GIFs
    - Control frame rate, quality, and duration
 
 2. **GIF Compressor**
@@ -62,10 +62,6 @@ The application follows a modern React component architecture:
 6. **Image Resizer**
    - Resize images to specific dimensions
    - Maintain aspect ratio option
-
-7. **Audio Downloader**
-   - Extract audio from video URLs (YouTube, etc.)
-   - Select output format (MP3, etc.)
 
 ### Coming Soon Tools
 1. **Image Converter**

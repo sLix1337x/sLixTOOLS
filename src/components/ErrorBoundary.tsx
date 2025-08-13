@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { getPerformanceMonitor } from '../utils/performanceMonitor.tsx';
+import { getPerformanceMonitor } from '../utils/performancemonitor';
 import { Button } from './ui/button';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 

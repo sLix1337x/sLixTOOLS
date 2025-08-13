@@ -27,11 +27,11 @@ A comprehensive collection of free, privacy-focused online tools for file conver
 ## 🌟 Features
 
 ### Core Features
-- **🎬 Video to GIF Converter** - Convert MP4, WebM, OGG videos to high-quality GIFs
+- **🎬 Video to GIF Converter** - Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to high-quality GIFs
 - **🗜️ GIF Compressor** - Optimize GIF file sizes while maintaining visual quality
 - **🖼️ Image Compressor** - Reduce image file sizes with adjustable quality settings
 - **📏 Image Resizer** - Resize images with aspect ratio preservation
-- **🎵 Audio Downloader** - Download audio from various sources (Coming Soon)
+
 - **📄 Image to PDF** - Convert multiple images to PDF documents (Coming Soon)
 - **🖼️ PDF to Image** - Extract images from PDF files (Coming Soon)
 
@@ -49,25 +49,37 @@ A comprehensive collection of free, privacy-focused online tools for file conver
 
 ## 🆕 Recent Updates
 
-### Layout & Design Improvements (December 2024)
+### Latest Improvements (December 2024)
 
-#### ✨ Floating Animation Optimization
-- **Fixed excessive movement**: Reduced floating animation from `-10px` to `-3px` for subtle, controlled motion
+#### 🐛 Critical Bug Fixes
+- **React Router Warnings**: Fixed future flag warnings by adding `v7_startTransition` and `v7_relativeSplatPath` flags
+- **GIF Conversion Errors**: Resolved "Already Running" errors by implementing proper `isRendering` flag in gif converter
+- **Memory Cache Issues**: Fixed `this.memoryCache.keys is not a function` error by adding proper methods to MemoryAwareCache class
+- **404 Route Errors**: Eliminated 404 errors by marking PDF Compressor as "Coming Soon" instead of linking to non-existent route
+- **Debug Panel Removal**: Completely removed debug test tool and all related features for cleaner codebase
+
+#### ✨ User Experience Enhancements
+- **Video to GIF Default Settings**: End time now defaults to 5 seconds (or video duration if shorter) for better user experience
+- **Navigation Improvements**: "Get Started Now" button now properly links to tools page instead of specific tool
+- **Error Handling**: Enhanced error logging and user feedback throughout the application
+- **Performance Optimization**: Improved memory management and cleanup processes
+
+#### 🎯 Layout & Design Improvements
+- **Floating Animation Optimization**: Reduced floating animation from `-10px` to `-3px` for subtle, controlled motion
 - **Improved positioning**: Adjusted floating elements from `-4` to `-2` margin classes to prevent overflow
 - **Enhanced boundaries**: Floating icons (scissors, sparkles) now stay within container bounds
 - **Better performance**: Optimized animation timing and reduced visual distraction
-
-#### 🎯 Layout Restructuring
 - **Section independence**: Moved "All Tools" section out of main container for better layout control
-- **Improved spacing**: Optimized margins and padding throughout the homepage
 - **Typography enhancement**: Increased heading font sizes (`text-4xl md:text-5xl lg:text-6xl`)
 - **Cleaner design**: Removed unnecessary backgrounds and improved visual hierarchy
 
 #### 🔧 Technical Enhancements
+- **Advanced Caching System**: Implemented sophisticated memory-aware caching with automatic cleanup
+- **Error Logging**: Comprehensive error tracking and categorization system
+- **Memory Management**: Enhanced memory cleanup and garbage collection
+- **Code Organization**: Improved component structure and maintainability
 - **CSS optimization**: Streamlined floating keyframe animations
 - **Responsive improvements**: Better mobile and tablet layout handling
-- **Performance boost**: Reduced animation complexity for smoother rendering
-- **Code organization**: Improved component structure and maintainability
 
 ### Animation System Updates
 - **Floating elements**: Scissors and sparkles icons with controlled 3px vertical movement
@@ -79,12 +91,13 @@ A comprehensive collection of free, privacy-focused online tools for file conver
 
 ### Currently Available
 1. **[Video to GIF Converter](https://slix1337x.github.io/sLixTOOLS/#/tools/video-to-gif)**
-   - Supports MP4, WebM, OGG formats
+   - Supports MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video formats
    - Customizable FPS (1-30)
    - Quality settings (1-100)
-   - Trim functionality with start/end time selection
-   - Real-time preview
-   - Maximum file size: 100MB
+   - Trim functionality with start/end time selection (defaults to 5 seconds)
+   - Real-time preview with metadata extraction
+   - Advanced error handling and validation
+   - Maximum file size: 500MB
 
 2. **[GIF Compressor](https://slix1337x.github.io/sLixTOOLS/#/tools/gif-compressor)**
    - Lossless and lossy compression options
@@ -106,11 +119,12 @@ A comprehensive collection of free, privacy-focused online tools for file conver
    - Maximum file size: 200MB
 
 ### Coming Soon
-- Audio Downloader
-- Image to PDF Converter
-- PDF to Image Extractor
-- Video Compressor
-- Batch File Processor
+- **PDF Compressor** - Optimize PDF file sizes
+- **Image to PDF Converter** - Convert multiple images to PDF documents
+- **PDF to Image Extractor** - Extract images from PDF files
+- **Video Compressor** - Reduce video file sizes
+- **Batch File Processor** - Process multiple files simultaneously
+- **Audio Converter** - Convert between audio formats
 
 ## 🏗️ Technology Stack
 

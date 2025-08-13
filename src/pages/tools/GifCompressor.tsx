@@ -84,9 +84,13 @@ export default function GifCompressor() {
   const [file, setFile] = useState<File | null>(null);
   const [compressedBlob, setCompressedBlob] = useState<Blob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
-  const [gifUrl, setGifUrl] = useState('');
   const [quality, setQuality] = useState(80);
+  const [compressionMethod, setCompressionMethod] = useState<'standard' | 'gifsicle' | 'lossy'>('standard');
+  const [lossyLevel, setLossyLevel] = useState(80);
+  const [optimizationLevel, setOptimizationLevel] = useState(2);
+  const [dithering, setDithering] = useState(true);
+  const [gifUrl, setGifUrl] = useState('');
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
 
@@ -131,7 +135,12 @@ export default function GifCompressor() {
     try {
       const compressionOptions = {
         quality,
-        ...getOptimalCompressionSettings(file.size)
+        compressionMethod,
+        lossyLevel,
+        optimizationLevel,
+        dithering,
+        interlaced: false,
+        ...getOptimalCompressionSettings(file.size, compressionMethod)
       };
 
       const onProgress = (progressData: CompressionProgress) => {
@@ -262,9 +271,118 @@ export default function GifCompressor() {
                   </button>
                 </div>
                 
-                <div className="space-y-4 pt-6 border-t border-gray-700/50">
-                  <label className="block text-lg font-medium text-center text-gray-300">Compression Quality: {quality}%</label>
-                  <input type="range" min="10" max="100" value={quality} onChange={(e) => setQuality(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-400" />
+                <div className="space-y-6 pt-6 border-t border-gray-700/50">
+                  {/* Compression Method Selection */}
+                  <div className="space-y-3">
+                    <label className="block text-lg font-medium text-center text-gray-300">Compression Method</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setCompressionMethod('standard')}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          compressionMethod === 'standard'
+                            ? 'border-green-400 bg-green-400/10 text-green-400'
+                            : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">Standard</div>
+                        <div className="text-xs opacity-75">Balanced compression</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompressionMethod('gifsicle')}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          compressionMethod === 'gifsicle'
+                            ? 'border-blue-400 bg-blue-400/10 text-blue-400'
+                            : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">Gifsicle</div>
+                        <div className="text-xs opacity-75">High quality, optimized</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompressionMethod('lossy')}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          compressionMethod === 'lossy'
+                            ? 'border-purple-400 bg-purple-400/10 text-purple-400'
+                            : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">Lossy</div>
+                        <div className="text-xs opacity-75">Maximum compression</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quality Slider */}
+                  <div className="space-y-3">
+                    <label className="block text-lg font-medium text-center text-gray-300">Quality: {quality}%</label>
+                    <input 
+                      type="range" 
+                      min="10" 
+                      max="100" 
+                      value={quality} 
+                      onChange={(e) => setQuality(parseInt(e.target.value))} 
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-400" 
+                    />
+                  </div>
+
+                  {/* Method-specific Options */}
+                  {compressionMethod === 'gifsicle' && (
+                    <div className="space-y-4 p-4 bg-blue-400/5 rounded-lg border border-blue-400/20">
+                      <h4 className="text-sm font-medium text-blue-400">Gifsicle Options</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm text-gray-300 mb-2">Optimization Level: {optimizationLevel}</label>
+                          <input 
+                            type="range" 
+                            min="1" 
+                            max="3" 
+                            value={optimizationLevel} 
+                            onChange={(e) => setOptimizationLevel(parseInt(e.target.value))} 
+                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-400" 
+                          />
+                          <div className="flex justify-between text-xs text-gray-400 mt-1">
+                            <span>Fast</span>
+                            <span>Balanced</span>
+                            <span>Best</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <input 
+                            type="checkbox" 
+                            id="dithering" 
+                            checked={dithering} 
+                            onChange={(e) => setDithering(e.target.checked)}
+                            className="w-4 h-4 text-blue-400 bg-gray-700 border-gray-600 rounded focus:ring-blue-400 focus:ring-2"
+                          />
+                          <label htmlFor="dithering" className="text-sm text-gray-300">Enable Dithering</label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {compressionMethod === 'lossy' && (
+                    <div className="space-y-4 p-4 bg-purple-400/5 rounded-lg border border-purple-400/20">
+                      <h4 className="text-sm font-medium text-purple-400">Lossy Compression Options</h4>
+                      <div>
+                        <label className="block text-sm text-gray-300 mb-2">Lossy Level: {lossyLevel}%</label>
+                        <input 
+                          type="range" 
+                          min="20" 
+                          max="100" 
+                          value={lossyLevel} 
+                          onChange={(e) => setLossyLevel(parseInt(e.target.value))} 
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-400" 
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>Aggressive</span>
+                          <span>Conservative</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex justify-center">

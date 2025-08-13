@@ -67,7 +67,7 @@ ToolItem.displayName = 'ToolItem';
 const Tools: React.FC = React.memo(() => {
   const tools = useMemo(() => [
     {
-      title: 'MP4 to GIF',
+      title: 'Video to GIF',
       icon: <FileVideo />,
       path: '/tools/video-to-gif',
       comingSoon: false
@@ -90,18 +90,7 @@ const Tools: React.FC = React.memo(() => {
       path: '/tools/image-resizer',
       comingSoon: false
     },
-    {
-      title: 'Image to PDF',
-      icon: <FileText />,
-      path: '/tools/image-to-pdf',
-      comingSoon: false
-    },
-    {
-      title: 'PDF to Image',
-      icon: <FileImage />,
-      path: '/tools/pdf-to-image',
-      comingSoon: false
-    },
+
     {
       title: 'Image Converter',
       icon: <FileImage />,
@@ -114,12 +103,7 @@ const Tools: React.FC = React.memo(() => {
       path: '/tools/video-converter',
       comingSoon: false
     },
-    {
-      title: 'Audio Downloader',
-      icon: <Music />,
-      path: '/tools/audio-downloader',
-      comingSoon: false
-    },
+
     {
       title: 'Document Converter',
       icon: <FileCode />,
@@ -143,9 +127,7 @@ const Tools: React.FC = React.memo(() => {
       <div className="container mx-auto px-4 pt-2 pb-4 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent" style={{fontSize: '10rem', lineHeight: '0.8', textTransform: 'none', letterSpacing: 'normal', animation: 'none', fontWeight: '900', marginTop: '0', marginBottom: '0.5rem', display: 'block', maxWidth: 'none', width: 'auto'}}>
-              All Tools
-            </h1>
+            <h1 className="text-6xl md:text-7xl font-black mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">All Tools</h1>
           </AnimatedElement>
           <AnimatedElement type="slideUp" delay={0.4}>
             <p className="text-gray-300 mb-6">
@@ -155,7 +137,7 @@ const Tools: React.FC = React.memo(() => {
             </p>
           </AnimatedElement>
           
-          <AnimatedElement type="fadeIn" delay={0.8} className="w-full text-center mt-12">
+          <AnimatedElement type="fadeIn" delay={0.8} className="w-full text-center mt-8 mb-8">
             <Link to="/">
               <button 
                 className="bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover flex items-center justify-center mx-auto"
@@ -182,7 +164,7 @@ const Tools: React.FC = React.memo(() => {
             <div className="grid md:grid-cols-2 gap-x-12 gap-y-1">
               <div className="pl-6">
                 <ToolItem 
-                  title="MP4 to GIF" 
+                  title="Video to GIF" 
                   icon={<FileVideo />}
                   path="/tools/video-to-gif"
                 />
@@ -201,23 +183,10 @@ const Tools: React.FC = React.memo(() => {
                   icon={<FileImage />}
                   path="/tools/image-resizer"
                 />
-                <ToolItem 
-                  title="Image to PDF" 
-                  icon={<FileText />}
-                  path="/tools/image-to-pdf"
-                />
-                <ToolItem 
-                  title="PDF to Image" 
-                  icon={<FileImage />}
-                  path="/tools/pdf-to-image"
-                />
+
               </div>
               <div className="pl-6">
-                <ToolItem 
-                  title="Audio Downloader" 
-                  icon={<Music />}
-                  path="/tools/audio-downloader"
-                />
+
                 <ToolItem 
                   title="Image Converter" 
                   icon={<FileImage />}

@@ -15,7 +15,7 @@ const PrivacyPolicy = () => {
             
             <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-100">Introduction</h2>
             <p className="text-gray-300">
-              At GIFConvert, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our MP4 to GIF conversion service.
+              At GIFConvert, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our Video to GIF conversion service.
             </p>
             
             <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-100">Information We Don't Collect</h2>

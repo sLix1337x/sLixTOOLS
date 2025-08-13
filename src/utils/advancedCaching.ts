@@ -1,19 +1,14 @@
 /**
- * Advanced multi-layer caching system
- * Implements memory, session, local storage, and IndexedDB caching
+ * Simplified caching system
+ * Basic memory and session storage caching
  */
 
-import { PERFORMANCE_CONFIG } from '@/config/performance';
 import { MemoryAwareCache } from './memoryManager';
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
   ttl: number;
-  version: string;
-  size: number;
-  accessCount: number;
-  lastAccessed: number;
 }
 
 interface CacheStats {
@@ -24,152 +19,32 @@ interface CacheStats {
   hitRate: number;
 }
 
-type CacheLayer = 'memory' | 'session' | 'local' | 'indexeddb';
-
-// Cache configuration for different data types
+// Simplified cache configuration
 const CACHE_CONFIGS = {
+  default: {
+    ttl: 60 * 60 * 1000, // 1 hour
+    maxSize: 30,
+  },
   images: {
-    layers: ['memory', 'indexeddb'] as CacheLayer[],
     ttl: 24 * 60 * 60 * 1000, // 24 hours
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: 50,
   },
   api: {
-    layers: ['memory', 'session'] as CacheLayer[],
     ttl: 5 * 60 * 1000, // 5 minutes
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 20,
   },
   processed: {
-    layers: ['memory', 'local', 'indexeddb'] as CacheLayer[],
     ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
-    maxSize: 100 * 1024 * 1024, // 100MB
+    maxSize: 100,
   },
   temp: {
-    layers: ['memory', 'session'] as CacheLayer[],
     ttl: 60 * 1000, // 1 minute
-    maxSize: 5 * 1024 * 1024, // 5MB
+    maxSize: 10,
   },
 };
 
-// IndexedDB wrapper for large data storage
-class IndexedDBCache {
-  private dbName = 'sLixTOOLS-Cache';
-  private version = 1;
-  private db: IDBDatabase | null = null;
-  private initPromise: Promise<void> | null = null;
-
-  async init(): Promise<void> {
-    if (this.initPromise) return this.initPromise;
-    
-    this.initPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve();
-      };
-      
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        
-        // Create object stores for different cache types
-        if (!db.objectStoreNames.contains('images')) {
-          db.createObjectStore('images', { keyPath: 'key' });
-        }
-        if (!db.objectStoreNames.contains('processed')) {
-          db.createObjectStore('processed', { keyPath: 'key' });
-        }
-        if (!db.objectStoreNames.contains('metadata')) {
-          db.createObjectStore('metadata', { keyPath: 'key' });
-        }
-      };
-    });
-    
-    return this.initPromise;
-  }
-
-  async get<T>(storeName: string, key: string): Promise<CacheEntry<T> | null> {
-    await this.init();
-    if (!this.db) return null;
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.get(key);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const result = request.result;
-        if (result && result.entry) {
-          resolve(result.entry);
-        } else {
-          resolve(null);
-        }
-      };
-    });
-  }
-
-  async set<T>(storeName: string, key: string, entry: CacheEntry<T>): Promise<void> {
-    await this.init();
-    if (!this.db) return;
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.put({ key, entry });
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
-  }
-
-  async delete(storeName: string, key: string): Promise<void> {
-    await this.init();
-    if (!this.db) return;
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.delete(key);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
-  }
-
-  async clear(storeName: string): Promise<void> {
-    await this.init();
-    if (!this.db) return;
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.clear();
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
-  }
-
-  async getAllKeys(storeName: string): Promise<string[]> {
-    await this.init();
-    if (!this.db) return [];
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.getAllKeys();
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result as string[]);
-    });
-  }
-}
-
-// Multi-layer cache implementation
-export class AdvancedCache<T = unknown> {
+export class SimpleCache<T = unknown> {
   private memoryCache = new MemoryAwareCache<string, CacheEntry<T>>();
-  private indexedDBCache = new IndexedDBCache();
   private stats: CacheStats = {
     hits: 0,
     misses: 0,
@@ -178,7 +53,6 @@ export class AdvancedCache<T = unknown> {
     hitRate: 0,
   };
   private cacheType: keyof typeof CACHE_CONFIGS;
-  private version = '1.0.0';
 
   constructor(cacheType: keyof typeof CACHE_CONFIGS) {
     this.cacheType = cacheType;
@@ -186,19 +60,10 @@ export class AdvancedCache<T = unknown> {
   }
 
   private setupCleanup() {
-    // Periodic cleanup
+    // Clean up expired entries every 5 minutes
     setInterval(() => {
       this.cleanup();
-    }, 5 * 60 * 1000); // Every 5 minutes
-
-    // Cleanup on page visibility change
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          this.cleanup();
-        }
-      });
-    }
+    }, 5 * 60 * 1000);
   }
 
   private getConfig() {
@@ -206,285 +71,132 @@ export class AdvancedCache<T = unknown> {
   }
 
   private createCacheEntry(data: T, ttl?: number): CacheEntry<T> {
-    const config = this.getConfig();
     return {
       data,
       timestamp: Date.now(),
-      ttl: ttl || config.ttl,
-      version: this.version,
-      size: this.estimateSize(data),
-      accessCount: 0,
-      lastAccessed: Date.now(),
+      ttl: ttl || this.getConfig().ttl,
     };
-  }
-
-  private estimateSize(data: T): number {
-    if (typeof data === 'string') {
-      return data.length * 2; // UTF-16
-    }
-    if (data instanceof ArrayBuffer) {
-      return data.byteLength;
-    }
-    if (data instanceof Blob) {
-      return data.size;
-    }
-    // Rough estimate for objects
-    try {
-      return JSON.stringify(data).length * 2;
-    } catch {
-      return 1024; // Default estimate
-    }
   }
 
   private isExpired(entry: CacheEntry<T>): boolean {
     return Date.now() - entry.timestamp > entry.ttl;
   }
 
-  private updateAccessInfo(entry: CacheEntry<T>): void {
-    entry.accessCount++;
-    entry.lastAccessed = Date.now();
-  }
-
-  // Get from memory cache
-  private async getFromMemory(key: string): Promise<T | null> {
-    const entry = this.memoryCache.get(key);
-    if (entry && !this.isExpired(entry)) {
-      this.updateAccessInfo(entry);
+  async get(key: string): Promise<T | null> {
+    // Try memory cache first
+    const memoryEntry = this.memoryCache.get(key);
+    if (memoryEntry && !this.isExpired(memoryEntry)) {
       this.stats.hits++;
-      return entry.data;
+      this.updateHitRate();
+      return memoryEntry.data;
     }
-    return null;
-  }
 
-  // Get from session storage
-  private async getFromSession(key: string): Promise<T | null> {
-    if (typeof sessionStorage === 'undefined') return null;
-    
+    // Try session storage
     try {
-      const stored = sessionStorage.getItem(`cache_${this.cacheType}_${key}`);
-      if (stored) {
-        const entry: CacheEntry<T> = JSON.parse(stored);
+      const sessionData = sessionStorage.getItem(`cache_${this.cacheType}_${key}`);
+      if (sessionData) {
+        const entry: CacheEntry<T> = JSON.parse(sessionData);
         if (!this.isExpired(entry)) {
-          this.updateAccessInfo(entry);
-          // Promote to memory cache
+          // Move back to memory cache
           this.memoryCache.set(key, entry);
           this.stats.hits++;
+          this.updateHitRate();
           return entry.data;
         } else {
+          // Remove expired entry
           sessionStorage.removeItem(`cache_${this.cacheType}_${key}`);
         }
       }
     } catch (error) {
       console.warn('Session storage error:', error);
     }
-    return null;
-  }
 
-  // Get from local storage
-  private async getFromLocal(key: string): Promise<T | null> {
-    if (typeof localStorage === 'undefined') return null;
-    
-    try {
-      const stored = localStorage.getItem(`cache_${this.cacheType}_${key}`);
-      if (stored) {
-        const entry: CacheEntry<T> = JSON.parse(stored);
-        if (!this.isExpired(entry)) {
-          this.updateAccessInfo(entry);
-          // Promote to higher cache layers
-          this.memoryCache.set(key, entry);
-          if (this.getConfig().layers.includes('session')) {
-            sessionStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-          }
-          this.stats.hits++;
-          return entry.data;
-        } else {
-          localStorage.removeItem(`cache_${this.cacheType}_${key}`);
-        }
-      }
-    } catch (error) {
-      console.warn('Local storage error:', error);
-    }
-    return null;
-  }
-
-  // Get from IndexedDB
-  private async getFromIndexedDB(key: string): Promise<T | null> {
-    try {
-      const entry = await this.indexedDBCache.get<T>(this.cacheType, key);
-      if (entry && !this.isExpired(entry)) {
-        this.updateAccessInfo(entry);
-        // Promote to higher cache layers
-        this.memoryCache.set(key, entry);
-        const config = this.getConfig();
-        if (config.layers.includes('session')) {
-          sessionStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-        }
-        if (config.layers.includes('local')) {
-          localStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-        }
-        this.stats.hits++;
-        return entry.data;
-      } else if (entry) {
-        // Expired, remove it
-        await this.indexedDBCache.delete(this.cacheType, key);
-      }
-    } catch (error) {
-      console.warn('IndexedDB error:', error);
-    }
-    return null;
-  }
-
-  // Public API
-  async get(key: string): Promise<T | null> {
-    const config = this.getConfig();
-    
-    // Try each cache layer in order
-    for (const layer of config.layers) {
-      let result: T | null = null;
-      
-      switch (layer) {
-        case 'memory':
-          result = await this.getFromMemory(key);
-          break;
-        case 'session':
-          result = await this.getFromSession(key);
-          break;
-        case 'local':
-          result = await this.getFromLocal(key);
-          break;
-        case 'indexeddb':
-          result = await this.getFromIndexedDB(key);
-          break;
-      }
-      
-      if (result !== null) {
-        return result;
-      }
-    }
-    
     this.stats.misses++;
     this.updateHitRate();
     return null;
   }
 
   async set(key: string, data: T, ttl?: number): Promise<void> {
-    const config = this.getConfig();
     const entry = this.createCacheEntry(data, ttl);
     
-    // Store in all configured cache layers
-    const promises: Promise<void>[] = [];
+    // Set in memory cache
+    this.memoryCache.set(key, entry);
     
-    for (const layer of config.layers) {
-      switch (layer) {
-        case 'memory':
-          this.memoryCache.set(key, entry);
-          break;
-        case 'session':
-          if (typeof sessionStorage !== 'undefined') {
-            try {
-              sessionStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-            } catch (error) {
-              console.warn('Session storage full:', error);
-            }
-          }
-          break;
-        case 'local':
-          if (typeof localStorage !== 'undefined') {
-            try {
-              localStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-            } catch (error) {
-              console.warn('Local storage full:', error);
-            }
-          }
-          break;
-        case 'indexeddb':
-          promises.push(this.indexedDBCache.set(this.cacheType, key, entry));
-          break;
-      }
+    // Set in session storage for persistence
+    try {
+      sessionStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
+    } catch (error) {
+      console.warn('Session storage error:', error);
     }
     
-    await Promise.all(promises);
     this.stats.entries++;
-    this.stats.size += entry.size;
+    this.stats.size++;
   }
 
   async delete(key: string): Promise<void> {
-    const config = this.getConfig();
-    const promises: Promise<void>[] = [];
+    this.memoryCache.delete(key);
     
-    // Remove from all cache layers
-    for (const layer of config.layers) {
-      switch (layer) {
-        case 'memory':
-          this.memoryCache.delete(key);
-          break;
-        case 'session':
-          if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.removeItem(`cache_${this.cacheType}_${key}`);
-          }
-          break;
-        case 'local':
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem(`cache_${this.cacheType}_${key}`);
-          }
-          break;
-        case 'indexeddb':
-          promises.push(this.indexedDBCache.delete(this.cacheType, key));
-          break;
-      }
+    try {
+      sessionStorage.removeItem(`cache_${this.cacheType}_${key}`);
+    } catch (error) {
+      console.warn('Session storage error:', error);
     }
     
-    await Promise.all(promises);
     this.stats.entries = Math.max(0, this.stats.entries - 1);
+    this.stats.size = Math.max(0, this.stats.size - 1);
   }
 
   async clear(): Promise<void> {
-    const config = this.getConfig();
-    const promises: Promise<void>[] = [];
+    this.memoryCache.clear();
     
-    // Clear all cache layers
-    for (const layer of config.layers) {
-      switch (layer) {
-        case 'memory':
-          this.memoryCache.clear();
-          break;
-        case 'session':
-          if (typeof sessionStorage !== 'undefined') {
-            Object.keys(sessionStorage).forEach(key => {
-              if (key.startsWith(`cache_${this.cacheType}_`)) {
-                sessionStorage.removeItem(key);
-              }
-            });
-          }
-          break;
-        case 'local':
-          if (typeof localStorage !== 'undefined') {
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith(`cache_${this.cacheType}_`)) {
-                localStorage.removeItem(key);
-              }
-            });
-          }
-          break;
-        case 'indexeddb':
-          promises.push(this.indexedDBCache.clear(this.cacheType));
-          break;
+    // Clear session storage entries for this cache type
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
+          keysToRemove.push(key);
+        }
       }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    } catch (error) {
+      console.warn('Session storage error:', error);
     }
     
-    await Promise.all(promises);
     this.resetStats();
   }
 
-  private async cleanup(): Promise<void> {
-    // This is a simplified cleanup - in practice, you'd want more sophisticated LRU eviction
-    const config = this.getConfig();
+  private cleanup(): void {
+    // Clean up memory cache
+    try {
+      for (const key of this.memoryCache.keys()) {
+        const entry = this.memoryCache.get(key);
+        if (entry && this.isExpired(entry)) {
+          this.memoryCache.delete(key);
+        }
+      }
+    } catch (error) {
+      console.warn('Memory cache cleanup error:', error);
+    }
     
-    if (this.stats.size > config.maxSize) {
-      console.log(`Cache ${this.cacheType} exceeds max size, performing cleanup`);
-      // Implement LRU eviction logic here
-      // For now, just clear everything
-      await this.clear();
+    // Clean up session storage
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
+          const data = sessionStorage.getItem(key);
+          if (data) {
+            const entry: CacheEntry<T> = JSON.parse(data);
+            if (this.isExpired(entry)) {
+              keysToRemove.push(key);
+            }
+          }
+        }
+      }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    } catch (error) {
+      console.warn('Session storage cleanup error:', error);
     }
   }
 
@@ -507,58 +219,68 @@ export class AdvancedCache<T = unknown> {
     return { ...this.stats };
   }
 
-  // Utility methods
   async has(key: string): Promise<boolean> {
     return (await this.get(key)) !== null;
   }
 
   async keys(): Promise<string[]> {
-    // This would need to be implemented to collect keys from all layers
-    // For now, just return IndexedDB keys if available
+    const memoryKeys = this.memoryCache.keys();
+    const sessionKeys: string[] = [];
+    
     try {
-      return await this.indexedDBCache.getAllKeys(this.cacheType);
-    } catch {
-      return [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
+          const cacheKey = key.replace(`cache_${this.cacheType}_`, '');
+          if (!memoryKeys.includes(cacheKey)) {
+            sessionKeys.push(cacheKey);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Session storage error:', error);
     }
+    
+    return [...memoryKeys, ...sessionKeys];
   }
 }
 
-// Cache manager for different data types
 export class CacheManager {
   private static instance: CacheManager;
-  private caches = new Map<string, AdvancedCache>();
+  private caches = new Map<string, SimpleCache>();
 
   private constructor() {}
 
   static getInstance(): CacheManager {
-    if (!this.instance) {
-      this.instance = new CacheManager();
+    if (!CacheManager.instance) {
+      CacheManager.instance = new CacheManager();
     }
-    return this.instance;
+    return CacheManager.instance;
   }
 
-  getCache<T>(type: keyof typeof CACHE_CONFIGS): AdvancedCache<T> {
+  getCache<T>(type: keyof typeof CACHE_CONFIGS): SimpleCache<T> {
     if (!this.caches.has(type)) {
-      this.caches.set(type, new AdvancedCache<T>(type));
+      this.caches.set(type, new SimpleCache<T>(type));
     }
-    return this.caches.get(type)! as AdvancedCache<T>;
+    return this.caches.get(type) as SimpleCache<T>;
   }
 
   async clearAll(): Promise<void> {
-    const promises = Array.from(this.caches.values()).map(cache => cache.clear());
-    await Promise.all(promises);
+    for (const cache of this.caches.values()) {
+      await cache.clear();
+    }
   }
 
   getAllStats() {
     const stats: Record<string, CacheStats> = {};
-    this.caches.forEach((cache, type) => {
+    for (const [type, cache] of this.caches.entries()) {
       stats[type] = cache.getStats();
-    });
+    }
     return stats;
   }
 }
 
-// Convenience functions
+// Export singleton instance and specific caches
 export const cacheManager = CacheManager.getInstance();
 
 export const imageCache = cacheManager.getCache<Blob>('images');
@@ -566,7 +288,7 @@ export const apiCache = cacheManager.getCache<Record<string, unknown>>('api');
 export const processedCache = cacheManager.getCache<Blob | ArrayBuffer | string>('processed');
 export const tempCache = cacheManager.getCache<unknown>('temp');
 
-// React hook for caching
+// Export hook for React components
 export const useAdvancedCache = <T>(type: keyof typeof CACHE_CONFIGS) => {
   const cache = cacheManager.getCache<T>(type);
   
@@ -576,6 +298,7 @@ export const useAdvancedCache = <T>(type: keyof typeof CACHE_CONFIGS) => {
     delete: (key: string) => cache.delete(key),
     clear: () => cache.clear(),
     has: (key: string) => cache.has(key),
+    keys: () => cache.keys(),
     getStats: () => cache.getStats(),
   };
 };

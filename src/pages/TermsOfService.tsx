@@ -15,7 +15,7 @@ const TermsOfService = () => {
             
             <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-100">Introduction</h2>
             <p className="text-gray-300">
-              Welcome to GIFConvert. These Terms of Service govern your use of our website and MP4 to GIF conversion service. By accessing or using our service, you agree to be bound by these Terms.
+              Welcome to GIFConvert. These Terms of Service govern your use of our website and Video to GIF conversion service. By accessing or using our service, you agree to be bound by these Terms.
             </p>
             
             <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-100">Use of Service</h2>

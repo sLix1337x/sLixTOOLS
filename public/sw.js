@@ -31,7 +31,7 @@ const STATIC_ASSETS = [
   '/favicon.ico',
   '/logo192.png',
   '/logo512.png',
-  '/workers/pdf.worker.js'
+
 ];
 
 // Dynamic routes that should be cached
@@ -39,9 +39,6 @@ const DYNAMIC_ROUTES = [
   '/video-to-gif',
   '/gif-compressor',
   '/image-compressor',
-  '/image-to-pdf',
-  '/pdf-to-image',
-  '/audio-downloader',
   '/about',
   '/contact',
   '/privacy-policy'

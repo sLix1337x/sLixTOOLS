@@ -248,7 +248,7 @@ const Home: React.FC = () => {
           <div className="max-w-2xl mx-auto w-full">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               <ToolItem 
-                title="MP4 to GIF"
+                title="Video to GIF"
                 icon={<FileVideo />}
                 path="/tools/video-to-gif"
               />
@@ -274,7 +274,7 @@ const Home: React.FC = () => {
               <ToolItem 
                 title="PDF Compressor"
                 icon={<FileText />}
-                path="/tools/pdf-compressor"
+                comingSoon={true}
               />
               
               <ToolItem 

@@ -5,12 +5,23 @@ import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Clock, FileAudio, FileImage, FileText, FileVideo, Image as ImageIcon, Zap } from 'lucide-react';
 import { preloadRoute } from '@/utils/preloader';
 import { useComponentOptimization } from '@/hooks/usePerformanceOptimization';
-import { PERFORMANCE_CONFIG } from '@/config/performance';
+// Removed PERFORMANCE_CONFIG import - using simplified approach
 
 // Add rainbow hover effect styles
 const rainbowStyles = `
   @keyframes slidebg {
     to { background-position: 20vw; }
+  }
+  @keyframes shine {
+    0% {
+      background-position: -200% center;
+    }
+    50% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
   }
   .rainbow-hover {
     transition: all 0.3s ease;
@@ -30,6 +41,21 @@ const rainbowStyles = `
     outline: none !important;
     box-shadow: none !important;
     ring: 0 !important;
+  }
+  .shiny-text {
+    background: linear-gradient(
+      90deg,
+      #3b82f6 0%,
+      #22c55e 25%,
+      #ffffff 50%,
+      #22c55e 75%,
+      #3b82f6 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine 25s ease-in-out infinite;
   }
 `;
 
@@ -51,9 +77,9 @@ const MainNav: React.FC = React.memo(() => {
   // Performance optimization for navigation component
   const { measureRenderTime, optimizeComponent } = useComponentOptimization('MainNav');
   
-  // Preload routes on hover with performance-aware delays
+  // Preload routes on hover with simple delay
   const handleRouteHover = useCallback((path: string) => {
-    const delay = PERFORMANCE_CONFIG.lazyLoading.preloadDelay;
+    const delay = 100; // Simple 100ms delay
     setTimeout(() => {
       preloadRoute(path).catch(error => {
           if (process.env.NODE_ENV === 'development') {
@@ -65,7 +91,7 @@ const MainNav: React.FC = React.memo(() => {
 
   const availableTools = useMemo(() => [
     { 
-      name: "MP4 to GIF", 
+      name: "Video to GIF", 
       path: "/tools/video-to-gif",
       icon: <FileVideo className="h-4 w-4 flex-shrink-0" />
     },
@@ -138,7 +164,7 @@ const MainNav: React.FC = React.memo(() => {
                 target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
               }}
             />
-            <span className="ml-2 font-bold text-xl bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">sLixTOOLS</span>
+            <span className="ml-2 font-bold text-xl shiny-text">sLixTOOLS</span>
           </Link>
         </div>
         

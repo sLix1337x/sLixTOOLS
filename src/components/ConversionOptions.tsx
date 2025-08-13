@@ -20,6 +20,22 @@ const formatDuration = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const estimateGifSize = (width: number, height: number, fps: number, duration: number, quality: number): number => {
+  // Rough estimation formula for GIF file size
+  const frames = fps * duration;
+  const pixelsPerFrame = width * height;
+  const bytesPerPixel = Math.max(0.1, 1 - (quality / 20)); // Quality affects compression
+  return frames * pixelsPerFrame * bytesPerPixel;
+};
+
 // Extend Switch component props to include thumbClassName
 declare module 'react' {
   interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
@@ -28,6 +44,13 @@ declare module 'react' {
 }
 
 const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onChange, videoFile, videoDuration = 0 }) => {
+  // Calculate estimated file size
+  const getEstimatedSize = () => {
+    const width = options.width || 480;
+    const height = options.height || 360;
+    const duration = options.endTime ? (options.endTime - (options.startTime || 0)) : (options.duration || videoDuration || 5);
+    return estimateGifSize(width, height, options.fps || 10, duration, options.quality || 10);
+  };
   const handleFpsChange = (value: number[]) => {
     onChange({ ...options, fps: value[0] });
   };
@@ -69,22 +92,32 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
     });
   };
 
-  const handleTrimEnabledChange = (checked: boolean) => {
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
     onChange({
       ...options,
-      trimEnabled: checked
+      endTime: isNaN(value) ? undefined : value
     });
   };
 
+
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center mb-4">
-        <Settings className="w-6 h-6 mr-2 text-green-400" />
-        <h3 className="text-2xl font-bold">CONVERSION OPTIONS</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <Settings className="w-6 h-6 mr-2 text-green-400" />
+          <h3 className="text-2xl font-bold">CONVERSION OPTIONS</h3>
+        </div>
+        {videoFile && (
+          <div className="text-sm text-gray-400">
+            Original Size: <span className="text-blue-400 font-semibold">{formatFileSize(videoFile.size)}</span>
+          </div>
+        )}
       </div>
       
       <div className="space-y-6">
-        <div className="space-y-2 bg-black/50 p-4 border border-dashed border-green-400/50">
+        <div className="space-y-2 bg-black/50 p-4 border border-gray-600/50">
           <div className="flex justify-between mb-2">
             <Label htmlFor="fps" className="text-green-300 text-lg">
               FRAMES PER SECOND:
@@ -105,12 +138,12 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
           <p className="text-sm text-green-300/80 mt-2">HIGHER FPS = SMOOTHER ANIMATION BUT LARGER FILE SIZE</p>
         </div>
 
-        <div className="space-y-2 bg-black/50 p-4 border border-dashed border-green-400/50">
+        <div className="space-y-2 bg-black/50 p-4 border border-gray-600/50">
           <div className="flex justify-between mb-2">
             <Label htmlFor="quality" className="text-green-300 text-lg">
-              QUALITY:
+              QUALITY: {options.quality}%
             </Label>
-            <span className="text-blue-400 font-bold">{options.quality} (LOWER = BETTER)</span>
+            <span className="text-yellow-400 font-semibold text-sm">EST. SIZE: {formatFileSize(getEstimatedSize())}</span>
           </div>
           <div className="px-2">
             <Slider 
@@ -126,56 +159,47 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
           <p className="text-sm text-green-300/80 mt-2">LOWER VALUES = BETTER QUALITY BUT LARGER FILE SIZE</p>
         </div>
 
-        <div className="flex items-center space-x-2 pb-2">
-          <Switch 
-            id="trim"
-            checked={options.trimEnabled || false}
-            onCheckedChange={handleTrimEnabledChange}
-          />
-          <Label htmlFor="trim" className="text-gray-300">Enable time trimming</Label>
-        </div>
-
-        {options.trimEnabled && (
-          <div className="mt-4 space-y-4 pl-4 border-l-2 border-dashed border-blue-400/50">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startTime" className="text-green-300 text-sm">
-                  START TIME (SECONDS):
-                </Label>
-                <Input
-                  id="startTime"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={options.startTime || ''}
-                  onChange={handleStartTimeChange}
-                  className="bg-black/50 border-2 border-dashed border-green-400/50 text-green-300 focus:border-green-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="duration" className="text-green-300 text-sm">
-                  DURATION (SECONDS):
-                </Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={options.duration || ''}
-                  onChange={handleDurationChange}
-                  className="bg-black/50 border-2 border-dashed border-green-400/50 text-green-300 focus:border-green-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  placeholder="Leave empty for full length"
-                />
-              </div>
+        <div className="space-y-4 bg-black/50 p-4 border border-gray-600/50">
+          <h4 className="text-green-300 text-lg font-semibold">TIME CONTROLS:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startTime" className="text-green-300 text-sm">
+                START TIME (SECONDS):
+              </Label>
+              <Input
+                id="startTime"
+                type="number"
+                min="0"
+                step="0.1"
+                value={options.startTime || ''}
+                onChange={handleStartTimeChange}
+                className="bg-black/50 border border-gray-600/50 text-green-300 focus:border-green-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="0"
+              />
             </div>
-            
-            {videoDuration > 0 && (
-              <div className="text-sm text-green-300/80 italic">
-                VIDEO DURATION: {formatDuration(videoDuration)}
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="endTime" className="text-green-300 text-sm">
+                END TIME (SECONDS):
+              </Label>
+              <Input
+                id="endTime"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={options.endTime || ''}
+                onChange={handleEndTimeChange}
+                className="bg-black/50 border border-gray-600/50 text-green-300 focus:border-green-400 focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="Full video length"
+              />
+            </div>
           </div>
-        )}
+          
+          {videoDuration > 0 && (
+            <div className="text-sm text-green-300/80 italic">
+              VIDEO DURATION: {formatDuration(videoDuration)}
+            </div>
+          )}
+        </div>
         
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
           <div>
@@ -210,3 +234,4 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
 };
 
 export default ConversionOptionsForm;
+export { ConversionOptionsForm as ConversionOptionsComponent };

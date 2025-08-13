@@ -16,6 +16,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
 }) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const timeoutsRef = useRef<Set<NodeJS.Timeout>>(new Set()); // Track all timeouts for cleanup
   const [isVisible, setIsVisible] = useState(true);
   
   // Check for reduced motion preference
@@ -120,8 +121,11 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         if (particle.parentNode) {
           particle.remove();
         }
+        timeoutsRef.current.delete(cleanup); // Remove from tracking
       }, duration * 1000);
       
+      // Track timeout for cleanup
+      timeoutsRef.current.add(cleanup);
       // Store cleanup reference for early cleanup if needed
       particle.dataset.cleanup = cleanup.toString();
     };
@@ -129,7 +133,8 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
     // Create initial particles with staggered timing
     const initialParticles = Math.min(particleCount, 25); // Cap at 25 for performance
     for (let i = 0; i < initialParticles; i++) {
-      setTimeout(createParticle, i * 300); // Reduced interval
+      const timeout = setTimeout(createParticle, i * 300); // Reduced interval
+      timeoutsRef.current.add(timeout); // Track timeout for cleanup
     }
 
     // Add new particles periodically, but only when visible
@@ -145,6 +150,12 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
     startInterval();
 
     return () => {
+      // Critical fix: Clear all tracked timeouts to prevent memory leaks
+      timeoutsRef.current.forEach(timeout => {
+        clearTimeout(timeout);
+      });
+      timeoutsRef.current.clear();
+      
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

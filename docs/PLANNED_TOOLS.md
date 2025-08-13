@@ -1,10 +1,10 @@
 # Planned Tools for sLixTOOLS
 
-This document outlines the planned tools and features for future development of sLixTOOLS. Currently, only the MP4 to GIF converter is fully implemented and available.
+This document outlines the planned tools and features for future development of sLixTOOLS. Currently, only the Video to GIF converter is fully implemented and available.
 
 ## Currently Available
 
-- **MP4 to GIF Converter** - Convert MP4 video files to animated GIFs with customizable settings.
+- **Video to GIF Converter** - Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to animated GIFs with customizable settings.
 
 ## Planned Tools
 

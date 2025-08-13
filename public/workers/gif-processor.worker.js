@@ -3,8 +3,13 @@
  * Handles GIF creation, compression, and optimization in background thread
  */
 
-// Import GIF.js library
-importScripts('https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js');
+// Import GIF.js library from local copy
+try {
+  importScripts('/workers/gif.local.js');
+} catch (e) {
+  console.warn('Could not load gif.js from local, using fallback');
+  // Fallback implementation will be handled in the main functions
+}
 
 self.onmessage = function(e) {
   const { id, type, data } = e.data;

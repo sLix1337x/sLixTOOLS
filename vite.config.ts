@@ -2,6 +2,41 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+
+// Custom plugin to copy gif.js worker files
+const copyGifWorkers = () => {
+  return {
+    name: 'copy-gif-workers',
+    buildStart() {
+      // Copy gif.js worker files to public directory
+      const nodeModulesPath = resolve(__dirname, 'node_modules/gif.js/dist');
+      const publicWorkersPath = resolve(__dirname, 'public/workers');
+      
+      if (!existsSync(publicWorkersPath)) {
+        mkdirSync(publicWorkersPath, { recursive: true });
+      }
+      
+      try {
+        if (existsSync(join(nodeModulesPath, 'gif.worker.js'))) {
+          copyFileSync(
+            join(nodeModulesPath, 'gif.worker.js'),
+            join(publicWorkersPath, 'gif.worker.local.js')
+          );
+        }
+        if (existsSync(join(nodeModulesPath, 'gif.js'))) {
+          copyFileSync(
+            join(nodeModulesPath, 'gif.js'),
+            join(publicWorkersPath, 'gif.local.js')
+          );
+        }
+      } catch (error) {
+        console.warn('Could not copy gif.js worker files:', error.message);
+      }
+    }
+  };
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -11,6 +46,8 @@ export default defineConfig({
       // Enable React Fast Refresh
       fastRefresh: true
     }),
+    // Copy gif.js workers to avoid CDN dependencies
+    copyGifWorkers(),
     // Bundle analyzer - generates stats.html
     visualizer({
       filename: 'dist/stats.html',
@@ -70,8 +107,7 @@ export default defineConfig({
           ],
           
           // Heavy processing libraries (split by feature)
-          'pdf-libs': ['jspdf'],
-          'pdf-viewer': ['pdfjs-dist'],
+          // PDF libraries removed - tools now show "Coming Soon"
           'gif-libs': ['gif.js'],
           'file-libs': ['jszip'],
           'ffmpeg-libs': ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
@@ -112,8 +148,7 @@ export default defineConfig({
     ],
     exclude: [
       'gif.js',
-      'jspdf',
-      'pdfjs-dist',
+      // PDF libraries removed - tools converted to "Coming Soon"
       '@ffmpeg/ffmpeg',
       '@ffmpeg/util'
     ]

@@ -104,7 +104,7 @@ const Features: React.FC = () => {
 
         <AnimatedElement type="fadeIn" delay={1.0} className="w-full">
           <div className="mt-12 text-center">
-            <Link to="/tools/video-to-gif">
+            <Link to="/tools">
               <button 
                 className="bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover flex items-center justify-center mx-auto"
                 style={{

@@ -49,6 +49,7 @@ export interface ConversionOptionsProps {
   options: ConversionOptions;
   onOptionsChange: (options: ConversionOptions) => void;
   videoDuration: number;
+  videoFile?: File | null;
 }
 
 export interface FileUploadProps {

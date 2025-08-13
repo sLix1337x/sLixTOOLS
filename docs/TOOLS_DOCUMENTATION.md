@@ -2,14 +2,14 @@
 
 This document details the tool functionality in sLixTOOLS, focusing on the currently implemented tools and how they work.
 
-## MP4 to GIF Converter
+## Video to GIF Converter
 
 The primary tool currently implemented in sLixTOOLS.
 
 ### Implementation Details
 
 - **Files**: 
-  - `src/pages/tools/MP4ToGIF.tsx` - Main tool page
+  - `src/pages/tools/VideoToGif.tsx` - Main tool page
   - `src/components/FileUpload.tsx` - File upload component
   - `src/components/VideoPreview.tsx` - Video preview component
   - `src/components/ConversionOptions.tsx` - Settings for GIF conversion

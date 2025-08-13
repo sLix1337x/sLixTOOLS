@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, useLocation, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { Suspense, lazy } from "react";
+import React, { Suspense, lazy } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 
@@ -20,9 +20,6 @@ const ImageCompressor = lazy(() => import("./pages/tools/ImageCompressor"));
 const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
 const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
 const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
-const AudioDownloader = lazy(() => import("./pages/tools/AudioDownloader"));
-const ImageToPdf = lazy(() => import("./pages/tools/ImageToPdf"));
-const PdfToImage = lazy(() => import("./pages/tools/PdfToImage"));
 
 // Lazy load info pages
 const About = lazy(() => import("./pages/About"));
@@ -78,21 +75,8 @@ const AppContent = () => {
               <ImageResizer />
             </Suspense>
           } />
-          <Route path="/tools/audio-downloader" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Audio downloader..." />}>
-              <AudioDownloader />
-            </Suspense>
-          } />
-          <Route path="/tools/image-to-pdf" element={
-            <Suspense fallback={<LoadingSpinner text="Loading PDF converter..." />}>
-              <ImageToPdf />
-            </Suspense>
-          } />
-          <Route path="/tools/pdf-to-image" element={
-            <Suspense fallback={<LoadingSpinner text="Loading PDF to Image converter..." />}>
-              <PdfToImage />
-            </Suspense>
-          } />
+
+
           <Route path="/tools/video-converter" element={
             <Suspense fallback={<LoadingSpinner text="Loading Video converter..." />}>
               <VideoConverter />
@@ -164,31 +148,38 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <HelmetProvider>
+const App = () => {
 
-            <HashRouter>
-              <SmoothScroll>
-                <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-                  <header className="flex-shrink-0">
-                    <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
-                      <MainNav />
-                    </div>
-                  </header>
-                  <div className="flex-grow flex flex-col">
-                    <AppContent />
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <HelmetProvider>
+          <HashRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
+            <SmoothScroll>
+              <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+                <header className="flex-shrink-0">
+                  <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
+                    <MainNav />
                   </div>
-                  <CookieConsent />
+                </header>
+                <div className="flex-grow flex flex-col">
+                  <AppContent />
                 </div>
-              </SmoothScroll>
-            </HashRouter>
-
-        <Sonner className="toaster" position="bottom-right" />
-      </HelmetProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+                <CookieConsent />
+              </div>
+            </SmoothScroll>
+          </HashRouter>
+          
+          <Sonner className="toaster" position="bottom-right" />
+        </HelmetProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;
