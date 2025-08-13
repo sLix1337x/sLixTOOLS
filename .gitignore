@@ -38,4 +38,13 @@ node_modules/
 
 # Task files
 tasks.json
-tasks/ 
+tasks/
+
+# Development and tooling directories
+.trae/
+.taskmaster/
+
+# Documentation that might be auto-generated
+CLEANUP_ANALYSIS.md
+VideoToGif_Analysis_and_Fix_Plan.md
+browser_console_error.md
