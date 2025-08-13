@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, FileVideo, FileImage, FileText, Music, Scissors, Zap, Lock, CircleDollarSign, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, FileVideo, FileImage, FileText, Music, Scissors, Zap, Lock, CircleDollarSign, Shield, Sparkles, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AnimatedElement from '@/components/AnimatedElement';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -294,6 +294,13 @@ const Home: React.FC = () => {
                 title="Image Converter"
                 icon={<FileImage />}
                 path="/tools/image-converter"
+                comingSoon={false}
+              />
+              
+              <ToolItem 
+                title="Convert Case Tool"
+                icon={<Type />}
+                path="/tools/convert-case"
                 comingSoon={false}
               />
             </div>

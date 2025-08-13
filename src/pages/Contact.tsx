@@ -2,7 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
-import { Mail } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 const Contact = () => {
   return (
@@ -31,7 +31,7 @@ const Contact = () => {
                 className="block hover:opacity-90 transition-opacity transform hover:scale-105"
               >
                 <img 
-                  src="/images/kofi.svg" 
+                  src="/images/kofi.png" 
                   alt="Buy Me a Coffee at ko-fi.com" 
                   className="h-20 w-auto filter brightness-0 invert"
                 />
@@ -43,9 +43,9 @@ const Contact = () => {
             <div className="text-center text-gray-300">
               <h3 className="text-xl font-semibold text-gray-100 mb-2">Other Ways to Reach Me</h3>
               <div className="flex justify-center items-center space-x-3">
-                <a href="mailto:contact@slixtools.io" className="flex items-center space-x-2 hover:text-green-400 transition-colors">
-                  <Mail className="h-5 w-5" />
-                  <span>contact@slixtools.io</span>
+                <a href="https://steamcommunity.com/id/sLix7" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 hover:text-green-400 transition-colors">
+                  <ExternalLink className="h-5 w-5" />
+                  <span>steamcommunity.com/id/sLix7</span>
                 </a>
               </div>
             </div>

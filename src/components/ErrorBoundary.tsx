@@ -1,5 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { getPerformanceMonitor } from '../utils/performancemonitor';
 import { Button } from './ui/button';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 
@@ -50,7 +49,6 @@ interface ErrorReport {
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   private retryTimeouts: NodeJS.Timeout[] = [];
-  private performanceMonitor = getPerformanceMonitor();
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -80,13 +78,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     
     this.setState({ errorInfo });
     
-    // Log error with performance context
+    // Log error
     this.logError(error, errorInfo);
-    
-    // Track error in performance monitor
-    if (componentName) {
-      this.performanceMonitor.trackMemoryUsage(`${componentName}_error`);
-    }
     
     // Call custom error handler
     if (onError) {
@@ -107,8 +100,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       stack: error.stack,
       componentStack: errorInfo.componentStack,
       userAgent: navigator.userAgent,
-      url: window.location.href,
-      performanceMetrics: this.performanceMonitor.getPerformanceReport()
+      url: window.location.href
     };
     
     // Log to console in development
@@ -116,7 +108,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       console.group(`🚨 Error Boundary Caught Error [${errorReport.errorId}]`);
       console.error('Error:', error);
       console.error('Error Info:', errorInfo);
-      console.log('Performance Context:', errorReport.performanceMetrics);
       console.groupEnd();
     }
     

@@ -10,7 +10,7 @@ interface ParticleBackgroundProps {
 // Optimized Particle Background Component
 const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({ 
   className = '',
-  particleCount = 25, // Increased for better visibility
+  particleCount = 15, // Reduced for better performance
   animationSpeed = 1,
   enableReducedMotion = false
 }) => {
@@ -23,6 +23,8 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
   const prefersReducedMotion = useCallback(() => {
     return enableReducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, [enableReducedMotion]);
+  
+
   
   // Visibility API to pause animations when tab is not active
   useEffect(() => {
@@ -44,8 +46,10 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
     const style = document.createElement('style');
     style.textContent = `
       @keyframes float {
-        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-        100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-120vh) rotate(360deg); opacity: 0; }
       }
       @keyframes slidebg {
         to { background-position: 20vw; }
@@ -66,48 +70,53 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         left: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        z-index: -10 !important;
+        z-index: 0 !important;
         pointer-events: none !important;
         overflow: hidden !important;
       }
-      .particle {
+      .particle-custom {
         will-change: transform, opacity;
         backface-visibility: hidden;
         transform: translateZ(0);
         position: absolute !important;
-        background-color: #a855f7 !important;
         border-radius: 50% !important;
         pointer-events: none !important;
-        z-index: -9 !important;
+        z-index: 1 !important;
+        opacity: 0.6 !important;
+      }
+      .particle-white {
+        background-color: rgba(255, 255, 255, 0.8) !important;
+      }
+      .particle-purple {
+        background-color: rgba(168, 85, 247, 0.8) !important;
       }
     `;
     document.head.appendChild(style);
 
-    const container = document.createElement('div');
-    container.className = 'particle-bg-container';
+    // Use the React ref instead of creating a new DOM element
+    const container = containerRef.current;
+    if (!container) return;
+    
     container.style.opacity = '0.8';
-    container.innerHTML = '<div class="absolute inset-0" style="z-index: -9;"></div>';
-    document.body.appendChild(container);
-    containerRef.current = container;
-
-    const particleContainer = container.querySelector('div');
-    if (!particleContainer) return;
+    const particleContainer = container;
 
     const createParticle = () => {
       // Don't create particles if tab is not visible
       if (!isVisible) return;
       
       const particle = document.createElement('div');
-      particle.className = 'particle';
+      // Randomly choose between white and purple particles
+      const isWhite = Math.random() > 0.5;
+      particle.className = `particle-custom ${isWhite ? 'particle-white' : 'particle-purple'}`;
       
-      // Random size between 3x3 and 8x8
-      const size = Math.random() * 5 + 3;
+      // Larger, more visible particles
+      const size = Math.random() * 8 + 4;
       particle.style.width = `${size}px`;
       particle.style.height = `${size}px`;
       
-      // Random position
+      // Random horizontal position, start from bottom
       particle.style.left = `${Math.random() * 100}%`;
-      particle.style.top = `${Math.random() * 100}%`;
+      particle.style.top = '100vh';
       
       // Animation with speed control
       const duration = (Math.random() * 10 + 10) / animationSpeed;
@@ -130,10 +139,10 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
       particle.dataset.cleanup = cleanup.toString();
     };
 
-    // Create initial particles with staggered timing
-    const initialParticles = Math.min(particleCount, 25); // Cap at 25 for performance
+    // Create fewer initial particles for better performance
+    const initialParticles = Math.min(particleCount, 15); // Reduced for performance
     for (let i = 0; i < initialParticles; i++) {
-      const timeout = setTimeout(createParticle, i * 300); // Reduced interval
+      const timeout = setTimeout(createParticle, i * 200); // Slower creation
       timeoutsRef.current.add(timeout); // Track timeout for cleanup
     }
 
@@ -144,7 +153,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         if (isVisible) {
           createParticle();
         }
-      }, 3000); // Increased interval for better performance
+      }, 2500); // Slower particle creation for better performance
     };
     
     startInterval();
@@ -162,21 +171,36 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
       if (style.parentNode) {
         document.head.removeChild(style);
       }
-      if (container.parentNode) {
+      if (container) {
         // Clean up any remaining particles
-        const particles = container.querySelectorAll('.particle');
+        const particles = container.querySelectorAll('.particle-custom');
         particles.forEach(particle => {
           const cleanup = particle.dataset.cleanup;
           if (cleanup) {
             clearTimeout(parseInt(cleanup));
           }
+          particle.remove();
         });
-        document.body.removeChild(container);
       }
     };
   }, [particleCount, animationSpeed, isVisible, prefersReducedMotion]);
 
-  return null;
+  return (
+    <div 
+      ref={containerRef}
+      className="particle-bg-container"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 0,
+        pointerEvents: 'none',
+        overflow: 'hidden'
+      }}
+    />
+  );
 });
 
 ParticleBackground.displayName = 'ParticleBackground';

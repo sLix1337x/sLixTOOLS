@@ -2,9 +2,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Clock, FileAudio, FileImage, FileText, FileVideo, Image as ImageIcon, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileAudio, FileImage, FileText, FileVideo, Image as ImageIcon, Type, Zap } from 'lucide-react';
 import { preloadRoute } from '@/utils/preloader';
-import { useComponentOptimization } from '@/hooks/usePerformanceOptimization';
+
 // Removed PERFORMANCE_CONFIG import - using simplified approach
 
 // Add rainbow hover effect styles
@@ -57,6 +57,22 @@ const rainbowStyles = `
     -webkit-text-fill-color: transparent;
     animation: shine 25s ease-in-out infinite;
   }
+  .shiny-text-red {
+    background: linear-gradient(
+      90deg,
+      #ec4899 0%,
+      #22c55e 20%,
+      #f472b6 40%,
+      #ffffff 60%,
+      #22c55e 80%,
+      #ec4899 100%
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine 25s ease-in-out infinite;
+  }
 `;
 
 // Add styles to document head
@@ -74,8 +90,7 @@ const MainNav: React.FC = React.memo(() => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   
-  // Performance optimization for navigation component
-  const { measureRenderTime, optimizeComponent } = useComponentOptimization('MainNav');
+
   
   // Preload routes on hover with simple delay
   const handleRouteHover = useCallback((path: string) => {
@@ -93,37 +108,41 @@ const MainNav: React.FC = React.memo(() => {
     { 
       name: "Video to GIF", 
       path: "/tools/video-to-gif",
-      icon: <FileVideo className="h-4 w-4 flex-shrink-0" />
+      icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
     },
     { 
       name: "GIF Compressor", 
       path: "/tools/gif-compressor",
-      icon: <FileImage className="h-4 w-4 flex-shrink-0" />
+      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
     },
     { 
       name: "Image Compressor", 
       path: "/tools/image-compressor",
-      icon: <ImageIcon className="h-4 w-4 flex-shrink-0" />
+      icon: <ImageIcon className="h-5 w-5 flex-shrink-0" />
+    },
+    { 
+      name: "Image Resizer", 
+      path: "/tools/image-resizer",
+      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
+    },
+    { 
+      name: "Image Converter", 
+      path: "/tools/image-converter",
+      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
+    },
+    { 
+      name: "Video Converter", 
+      path: "/tools/video-converter",
+      icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
+    },
+    { 
+      name: "Convert Case Tool", 
+      path: "/tools/convert-case",
+      icon: <Type className="h-5 w-5 flex-shrink-0" />
     }
   ], []);
 
-  const comingSoonTools = useMemo(() => [
-    { 
-      name: "Video Converter", 
-      path: "#",
-      icon: <FileVideo className="h-4 w-4 flex-shrink-0 opacity-50" />
-    },
-    { 
-      name: "PDF & JPG Converter", 
-      path: "/tools/pdf-jpg-converter",
-      icon: <FileImage className="h-4 w-4 flex-shrink-0" />
-    },
-    { 
-      name: "Document Converter", 
-      path: "#",
-      icon: <FileText className="h-4 w-4 flex-shrink-0 opacity-50" />
-    }
-  ], []);
+
 
   // Handle click outside to close dropdown
   const handleClickOutside = useCallback((event: MouseEvent) => {
@@ -179,72 +198,47 @@ const MainNav: React.FC = React.memo(() => {
             </button>
             
             <div 
-              className={`absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[480px] bg-gray-900/95 backdrop-blur-md border border-gray-700/50 rounded-xl shadow-2xl overflow-hidden transition-all duration-200 ${
+              className={`absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[320px] max-w-[380px] bg-black/40 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl overflow-hidden transition-all duration-200 ${
                 toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
               }`}
               style={{
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)'
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
               }}
             >
-              <div className="p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Available Tools */}
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Zap className="h-4 w-4 text-green-400" />
-                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Available Tools</h3>
-                    </div>
-                    <ul className="space-y-1.5">
-                      {availableTools.map((tool, index) => (
-                        <li key={index}>
-                          <Link 
-                            to={tool.path}
-                            className="flex items-center space-x-2.5 px-3 py-0.5 text-sm rounded-lg transition-all duration-200 text-white hover:bg-gray-800/80 hover:text-green-400 group"
-                            onClick={closeTools}
-                            onMouseEnter={() => handleRouteHover(tool.path)}
-                          >
-                            <span className="text-green-400 group-hover:scale-110 transition-transform">
-                              {tool.icon}
-                            </span>
-                            <span className="font-medium">{tool.name}</span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+              <div className="py-2">
+                {/* Available Tools */}
+                <div className="px-3 py-1">
+                  <div className="flex items-center space-x-3 px-2 py-1 mb-2">
+                    <Zap className="h-8 w-8 text-blue-400" />
+                    <h3 className="text-5xl font-bold text-white uppercase tracking-wide">Tools</h3>
                   </div>
-                  
-                  {/* Coming Soon */}
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-blue-400" />
-                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Coming Soon</h3>
-                    </div>
-                    <ul className="space-y-1.5">
-                      {comingSoonTools.map((tool, index) => (
-                        <li key={index}>
-                          <span 
-                            className="flex items-center space-x-2.5 px-3 py-0.5 text-sm rounded-lg transition-colors duration-200 text-gray-400 cursor-not-allowed"
-                          >
-                            <span className="opacity-50">
-                              {tool.icon}
-                            </span>
-                            <span className="font-medium">{tool.name}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="space-y-0">
+                    {availableTools.map((tool, index) => (
+                      <Link 
+                        key={index}
+                        to={tool.path}
+                        className="group flex items-center space-x-3 px-3 py-2 text-lg hover:bg-white/10 transition-colors duration-150 rounded-md"
+                        onClick={closeTools}
+                        onMouseEnter={() => handleRouteHover(tool.path)}
+                      >
+                        <span className="text-gray-300 group-hover:text-blue-400 transition-colors duration-150 flex-shrink-0">
+                          {tool.icon}
+                        </span>
+                        <span className="font-bold text-lg truncate shiny-text-red">{tool.name}</span>
+                      </Link>
+                    ))}
                   </div>
                 </div>
                 
-                {/* View All Button */}
-                <div className="mt-2 pt-2 border-t border-gray-800">
+                {/* View All Link */}
+                <div className="border-t border-white/10 mt-1">
                   <Link 
                     to="/tools"
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-800/50 hover:bg-gray-700/70 rounded-lg text-sm font-medium text-white transition-colors duration-200"
+                    className="flex items-center justify-between px-5 py-3 text-base text-white hover:bg-white/10 hover:text-blue-400 transition-colors duration-150"
                     onClick={closeTools}
                     onMouseEnter={() => handleRouteHover('/tools')}
                   >
-                    <span>View All Tools</span>
+                    <span className="font-semibold">View All Tools</span>
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </div>

@@ -3,7 +3,7 @@ import React from 'react';
 
 const TermsOfService = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+    <div className="min-h-screen text-white">
       <div className="container mx-auto py-10 px-4">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-violet-400">Terms of Service</h1>

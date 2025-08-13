@@ -1,7 +1,6 @@
 
 import { ConversionOptions } from '@/types';
 import { config } from '@/config';
-import { getPerformanceMonitor } from './performancemonitor';
 import 'gif.js/dist/gif.js';
 // GIF is now available as a global
 declare global {
@@ -47,8 +46,6 @@ export const convertVideoToGif = async (
   options: ConversionOptions = {},
   onProgress?: (progress: number) => void | EnhancedProgressCallback
 ): Promise<Blob> => {
-  const monitor = getPerformanceMonitor();
-  const endRender = monitor.startComponentRender('gifConverter');
   
   let video: HTMLVideoElement | null = null;
   let canvas: HTMLCanvasElement | null = null;
@@ -247,8 +244,7 @@ export const convertVideoToGif = async (
           gif.on('finished', (blob: Blob) => {
             enhancedProgress('complete', 100, 'GIF conversion complete!');
             
-            // Track memory usage
-            monitor.trackMemoryUsage('gifConverter');
+
             
             // Clean up
             cleanupResources();
@@ -359,9 +355,6 @@ export const convertVideoToGif = async (
         video.src = URL.createObjectURL(videoFile);
     });
   } catch (error) {
-    endRender();
     throw error;
-  } finally {
-    endRender();
   }
 };

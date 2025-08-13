@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileVideo, FileImage, FileCode, FileArchive, Music, FileText, Scissors } from 'lucide-react';
+import { FileVideo, FileImage, FileCode, FileArchive, Music, FileText, Scissors, Type } from 'lucide-react';
 import AnimatedElement from "@/components/AnimatedElement";
 import ParticleBackground from '@/components/ParticleBackground';
 
@@ -90,7 +90,6 @@ const Tools: React.FC = React.memo(() => {
       path: '/tools/image-resizer',
       comingSoon: false
     },
-
     {
       title: 'Image Converter',
       icon: <FileImage />,
@@ -103,7 +102,17 @@ const Tools: React.FC = React.memo(() => {
       path: '/tools/video-converter',
       comingSoon: false
     },
-
+    {
+      title: 'Convert Case Tool',
+      icon: <Type />,
+      path: '/tools/convert-case',
+      comingSoon: false
+    },
+    {
+      title: 'PDF Compressor',
+      icon: <FileText />,
+      comingSoon: true
+    },
     {
       title: 'Document Converter',
       icon: <FileCode />,
@@ -112,6 +121,11 @@ const Tools: React.FC = React.memo(() => {
     {
       title: 'Archive Extractor',
       icon: <FileArchive />,
+      comingSoon: true
+    },
+    {
+      title: 'Audio Converter',
+      icon: <Music />,
       comingSoon: true
     }
   ], []);
@@ -163,6 +177,7 @@ const Tools: React.FC = React.memo(() => {
           <AnimatedElement type="fadeIn" delay={0.6}>
             <div className="grid md:grid-cols-2 gap-x-12 gap-y-1">
               <div className="pl-6">
+                <h3 className="text-lg font-bold text-green-400 mb-3">🚀 Available Tools</h3>
                 <ToolItem 
                   title="Video to GIF" 
                   icon={<FileVideo />}
@@ -183,18 +198,27 @@ const Tools: React.FC = React.memo(() => {
                   icon={<FileImage />}
                   path="/tools/image-resizer"
                 />
-
-              </div>
-              <div className="pl-6">
-
                 <ToolItem 
                   title="Image Converter" 
                   icon={<FileImage />}
-                  comingSoon
+                  path="/tools/image-converter"
                 />
                 <ToolItem 
                   title="Video Converter" 
                   icon={<FileVideo />}
+                  path="/tools/video-converter"
+                />
+                <ToolItem 
+                  title="Convert Case Tool" 
+                  icon={<Type />}
+                  path="/tools/convert-case"
+                />
+              </div>
+              <div className="pl-6">
+                <h3 className="text-lg font-bold text-blue-400 mb-3">⏳ Coming Soon</h3>
+                <ToolItem 
+                  title="PDF Compressor" 
+                  icon={<FileText />}
                   comingSoon
                 />
                 <ToolItem 
@@ -205,6 +229,11 @@ const Tools: React.FC = React.memo(() => {
                 <ToolItem 
                   title="Archive Extractor" 
                   icon={<FileArchive />}
+                  comingSoon
+                />
+                <ToolItem 
+                  title="Audio Converter" 
+                  icon={<Music />}
                   comingSoon
                 />
               </div>

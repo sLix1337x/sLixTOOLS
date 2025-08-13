@@ -233,5 +233,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
   );
 };
 
-export default ConversionOptionsForm;
-export { ConversionOptionsForm as ConversionOptionsComponent };
+const ConversionOptionsComponent = ConversionOptionsForm;
+
+export default ConversionOptionsComponent;
+export { ConversionOptionsForm, ConversionOptionsComponent };

@@ -1,6 +1,5 @@
 import { ConversionOptions } from '@/types';
 import { config } from '@/config';
-import { getPerformanceMonitor } from './performancemonitor';
 import 'gif.js/dist/gif.js';
 // GIF is now available as a global
 const GIF = (window as any).GIF;
@@ -284,9 +283,6 @@ export const compressGif = async (
   options: GifCompressionOptions,
   onProgress?: ProgressCallback
 ): Promise<Blob> => {
-  const monitor = getPerformanceMonitor();
-  monitor.startOperation('gifCompression');
-
   try {
     const {
       quality = 80,
@@ -457,12 +453,10 @@ export const compressGif = async (
           compressionRatio
         });
 
-        monitor.endOperation('gifCompression');
         resolve(blob);
       });
 
       gif.on('error', (error: Error) => {
-        monitor.endOperation('gifCompression');
         reject(new GifCompressionError('GIF encoding failed', 'rebuilding', error));
       });
 
@@ -479,7 +473,6 @@ export const compressGif = async (
     });
 
   } catch (error) {
-    monitor.endOperation('gifCompression');
     throw error instanceof GifCompressionError ? error : 
       new GifCompressionError('Compression failed', 'unknown', error as Error);
   }

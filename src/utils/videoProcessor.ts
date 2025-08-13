@@ -1,5 +1,3 @@
-import { getPerformanceMonitor } from './performancemonitor';
-
 // Enhanced error handling for video processing
 class VideoProcessingError extends Error {
   constructor(message: string, public stage: string, public originalError?: Error) {
@@ -229,9 +227,6 @@ export const compressVideo = async (
   options: VideoCompressionOptions,
   onProgress?: ProgressCallback
 ): Promise<Blob> => {
-  const monitor = getPerformanceMonitor();
-  const endRender = monitor.startComponentRender('videoProcessor');
-  
   try {
     onProgress?.({ stage: 'loading', progress: 0, message: 'Loading video processor...' });
     
@@ -270,7 +265,6 @@ export const compressVideo = async (
     
     onProgress?.({ stage: 'complete', progress: 100, message: 'Compression complete!' });
     
-    monitor.trackMemoryUsage('videoProcessor');
     return compressedBlob;
     
   } catch (error) {
@@ -285,8 +279,6 @@ export const compressVideo = async (
       'unknown',
       error instanceof Error ? error : undefined
     );
-  } finally {
-    endRender();
   }
 };
 
@@ -298,9 +290,6 @@ export const editVideo = async (
   options: VideoEditOptions,
   onProgress?: ProgressCallback
 ): Promise<Blob> => {
-  const monitor = getPerformanceMonitor();
-  const endRender = monitor.startComponentRender('videoProcessor');
-  
   try {
     onProgress?.({ stage: 'loading', progress: 0, message: 'Loading video editor...' });
     
@@ -327,7 +316,6 @@ export const editVideo = async (
     
     onProgress?.({ stage: 'complete', progress: 100, message: 'Video editing complete!' });
     
-    monitor.trackMemoryUsage('videoProcessor');
     return editedBlob;
     
   } catch (error) {
@@ -342,8 +330,6 @@ export const editVideo = async (
       'unknown',
       error instanceof Error ? error : undefined
     );
-  } finally {
-    endRender();
   }
 };
 

@@ -20,6 +20,7 @@ const ImageCompressor = lazy(() => import("./pages/tools/ImageCompressor"));
 const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
 const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
 const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
+const ConvertCaseTool = lazy(() => import("./pages/tools/ConvertCaseTool"));
 
 // Lazy load info pages
 const About = lazy(() => import("./pages/About"));
@@ -38,6 +39,7 @@ import MainNav from "@/components/MainNav";
 import SmoothScroll from "@/components/SmoothScroll";
 import CookieConsent from "@/components/common/CookieConsent";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
+import ParticleBackground from "@/components/ParticleBackground";
 
 const queryClient = new QueryClient();
 
@@ -85,6 +87,11 @@ const AppContent = () => {
           <Route path="/tools/image-converter" element={
             <Suspense fallback={<LoadingSpinner text="Loading Image converter..." />}>
               <ImageConverter />
+            </Suspense>
+          } />
+          <Route path="/tools/convert-case" element={
+            <Suspense fallback={<LoadingSpinner text="Loading Convert Case Tool..." />}>
+              <ConvertCaseTool />
             </Suspense>
           } />
           <Route path="/about" element={
@@ -161,6 +168,7 @@ const App = () => {
             }}
           >
             <SmoothScroll>
+              <ParticleBackground />
               <div className="flex flex-col min-h-[calc(100vh-5rem)]">
                 <header className="flex-shrink-0">
                   <div className="container mx-auto h-20 flex items-center border-b border-dashed border-green-400">
