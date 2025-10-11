@@ -27,6 +27,7 @@ const copyGifWorkers = () => ({
 });
 
 export default defineConfig({
+  base: '/sLixTOOLS/',
   plugins: [
     react(),
     copyGifWorkers(),
