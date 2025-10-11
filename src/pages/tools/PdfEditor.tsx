@@ -8,7 +8,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker to use local file to avoid CSP issues
 // Use window.location.origin + base path for GitHub Pages compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/sLixTOOLS/workers/pdf.worker.min.mjs';
+const isGitHubPages = window.location.hostname.includes('github.io');
+pdfjsLib.GlobalWorkerOptions.workerSrc = isGitHubPages 
+  ? `${window.location.origin}/sLixTOOLS/workers/pdf.worker.min.mjs`
+  : '/workers/pdf.worker.min.mjs';
 
 // Dynamically import pdf-lib when needed to keep initial bundle small
 const loadPdfLib = async () => {
