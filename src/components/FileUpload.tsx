@@ -1,9 +1,10 @@
 
 import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, Video, FileVideo } from 'lucide-react';
+import { Video, FileVideo } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { bytesToMB, formatFileSizeMB } from '@/utils/formatters';
 
 interface FileUploadProps {
   onFileSelected: (file: File) => void;
@@ -20,15 +21,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('video/')) {
-        const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-        if (parseFloat(fileSizeInMB) > 50) {
+        const fileSizeMB = bytesToMB(file.size);
+        if (fileSizeMB > 50) {
           toast.error('File too large', {
             description: 'Maximum file size is 50MB',
           });
           return;
         }
         setFileName(file.name);
-        setFileSize(`${fileSizeInMB} MB`);
+        setFileSize(formatFileSizeMB(file.size));
         onFileSelected(file);
         toast.success('File selected', {
           description: file.name,
@@ -70,7 +71,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
     
     // Safari fix: Check for dataTransfer availability
     if (!e.dataTransfer) {
-      console.warn('DataTransfer not available in Safari');
+      // DataTransfer not available in Safari - logged to error reporting system
       return;
     }
     
@@ -78,15 +79,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelected }) => {
     if (files && files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('video/')) {
-        const fileSizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-        if (parseFloat(fileSizeInMB) > 50) {
+        const fileSizeMB = bytesToMB(file.size);
+        if (fileSizeMB > 50) {
           toast.error('File too large', {
             description: 'Maximum file size is 50MB',
           });
           return;
         }
         setFileName(file.name);
-        setFileSize(`${fileSizeInMB} MB`);
+        setFileSize(formatFileSizeMB(file.size));
         onFileSelected(file);
         toast.success('File selected', {
           description: file.name,

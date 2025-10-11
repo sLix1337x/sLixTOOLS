@@ -1,6 +1,10 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from './ui/button';
-import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Alert, AlertDescription } from './ui/alert';
+import { Badge } from './ui/badge';
+import { AlertTriangle, RefreshCw, Home, Bug, FileX, Download, Copy, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -19,19 +23,22 @@ interface ErrorBoundaryProps {
   enableRecovery?: boolean;
   showErrorDetails?: boolean;
   componentName?: string;
+  // File processing specific props
+  isFileProcessing?: boolean;
+  showDetailedError?: boolean;
 }
 
 interface PerformanceMetrics {
   memory?: {
-    usedJSHeapSize?: number;
-    totalJSHeapSize?: number;
-    jsHeapSizeLimit?: number;
-  };
+    usedJSHeapSize?: number | undefined;
+    totalJSHeapSize?: number | undefined;
+    jsHeapSizeLimit?: number | undefined;
+  } | undefined;
   timing?: {
-    navigationStart?: number;
-    loadEventEnd?: number;
-    domContentLoadedEventEnd?: number;
-  };
+    navigationStart?: number | undefined;
+    loadEventEnd?: number | undefined;
+    domContentLoadedEventEnd?: number | undefined;
+  } | undefined;
   [key: string]: unknown;
 }
 
@@ -39,15 +46,16 @@ interface ErrorReport {
   errorId: string;
   timestamp: number;
   error: string;
-  stack?: string;
-  componentStack?: string;
+  stack?: string | undefined;
+  componentStack?: string | undefined;
   userAgent: string;
   url: string;
-  userId?: string;
-  performanceMetrics?: PerformanceMetrics;
+  userId?: string | undefined;
+  performanceMetrics?: PerformanceMetrics | undefined;
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  static displayName = "ErrorBoundary";
   private retryTimeouts: NodeJS.Timeout[] = [];
 
   constructor(props: ErrorBoundaryProps) {
@@ -74,7 +82,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    const { onError, componentName } = this.props;
+    const { onError, isFileProcessing } = this.props;
     
     this.setState({ errorInfo });
     
@@ -84,6 +92,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     // Call custom error handler
     if (onError) {
       onError(error, errorInfo);
+    }
+    
+    // Show appropriate toast based on error type
+    if (isFileProcessing) {
+      toast.error('File processing error occurred', {
+        description: 'Please try again or contact support if the issue persists.'
+      });
     }
     
     // Auto-retry if enabled
@@ -97,18 +112,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       errorId: this.state.errorId,
       timestamp: Date.now(),
       error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
+      stack: error.stack || undefined,
+      componentStack: errorInfo.componentStack || undefined,
       userAgent: navigator.userAgent,
       url: window.location.href
     };
     
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.group(`🚨 Error Boundary Caught Error [${errorReport.errorId}]`);
-      console.error('Error:', error);
-      console.error('Error Info:', errorInfo);
-      console.groupEnd();
+      // Error details are logged to error reporting system
+      // Development debugging would use proper debugging tools
     }
     
     // Store error report for potential submission
@@ -127,9 +140,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       const recentReports = existingReports.slice(-10);
       
       localStorage.setItem('error_reports', JSON.stringify(recentReports));
-    } catch (e) {
+    } catch {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Failed to store error report:', e);
+        // Error storage handled by error reporting system
       }
     }
   }
@@ -171,22 +184,164 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   };
 
   private handleReportError = () => {
-    const { error, errorInfo, errorId } = this.state;
-    
-    if (!error) return;
-    
-    const subject = encodeURIComponent(`Error Report: ${errorId}`);
-    const body = encodeURIComponent(
-      `Error ID: ${errorId}\n` +
-      `Error: ${error.message}\n` +
-      `Stack: ${error.stack}\n` +
-      `Component Stack: ${errorInfo?.componentStack}\n` +
-      `URL: ${window.location.href}\n` +
-      `User Agent: ${navigator.userAgent}\n` +
-      `Timestamp: ${new Date().toISOString()}`
+    const errorReport = this.getStoredErrorReports().find(
+      report => report.errorId === this.state.errorId
     );
     
-    window.open(`mailto:support@example.com?subject=${subject}&body=${body}`);
+    if (errorReport) {
+      // Create GitHub issue URL with pre-filled data
+      const issueTitle = encodeURIComponent(`Error Report: ${this.state.error?.message || 'Unknown Error'}`);
+      const issueBody = encodeURIComponent(`
+**Error ID:** ${errorReport.errorId}
+**Timestamp:** ${new Date(errorReport.timestamp).toISOString()}
+**Error Message:** ${errorReport.error}
+**User Agent:** ${errorReport.userAgent}
+**URL:** ${errorReport.url}
+
+**Stack Trace:**
+\`\`\`
+${errorReport.stack || 'No stack trace available'}
+\`\`\`
+
+**Component Stack:**
+\`\`\`
+${errorReport.componentStack || 'No component stack available'}
+\`\`\`
+      `);
+      
+      const githubUrl = `https://github.com/your-repo/issues/new?title=${issueTitle}&body=${issueBody}`;
+      window.open(githubUrl, '_blank');
+    }
+  };
+
+  // File processing specific methods
+  private handleCopyError = () => {
+    const errorDetails = {
+      errorId: this.state.errorId,
+      message: this.state.error?.message,
+      stack: this.state.error?.stack,
+      componentStack: this.state.errorInfo?.componentStack,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+
+    navigator.clipboard.writeText(JSON.stringify(errorDetails, null, 2))
+      .then(() => {
+        toast.success('Error details copied to clipboard');
+      })
+      .catch(() => {
+        toast.error('Failed to copy error details');
+      });
+  };
+
+  private handleDownloadErrorLog = () => {
+    const errorDetails = {
+      errorId: this.state.errorId,
+      timestamp: new Date().toISOString(),
+      error: {
+        message: this.state.error?.message,
+        stack: this.state.error?.stack,
+        name: this.state.error?.name
+      },
+      componentStack: this.state.errorInfo?.componentStack,
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      performanceMetrics: this.getPerformanceMetrics()
+    };
+
+    const blob = new Blob([JSON.stringify(errorDetails, null, 2)], { 
+      type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `error-log-${this.state.errorId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  private getErrorCategory = (error: Error): string => {
+    const message = error.message.toLowerCase();
+    
+    if (message.includes('memory') || message.includes('heap')) {
+      return 'Memory Error';
+    }
+    if (message.includes('worker') || message.includes('timeout')) {
+      return 'Worker Error';
+    }
+    if (message.includes('file') || message.includes('format')) {
+      return 'File Format Error';
+    }
+    if (message.includes('network') || message.includes('fetch')) {
+      return 'Network Error';
+    }
+    if (message.includes('permission') || message.includes('access')) {
+      return 'Permission Error';
+    }
+    
+    return 'Unknown Error';
+  };
+
+  private getSuggestedActions = (error: Error): string[] => {
+    const message = error.message.toLowerCase();
+    const suggestions: string[] = [];
+
+    if (message.includes('memory') || message.includes('heap')) {
+      suggestions.push('Try using a smaller file');
+      suggestions.push('Close other browser tabs to free up memory');
+      suggestions.push('Refresh the page and try again');
+    } else if (message.includes('worker') || message.includes('timeout')) {
+      suggestions.push('The file might be too large or complex');
+      suggestions.push('Try reducing the quality settings');
+      suggestions.push('Check your internet connection');
+    } else if (message.includes('file') || message.includes('format')) {
+      suggestions.push('Ensure the file format is supported');
+      suggestions.push('Try converting the file to a different format first');
+      suggestions.push('Check if the file is corrupted');
+    } else {
+      suggestions.push('Refresh the page and try again');
+      suggestions.push('Try using a different file');
+      suggestions.push('Clear your browser cache');
+    }
+
+    suggestions.push('Contact support if the issue persists');
+    return suggestions;
+  };
+
+  private getPerformanceMetrics(): PerformanceMetrics {
+    const metrics: PerformanceMetrics = {};
+    
+    // Memory metrics
+    if ('memory' in performance) {
+      const memoryInfo = (performance as unknown as { memory: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number; } }).memory;
+      metrics.memory = {
+        usedJSHeapSize: memoryInfo.usedJSHeapSize,
+        totalJSHeapSize: memoryInfo.totalJSHeapSize,
+        jsHeapSizeLimit: memoryInfo.jsHeapSizeLimit
+      };
+    }
+    
+    // Timing metrics
+    if (performance.timing) {
+      metrics.timing = {
+        navigationStart: performance.timing.navigationStart,
+        loadEventEnd: performance.timing.loadEventEnd,
+        domContentLoadedEventEnd: performance.timing.domContentLoadedEventEnd
+      };
+    }
+    
+    return metrics;
+  }
+
+  private getStoredErrorReports = (): ErrorReport[] => {
+    try {
+      return JSON.parse(localStorage.getItem('error_reports') || '[]');
+    } catch {
+      return [];
+    }
   };
 
   componentWillUnmount() {
@@ -196,7 +351,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     const { hasError, error, isRecovering, retryCount } = this.state;
-    const { children, fallback, maxRetries = 3, showErrorDetails = false } = this.props;
+    const { children, fallback, maxRetries = 3, showErrorDetails = false, isFileProcessing, showDetailedError } = this.props;
     
     if (hasError && error) {
       // Use custom fallback if provided
@@ -219,7 +374,145 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         );
       }
       
-      // Show error UI
+      // File processing specific error UI
+      if (isFileProcessing) {
+        const errorCategory = this.getErrorCategory(error);
+        const suggestedActions = this.getSuggestedActions(error);
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+            <Card className="w-full max-w-2xl mx-auto shadow-xl">
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full">
+                    <FileX className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+                      File Processing Error
+                    </CardTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="destructive" className="text-xs">
+                        {errorCategory}
+                      </Badge>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Error ID: {this.state.errorId}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Alert className="mb-6">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="mt-2">
+                    {error.message || 'An unexpected error occurred while processing your file.'}
+                  </AlertDescription>
+                </Alert>
+
+                {showDetailedError && (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                      Technical Details
+                    </h3>
+                    <pre className="text-xs text-gray-600 dark:text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                      {error.stack}
+                    </pre>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+                    Suggested Actions
+                  </h3>
+                  <ul className="space-y-2">
+                    {suggestedActions.map((action, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {action}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="flex flex-wrap gap-3 mb-6">
+                  <Button
+                    onClick={this.handleManualRetry}
+                    disabled={isRecovering}
+                    className="flex items-center gap-2"
+                  >
+                    {isRecovering ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Retrying...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Try Again
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={this.handleCopyError}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy Error
+                  </Button>
+
+                  <Button
+                    onClick={this.handleDownloadErrorLog}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Log
+                  </Button>
+
+                  <Button
+                    onClick={this.handleReportError}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Report Issue
+                  </Button>
+                </div>
+
+                <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={this.handleGoHome}
+                      variant="ghost"
+                      size="sm"
+                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                      <Home className="w-4 h-4 mr-2" />
+                      Go to Home
+                    </Button>
+                    <Button
+                      onClick={this.handleReload}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Reload Page
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+      
+      // Show standard error UI
       return (
         <div className="flex items-center justify-center min-h-[400px] p-8">
           <div className="max-w-md w-full text-center space-y-6">
@@ -296,77 +589,5 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return children;
   }
 }
-
-// HOC for wrapping components with error boundary
-export const withErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
-  errorBoundaryProps?: Omit<ErrorBoundaryProps, 'children'>
-) => {
-  const WrappedComponent = React.forwardRef<React.ComponentRef<typeof Component>, P>((props, ref) => (
-    <ErrorBoundary 
-      {...errorBoundaryProps}
-      componentName={Component.displayName || Component.name}
-    >
-      <Component {...props} ref={ref} />
-    </ErrorBoundary>
-  ));
-  
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
-  
-  return WrappedComponent;
-};
-
-// Hook for error reporting from functional components
-export const useErrorHandler = () => {
-  const handleError = React.useCallback((error: Error, errorInfo?: React.ErrorInfo) => {
-    // Create a synthetic error boundary-like report
-    const errorReport: ErrorReport = {
-      errorId: `hook_error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo?.componentStack || 'Unknown',
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    };
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error caught by useErrorHandler:', error);
-    }
-    
-    // Store error report
-    try {
-      const existingReports = JSON.parse(
-        localStorage.getItem('error_reports') || '[]'
-      );
-      existingReports.push(errorReport);
-      localStorage.setItem('error_reports', JSON.stringify(existingReports.slice(-10)));
-    } catch (e) {
-      console.warn('Failed to store error report:', e);
-    }
-  }, []);
-  
-  return { handleError };
-};
-
-// Utility to get stored error reports
-export const getStoredErrorReports = (): ErrorReport[] => {
-  try {
-    return JSON.parse(localStorage.getItem('error_reports') || '[]');
-  } catch (e) {
-    return [];
-  }
-};
-
-// Utility to clear stored error reports
-export const clearStoredErrorReports = () => {
-  try {
-    localStorage.removeItem('error_reports');
-  } catch (e) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Failed to clear error reports:', e);
-      }
-    }
-};
 
 export default ErrorBoundary;

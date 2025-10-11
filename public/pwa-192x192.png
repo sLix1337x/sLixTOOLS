@@ -1,0 +1,28 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" rx="24" fill="#000000"/>
+  <rect x="16" y="16" width="160" height="160" rx="16" fill="url(#gradient)"/>
+  
+  <!-- Main Logo -->
+  <g transform="translate(48, 48)">
+    <!-- Tools Icon -->
+    <path d="M24 12L20.5 10.5L19 14L22.5 15.5L24 12Z" fill="#FFFFFF" stroke="#2AD587" stroke-width="2"/>
+    <path d="M12 24L10.5 20.5L14 19L15.5 22.5L12 24Z" fill="#FFFFFF" stroke="#2AD587" stroke-width="2"/>
+    
+    <!-- Gear Icon -->
+    <circle cx="48" cy="48" r="12" fill="none" stroke="#2AD587" stroke-width="3"/>
+    <circle cx="48" cy="48" r="4" fill="#2AD587"/>
+    
+    <!-- Lightning Bolt -->
+    <path d="M72 24L64 48H72L68 72L76 48H68L72 24Z" fill="#2AD587"/>
+  </g>
+  
+  <!-- Brand Text -->
+  <text x="96" y="140" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="16" font-weight="bold">sLixTOOLS</text>
+  
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a2a2a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

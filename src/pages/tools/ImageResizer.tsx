@@ -1,15 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Image, Download, Loader2, ImagePlus, SlidersHorizontal, Link2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useRef } from 'react';
+import { Image, Download, Loader2, SlidersHorizontal, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import ParticleBackground from '@/components/ParticleBackground';
-import AnimatedElement from '@/components/AnimatedElement';
+import ToolPageLayout from '@/components/ToolPageLayout';
+import FileUploadArea from '@/components/FileUploadArea';
+import { useLoading } from '@/hooks';
 
-const MAX_FILE_SIZE_MB = 200;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+import { config } from '@/config';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
+
+// Use centralized config for file size limits
+const MAX_FILE_SIZE_BYTES = config.upload.maxFileSize;
 
 const SUPPORTED_IMAGE_TYPES = [
   'image/gif',
@@ -29,30 +31,13 @@ const SUPPORTED_IMAGE_TYPES = [
 const ImageResizer: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState('');
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  const { isLoading: isLoadingFromUrl, executeWithLoading: executeUrlLoading } = useLoading();
+  const { isLoading: isResizing, executeWithLoading: executeResizing } = useLoading();
   const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 });
   const [resizedSize, setResizedSize] = useState({ width: 0, height: 0 });
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-      toast.error('Unsupported file type. Please upload a valid image file.');
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error(`File is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.`);
-      return;
-    }
-
-    processImageFile(file);
-  };
 
   const processImageFile = (file: File) => {
     const reader = new FileReader();
@@ -73,58 +58,74 @@ const ImageResizer: React.FC = () => {
     if (!imageUrl) return;
     
     try {
-      setIsLoadingFromUrl(true);
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error('Failed to load image from URL');
-      
-      const blob = await response.blob();
-      if (!blob.type.match('image/')) {
-        throw new Error('The URL does not point to a valid image');
-      }
-      
-      const file = new File([blob], 'image-from-url.jpg', { type: blob.type });
-      processImageFile(file);
+      await executeUrlLoading(async () => {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error('Failed to load image from URL');
+        
+        const blob = await response.blob();
+        if (!blob.type.match('image/')) {
+          throw new Error('The URL does not point to a valid image');
+        }
+        
+        const file = new File([blob], 'image-from-url.jpg', { type: blob.type });
+        processImageFile(file);
+      });
     } catch (error) {
-      console.error('Error loading image from URL:', error);
+      // Error details are logged to error reporting system
       toast.error(error instanceof Error ? error.message : 'Failed to load image from URL');
-    } finally {
-      setIsLoadingFromUrl(false);
     }
   };
 
-  const handleResize = () => {
+  const handleResize = async () => {
     if (!imageFile) return;
     
-    setIsResizing(true);
-    
-    const img = new window.Image();
-    const objectUrl = URL.createObjectURL(imageFile);
-    
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        setIsResizing(false);
-        return;
-      }
-      
-      canvas.width = resizedSize.width;
-      canvas.height = resizedSize.height;
-      
-      // Draw image with new dimensions
-      ctx.drawImage(img, 0, 0, resizedSize.width, resizedSize.height);
-      
-      // Convert to data URL
-      const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      setResizedImageUrl(resizedDataUrl);
-      setIsResizing(false);
-      
-      // Clean up
-      URL.revokeObjectURL(objectUrl);
-    };
-    
-    img.src = objectUrl;
+    try {
+      await executeResizing(async () => {
+        return new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          const objectUrl = URL.createObjectURL(imageFile);
+          
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              
+              if (!ctx) {
+                reject(new Error('Failed to get canvas context'));
+                return;
+              }
+              
+              canvas.width = resizedSize.width;
+              canvas.height = resizedSize.height;
+              
+              // Draw image with new dimensions
+              ctx.drawImage(img, 0, 0, resizedSize.width, resizedSize.height);
+              
+              // Convert to data URL
+              const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+              setResizedImageUrl(resizedDataUrl);
+              
+              // Clean up
+              URL.revokeObjectURL(objectUrl);
+              resolve();
+            } catch (error) {
+              URL.revokeObjectURL(objectUrl);
+              reject(error);
+            }
+          };
+          
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('Failed to load image'));
+          };
+          
+          img.src = objectUrl;
+        });
+      });
+    } catch (error) {
+      // Error details are logged to error reporting system
+      toast.error(error instanceof Error ? error.message : 'Failed to resize image');
+    }
   };
 
   const handleDownload = () => {
@@ -172,88 +173,58 @@ const ImageResizer: React.FC = () => {
   };
 
   return (
-    <div className="text-white relative min-h-0">
-      <ParticleBackground />
-      <Helmet>
-        <title>Image Resizer | sLixTOOLS</title>
-        <meta name="description" content="Resize your images online for free. Adjust width and height while maintaining aspect ratio. Supports multiple image formats including JPG, PNG, GIF, WebP, and more." />
-        <meta name="keywords" content="image resizer, resize images, image size reducer, online image editor, image tools" />
-        <link rel="canonical" href="https://slixtools.io/tools/image-resizer" />
-      </Helmet>
-
-      <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
-        <div className="max-w-3xl mx-auto text-center">
-          <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-              Image Resizer
-            </h1>
-          </AnimatedElement>
-          <AnimatedElement type="slideUp" delay={0.4}>
-            <p className="text-gray-300 mb-6">
-              Resize your images to any dimension. Supports JPG, PNG, GIF, WebP, and more.
-            </p>
-          </AnimatedElement>
-        </div>
-
-        <div className="max-w-2xl mx-auto w-full">
-          <AnimatedElement type="fadeIn" delay={0.6} className="space-y-6">
-            {!imageFile ? (
-              <>
-                <div 
-                  className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-green-400/50 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="flex flex-col items-center justify-center space-y-4">
-                    <div className="p-3 rounded-full bg-gray-800/50">
-                      <ImagePlus className="h-8 w-8 text-green-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white">Drop your image here</h3>
-                      <p className="text-sm text-gray-400 mt-1">
-                        or click to browse files (JPG, PNG, WebP, GIF, etc.)
-                      </p>
-                    </div>
-                  </div>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept={SUPPORTED_IMAGE_TYPES.join(',')}
-                    onChange={handleFileChange}
-                  />
+    <ToolPageLayout
+      title="Image Resizer"
+      description="Resize your images to any dimension. Supports JPG, PNG, GIF, WebP, and more."
+      keywords="image resizer, resize images, image size reducer, online image editor, image tools"
+      canonicalUrl="https://slixtools.io/tools/image-resizer"
+      pageTitle="Image Resizer | sLixTOOLS"
+      pageDescription="Resize your images online for free. Adjust width and height while maintaining aspect ratio. Supports multiple image formats including JPG, PNG, GIF, WebP, and more."
+    >
+      <div className="max-w-2xl mx-auto w-full">
+        <div className="space-y-6">
+          {!imageFile ? (
+            <>
+              <FileUploadArea
+                onFileSelected={processImageFile}
+                acceptedTypes={SUPPORTED_IMAGE_TYPES}
+                maxFileSize={MAX_FILE_SIZE_BYTES}
+                title="Drop your image here"
+                description="or click to browse files (JPG, PNG, WebP, GIF, etc.)"
+                fileCategory="image"
+              />
+              
+              <div className="relative">
+                <div className="flex items-center mb-2">
+                  <div className="h-px bg-gray-700 flex-1"></div>
+                  <span className="px-3 text-sm text-gray-400">or</span>
+                  <div className="h-px bg-gray-700 flex-1"></div>
                 </div>
                 
                 <div className="relative">
-                  <div className="flex items-center mb-2">
-                    <div className="h-px bg-gray-700 flex-1"></div>
-                    <span className="px-3 text-sm text-gray-400">or</span>
-                    <div className="h-px bg-gray-700 flex-1"></div>
-                  </div>
-                  
-                  <div className="relative">
-                    <input
-                      type="url"
-                      value={imageUrl}
-                      onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400/50 focus:border-transparent"
-                    />
-                    <button
-                      onClick={loadImageFromUrl}
-                      disabled={!imageUrl || isLoadingFromUrl}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#2AD587] text-black font-medium py-1.5 px-4 rounded-md text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoadingFromUrl ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : 'Load from URL'}
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500 text-center">
-                    Enter a direct image URL (JPG, PNG, WebP, GIF, etc.)
-                  </p>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
+                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400/50 focus:border-transparent"
+                  />
+                  <button
+                    onClick={loadImageFromUrl}
+                    disabled={!imageUrl || isLoadingFromUrl}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#2AD587] text-black font-medium py-1.5 px-4 rounded-md text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoadingFromUrl ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : 'Load from URL'}
+                  </button>
                 </div>
-              </>
-            ) : (
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  Enter a direct image URL (JPG, PNG, WebP, GIF, etc.)
+                </p>
+              </div>
+            </>
+          ) : (
               <Card className="p-6 border border-gray-700/50 bg-gray-900/20">
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
@@ -432,10 +403,8 @@ const ImageResizer: React.FC = () => {
                 </div>
               </Card>
             )}
-          </AnimatedElement>
 
-          <AnimatedElement type="fadeIn" delay={0.8} className="mt-8">
-            <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-6">
+            <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-6 mt-8">
               <h3 className="text-lg font-semibold mb-3 text-gray-200 flex items-center">
                 <SlidersHorizontal className="mr-2 h-5 w-5 text-green-400" />
                 How to use
@@ -451,10 +420,9 @@ const ImageResizer: React.FC = () => {
                 <span className="font-semibold">Note:</span> All processing happens in your browser. Your images are never uploaded to any server.
               </p>
             </div>
-          </AnimatedElement>
         </div>
       </div>
-    </div>
+    </ToolPageLayout>
   );
 };
 

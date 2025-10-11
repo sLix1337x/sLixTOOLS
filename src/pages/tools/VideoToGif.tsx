@@ -1,21 +1,18 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { FileVideo, Download, Wand2, Loader2 } from 'lucide-react';
+import { Download, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ConversionOptions as ConversionOptionsType, VideoPreviewProps, GifPreviewProps, ConversionOptionsProps } from '@/types';
+import { ConversionOptions as ConversionOptionsType, VideoPreviewProps, GifPreviewProps, ValidationResult } from '@/types';
 import PostConversionOptions from '@/components/PostConversionOptions';
 import ConversionOptionsComponent from '@/components/ConversionOptions';
-import FileUpload from '@/components/FileUpload';
-import { validateVideoFileLegacy as validateVideoFile } from '@/utils/fileValidation';
+import ToolPageLayout from '@/components/ToolPageLayout';
+import FileUploadArea from '@/components/FileUploadArea';
 import { convertVideoToGif } from '@/utils/gifConverter';
-import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
 import errorLogger, { ErrorCategory } from '@/utils/errorLogger';
 
-// Enhanced type definitions for better type safety
+// Interface definitions
 interface GifResult {
   url: string;
   blob: Blob;
@@ -23,29 +20,14 @@ interface GifResult {
   processingTime: number;
 }
 
-interface ErrorContext {
-  fileName?: string;
-  fileSize?: number;
-  fileType?: string;
-  conversionOptions?: ConversionOptionsType;
-  reproductionSteps?: string[];
-  metadata?: Record<string, any>;
-  [key: string]: any;
-}
-
-interface ValidationResult {
-  isValid: boolean;
-  error?: string;
-  warnings?: string[];
-}
-
 type ConversionState = 'idle' | 'converting' | 'completed' | 'error';
-type FileValidationError = 'size' | 'format' | 'type' | 'corruption' | 'duration' | 'empty';
+
+import { config } from '@/config';
 
 // Configuration constants
 const CONFIG = {
-  MAX_FILE_SIZE: 500 * 1024 * 1024, // 500MB
-  SUPPORTED_FORMATS: ['mp4', 'webm', 'avi', 'mov', 'mkv', 'flv', 'ogg', 'm4v', 'wmv', 'asf', '3gp', 'mpeg'],
+  MAX_FILE_SIZE: config.upload.maxFileSize, // Use centralized config
+  SUPPORTED_FORMATS: config.upload.allowedVideoTypes,
   DEFAULT_OPTIONS: {
     fps: 15,
     quality: 80,
@@ -96,6 +78,8 @@ const GifPreview = React.memo<GifPreviewProps>(({ gifBlob, onDownload, isConvert
     } else {
       setGifUrl(null);
     }
+    // Return undefined for the case where no cleanup is needed
+    return undefined;
   }, [gifBlob]);
 
   if (!gifBlob || !gifUrl) return null;
@@ -138,8 +122,7 @@ const VideoToGif = () => {
     endTime: 0,
     duration: 0,
   });
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+
 
   // Cleanup URLs on component unmount or when gifResult changes
   useEffect(() => {
@@ -188,15 +171,29 @@ const VideoToGif = () => {
       warnings.push('File name is very long and may cause issues');
     }
     
-    return {
+    const result: ValidationResult = {
       isValid: errors.length === 0,
-      error: errors.length > 0 ? errors[0] : undefined,
-      warnings: warnings.length > 0 ? warnings : undefined
+      fileInfo: {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      }
     };
+
+    if (errors.length > 0) {
+      result.error = errors[0];
+    }
+
+    if (warnings.length > 0) {
+      result.warnings = warnings;
+    }
+
+    return result;
   }, []);
 
   // Centralized error handler
-  const handleError = useCallback((error: Error, context: string, additionalData?: any) => {
+  const handleError = useCallback((error: Error, context: string, additionalData?: Record<string, unknown>) => {
     const errorMessage = error.message || 'Unknown error occurred';
     
     // Determine error category
@@ -214,6 +211,8 @@ const VideoToGif = () => {
       context: {
         component: 'VideoToGif',
         action: context,
+        userAgent: navigator.userAgent,
+        url: window.location.href,
         ...additionalData
       }
     });
@@ -222,7 +221,12 @@ const VideoToGif = () => {
       description: errorMessage,
       action: {
         label: 'View Details',
-        onClick: () => console.log(`Error ID: ${errorId}`)
+        onClick: () => {
+          const errorDetails = errorLogger.getLogById(errorId);
+          if (errorDetails) {
+            console.log('Error Details:', errorDetails);
+          }
+        }
       }
     });
     
@@ -245,15 +249,11 @@ const VideoToGif = () => {
             description: warning
           });
         });
-        setValidationWarnings(validation.warnings);
-      } else {
-        setValidationWarnings([]);
       }
-      
-      setValidationErrors([]);
       
       setVideoFile(file);
       setGifBlob(null);
+      setConversionState('idle');
       
       // Get video duration for trim options
       const video = document.createElement('video');
@@ -292,10 +292,6 @@ const VideoToGif = () => {
       };
       
     } catch (error) {
-       const errorMessage = error instanceof Error ? error.message : String(error);
-       setValidationErrors([errorMessage]);
-       setValidationWarnings([]);
-       
        handleError(error instanceof Error ? error : new Error(String(error)), 'File validation', {
          fileName: file?.name,
          fileSize: file?.size,
@@ -304,7 +300,26 @@ const VideoToGif = () => {
      }
    }, [handleError, validateFile]);
 
-  const handlePostEdit = useCallback(async (editType: string, params?: any) => {
+  const handleUrlSubmit = useCallback(async (url: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load video from URL');
+      
+      const blob = await response.blob();
+      if (!blob.type.startsWith('video/')) {
+        throw new Error('The URL does not point to a valid video file');
+      }
+      
+      const file = new File([blob], 'video-from-url.mp4', { type: blob.type });
+      handleFileSelected(file);
+      toast.success('Video loaded from URL');
+    } catch (error) {
+      // Error details are logged to error reporting system
+      toast.error(error instanceof Error ? error.message : 'Failed to load video from URL');
+    }
+  }, [handleFileSelected]);
+
+  const handlePostEdit = useCallback(async (editType: string, params?: Record<string, unknown>) => {
     if (!gifResult) return;
     
     try {
@@ -341,17 +356,22 @@ const VideoToGif = () => {
     // Check file size before conversion
     if (videoFile.size > CONFIG.MAX_FILE_SIZE) {
       const errorId = errorLogger.logFileProcessingError(
-        `File size (${(videoFile.size / 1024 / 1024).toFixed(1)}MB) exceeds the ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit`,
-        { name: videoFile.name, size: videoFile.size, type: videoFile.type },
-        'VideoToGif',
-        'File Size Validation'
+        new Error(`File size (${(videoFile.size / 1024 / 1024).toFixed(1)}MB) exceeds the ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit`),
+        videoFile,
+        'File size validation failed',
+        'file_size_validation'
       );
       
       toast.error('File too large', {
         description: `File size (${(videoFile.size / 1024 / 1024).toFixed(1)}MB) exceeds the ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit. Please use a smaller file.`,
         action: {
           label: 'View Details',
-          onClick: () => console.log(`Error ID: ${errorId}`)
+          onClick: () => {
+            const errorDetails = errorLogger.getLogById(errorId);
+            if (errorDetails) {
+              console.log('Error Details:', errorDetails);
+            }
+          }
         }
       });
       setConversionState('error');
@@ -362,8 +382,6 @@ const VideoToGif = () => {
     setConversionState('converting');
     setProgress(0);
     setGifResult(null);
-    setValidationErrors([]);
-    setValidationWarnings([]);
     setShowPostOptions(false);
 
     try {
@@ -372,9 +390,9 @@ const VideoToGif = () => {
         fps: conversionOptions.fps,
         quality: conversionOptions.quality,
         startTime: conversionOptions.trimEnabled ? conversionOptions.startTime : 0,
-        duration: conversionOptions.trimEnabled ? (conversionOptions.endTime - conversionOptions.startTime) : undefined,
+        duration: conversionOptions.trimEnabled && conversionOptions.endTime ? (conversionOptions.endTime - conversionOptions.startTime) : videoDuration,
         trimEnabled: conversionOptions.trimEnabled
-      }, (progress) => {
+      }, (progress: number | { stage: string; message: string; progress: number }) => {
         // Handle progress updates
         if (typeof progress === 'object') {
           toast.info(`${progress.stage}: ${progress.message}`, { description: `${Math.round(progress.progress)}% complete` });
@@ -399,14 +417,6 @@ const VideoToGif = () => {
       setConversionState('completed');
       setShowPostOptions(true);
       
-      // Log successful conversion for analytics
-      console.log('GIF Conversion Success:', {
-        inputSize: videoFile.size,
-        outputSize: gifBlob.size,
-        processingTime,
-        options: conversionOptions
-      });
-      
       toast.success('Conversion Successful!', {
         description: `File size: ${(gifBlob.size / 1024 / 1024).toFixed(2)}MB (${processingTime}ms)`
       });
@@ -430,7 +440,7 @@ const VideoToGif = () => {
           conversionOptions,
           videoMetadata: {
             duration: videoDuration,
-            trimDuration: conversionOptions.endTime - conversionOptions.startTime
+            trimDuration: conversionOptions.endTime ? (conversionOptions.endTime - conversionOptions.startTime) : videoDuration
           }
         }
       });
@@ -450,174 +460,97 @@ const VideoToGif = () => {
 
 
   return (
-    <div className="text-white relative min-h-0">
-      <ParticleBackground />
-      <Helmet>
-        <title>Video to GIF Converter | sLixTOOLS</title>
-        <meta name="description" content="Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to animated GIFs online. Fast, free, and secure video to GIF conversion." />
-        <meta name="keywords" content="video to gif, mp4 to gif, webm to gif, avi to gif, convert video to gif, gif maker, online gif converter" />
-        <link rel="canonical" href="https://slixtools.io/tools/video-to-gif" />
-      </Helmet>
-
-      <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
-        <div className="max-w-3xl mx-auto text-center">
+    <ToolPageLayout
+      title="Video to GIF Converter"
+      description="Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to animated GIFs online."
+      keywords="video to gif, mp4 to gif, webm to gif, avi to gif, convert video to gif, gif maker, online gif converter"
+      canonicalUrl="/tools/video-to-gif"
+      pageTitle="Video to GIF Converter | sLixTOOLS"
+      pageDescription="Convert MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files to animated GIFs online. Fast, free, and secure video to GIF conversion."
+    >
+      {!videoFile ? (
+        <FileUploadArea
+          acceptedTypes={['video/mp4', 'video/webm', 'video/avi', 'video/mov', 'video/mkv', 'video/flv', 'video/wmv', 'video/ogg', 'video/m4v', 'video/asf', 'video/3gp', 'video/mpeg']}
+          maxFileSize={CONFIG.MAX_FILE_SIZE}
+          onFileSelected={handleFileSelected}
+          onUrlSubmit={handleUrlSubmit}
+          showUrlInput={true}
+          urlPlaceholder="https://example.com/video.mp4"
+          fileCategory="video"
+          title="Drag & drop your video here"
+          description="or click to browse"
+        />
+      ) : (
+        <div className="space-y-6">
           <AnimatedElement type="fadeIn" delay={0.2}>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-              Video to GIF Converter
-            </h1>
+            <VideoPreview file={videoFile} onDurationChange={setVideoDuration} />
           </AnimatedElement>
-          <AnimatedElement type="slideUp" delay={0.4}>
-            <p className="text-gray-300 mb-6">
-              Create high-quality animated GIFs from MP4, WebM, AVI, MPEG, MKV, FLV, OGG, MOV, M4V, WMV, ASF, 3GP and other video files in just a few clicks.
-            </p>
+          
+          <AnimatedElement type="fadeIn" delay={0.4}>
+            <ConversionOptionsComponent options={conversionOptions} onChange={setConversionOptions} videoDuration={videoDuration} videoFile={videoFile} />
           </AnimatedElement>
-        </div>
-
-        <div className="max-w-4xl mx-auto w-full">
-          {!videoFile ? (
-            <AnimatedElement type="fadeIn" delay={0.6}>
-              <FileUpload onFileSelected={handleFileSelected} />
-            </AnimatedElement>
-          ) : (
-            <div className="space-y-6">
-              <AnimatedElement type="fadeIn" delay={0.2}>
-                <VideoPreview file={videoFile} onDurationChange={setVideoDuration} />
-              </AnimatedElement>
-              
-              <AnimatedElement type="fadeIn" delay={0.4}>
-                <ConversionOptionsComponent options={conversionOptions} onChange={setConversionOptions} videoDuration={videoDuration} videoFile={videoFile} />
-              </AnimatedElement>
-              
-              <AnimatedElement type="fadeIn" delay={0.6}>
-                <div className="flex justify-center">
-                  <button 
-                    onClick={handleConvert}
-                    disabled={isConverting}
-                    className="w-full md:w-auto flex items-center justify-center bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                    style={{
-                      minWidth: '200px'
-                    }}
-                    aria-label={isConverting ? 'Converting video to GIF, please wait' : 'Convert video to GIF'}
-                    aria-describedby={isConverting ? 'conversion-progress' : 'conversion-description'}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {isConverting ? (
-                      <><Loader2 className="animate-spin mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Converting...</span></>
-                    ) : (
-                      <><Wand2 className="mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Convert to GIF</span></>
-                    )}
-                  </button>
-                  <div id="conversion-description" className="sr-only">
-                    Click to start converting your video file to an animated GIF
-                  </div>
-                </div>
-              </AnimatedElement>
-              
-              {isConverting && (
-                <AnimatedElement type="fadeIn" delay={0.2}>
-                  <div className="max-w-md mx-auto space-y-3" id="conversion-progress" role="status" aria-live="polite">
-                    <div className="text-center">
-                      <p className="text-sm text-gray-300 mb-2">Converting your video to GIF...</p>
-                      <Progress value={progress * 100} className="h-2 bg-gray-700" aria-label={`Conversion progress: ${Math.round(progress * 100)}% complete`} />
-                      <p className="text-xs text-gray-400 mt-1" aria-label={`Progress: ${Math.round(progress * 100)} percent complete`}>{Math.round(progress * 100)}% complete</p>
-                    </div>
-                  </div>
-                </AnimatedElement>
-              )}
-              
-              {showPostOptions && gifResult && (
-                <AnimatedElement type="fadeIn" delay={0.2}>
-                  <PostConversionOptions 
-                    gifResult={gifResult}
-                    onDownload={handleDownload}
-                    onEdit={handlePostEdit}
-                  />
-                </AnimatedElement>
-              )}
-              
-              {gifBlob && !showPostOptions && (
-                <AnimatedElement type="fadeIn" delay={0.2}>
-                  <div className="mt-8">
-                    <h2 className="text-2xl font-bold mb-4 text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-                      Your GIF is Ready!
-                    </h2>
-                    <GifPreview gifBlob={gifBlob} onDownload={handleDownload} isConverting={isConverting} />
-                  </div>
-                </AnimatedElement>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="max-w-4xl mx-auto w-full mt-12">
-          <AnimatedElement type="fadeIn" delay={0.2}>
-            <div className="px-4">
-              <h2 className="text-xl font-semibold mb-4 text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-                Transform Videos into Animated GIFs
-              </h2>
-              
-              <div className="space-y-6 text-gray-400 text-sm leading-relaxed">
-                <div className="space-y-3">
-                  <h4 className="text-gray-300 font-medium">🎬 Powerful Video Conversion</h4>
-                  <p className="text-gray-400 mb-3">
-                    Our advanced video-to-GIF converter supports all popular video formats including MP4, AVI, WebM, MOV, and many more. 
-                    Whether you're uploading from your computer, smartphone, or importing directly from URLs, the process is seamless and intuitive.
-                  </p>
-                  <div className="ml-4">
-                    <div className="flex items-start mb-2">
-                      <span className="text-green-400 mr-2 mt-1">•</span>
-                      <span>Drag-and-drop interface for effortless file uploads</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-green-400 mr-2 mt-1">•</span>
-                      <span>Direct URL import for online videos</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <h4 className="text-gray-300 font-medium">⚙️ Precision Controls</h4>
-                  <p className="text-gray-400 mb-3">
-                    Take full control over your GIF creation with our comprehensive set of customization options. 
-                    Fine-tune every aspect from timing to quality to achieve the perfect result.
-                  </p>
-                  <div className="ml-4 space-y-2">
-                    <div className="flex items-start">
-                      <span className="text-blue-400 mr-2 mt-1">•</span>
-                      <span>Custom start and end time selection for precise trimming</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-blue-400 mr-2 mt-1">•</span>
-                      <span>Adjustable frame rates (5-30 FPS) and quality settings (10-100%)</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-blue-400 mr-2 mt-1">•</span>
-                      <span>Smart compression algorithms for optimal file size</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-4 mt-6">
-                  <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
-                    <h3 className="text-base font-medium text-green-400 mb-0.5">Supported Formats</h3>
-                    <p className="text-sm text-gray-400">
-                      MP4, WebM, AVI, MOV, FLV, WMV, MKV, OGG, M4V, ASF, 3GP, MPEG, and more
-                    </p>
-                  </div>
-                  <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-3">
-                    <h3 className="text-base font-medium text-purple-400 mb-0.5">Key Features</h3>
-                    <p className="text-sm text-gray-300">
-                      Custom timing, quality control, transparent GIF support, URL import, HD processing
-                    </p>
-                  </div>
-                </div>
+          
+          <AnimatedElement type="fadeIn" delay={0.6}>
+            <div className="flex justify-center">
+              <button 
+                onClick={handleConvert}
+                disabled={isConverting}
+                className="w-full md:w-auto flex items-center justify-center bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+                style={{
+                  minWidth: '200px'
+                }}
+                aria-label={isConverting ? 'Converting video to GIF, please wait' : 'Convert video to GIF'}
+                aria-describedby={isConverting ? 'conversion-progress' : 'conversion-description'}
+                role="button"
+                tabIndex={0}
+              >
+                {isConverting ? (
+                  <><Loader2 className="animate-spin mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Converting...</span></>
+                ) : (
+                  <><Wand2 className="mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Convert to GIF</span></>
+                )}
+              </button>
+              <div id="conversion-description" className="sr-only">
+                Click to start converting your video file to an animated GIF
               </div>
             </div>
           </AnimatedElement>
+          
+          {isConverting && (
+            <AnimatedElement type="fadeIn" delay={0.2}>
+              <div className="max-w-md mx-auto space-y-3" id="conversion-progress" role="status" aria-live="polite">
+                <div className="text-center">
+                  <p className="text-sm text-gray-300 mb-2">Converting your video to GIF...</p>
+                  <Progress value={progress * 100} className="h-2 bg-gray-700" aria-label={`Conversion progress: ${Math.round(progress * 100)}% complete`} />
+                  <p className="text-xs text-gray-400 mt-1" aria-label={`Progress: ${Math.round(progress * 100)} percent complete`}>{Math.round(progress * 100)}% complete</p>
+                </div>
+              </div>
+            </AnimatedElement>
+          )}
+          
+          {showPostOptions && gifResult && (
+            <AnimatedElement type="fadeIn" delay={0.2}>
+              <PostConversionOptions 
+                gifResult={gifResult}
+                onDownload={handleDownload}
+                onEdit={handlePostEdit}
+              />
+            </AnimatedElement>
+          )}
+          
+          {gifBlob && !showPostOptions && (
+            <AnimatedElement type="fadeIn" delay={0.2}>
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4 text-center bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                  Your GIF is Ready!
+                </h2>
+                <GifPreview gifBlob={gifBlob} onDownload={handleDownload} isConverting={isConverting} />
+              </div>
+            </AnimatedElement>
+          )}
         </div>
-      </div>
-    </div>
+      )}
+    </ToolPageLayout>
   );
 };
 

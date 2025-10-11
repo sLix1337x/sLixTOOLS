@@ -39,8 +39,9 @@ const GifPreview: React.FC<GifPreviewProps> = ({ gifBlob, onDownload, onCopyLink
       setCopied(true);
       toast.success('Link copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy link:', err);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_err) {
+      // Failed to copy link to clipboard
       toast.error('Failed to copy link to clipboard');
     }
   };

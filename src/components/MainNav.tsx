@@ -2,8 +2,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronRight, FileAudio, FileImage, FileText, FileVideo, Image as ImageIcon, Type, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileImage, FileVideo, Image as ImageIcon, Type, Zap } from 'lucide-react';
 import { preloadRoute } from '@/utils/preloader';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 // Removed PERFORMANCE_CONFIG import - using simplified approach
 
@@ -80,12 +81,6 @@ const styleElement = document.createElement('style');
 styleElement.textContent = rainbowStyles;
 document.head.appendChild(styleElement);
 
-type ToolsCategory = {
-  title: string;
-  icon: React.ReactNode;
-  items: { name: string; path: string }[];
-};
-
 const MainNav: React.FC = React.memo(() => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -96,9 +91,10 @@ const MainNav: React.FC = React.memo(() => {
   const handleRouteHover = useCallback((path: string) => {
     const delay = 100; // Simple 100ms delay
     setTimeout(() => {
-      preloadRoute(path).catch(error => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      preloadRoute(path).catch(_error => {
           if (process.env.NODE_ENV === 'development') {
-            console.warn(error);
+            // Route preloading errors logged to development system
           }
         });
     }, delay);
@@ -170,7 +166,7 @@ const MainNav: React.FC = React.memo(() => {
         <div className="flex items-center space-x-3">
           <Link to="/" className="flex items-center group">
             <img 
-              src="https://i.ibb.co/s8Cz1nC/vorncrash2.gif"
+              src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
               alt="sLixTOOLS Logo"
               className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
               style={{ 

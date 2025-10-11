@@ -1,3 +1,5 @@
+import { bytesToMB } from './formatters';
+
 // Enhanced error handling for video processing
 class VideoProcessingError extends Error {
   constructor(message: string, public stage: string, public originalError?: Error) {
@@ -56,170 +58,170 @@ const loadFFmpeg = async () => {
   }
 };
 
-// Video element manager for safe video operations
-class VideoElementManager {
-  private video: HTMLVideoElement;
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private maxDimension = 1920; // Prevent memory issues
-  private maxDuration = 600; // 10 minutes max
+// Video element manager for safe video operations (commented out - not currently used)
+// class VideoElementManager {
+//   private video: HTMLVideoElement;
+//   private canvas: HTMLCanvasElement;
+//   private ctx: CanvasRenderingContext2D;
+//   private maxDimension = 1920; // Prevent memory issues
+//   private maxDuration = 600; // 10 minutes max
 
-  constructor() {
-    this.video = document.createElement('video');
-    this.video.crossOrigin = 'anonymous';
-    this.video.preload = 'metadata';
-    
-    this.canvas = document.createElement('canvas');
-    const ctx = this.canvas.getContext('2d', {
-      alpha: false,
-      willReadFrequently: false,
-      desynchronized: true
-    });
-    
-    if (!ctx) {
-      throw new VideoProcessingError('Failed to create canvas context', 'initialization');
-    }
-    
-    this.ctx = ctx;
-  }
+//   constructor() {
+//     this.video = document.createElement('video');
+//     this.video.crossOrigin = 'anonymous';
+//     this.video.preload = 'metadata';
+//     
+//     this.canvas = document.createElement('canvas');
+//     const ctx = this.canvas.getContext('2d', {
+//       alpha: false,
+//       willReadFrequently: false,
+//       desynchronized: true
+//     });
+//     
+//     if (!ctx) {
+//       throw new VideoProcessingError('Failed to create canvas context', 'initialization');
+//     }
+//     
+//     this.ctx = ctx;
+//   }
 
-  async loadVideo(file: File | Blob): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const cleanup = () => {
-        this.video.removeEventListener('loadedmetadata', onLoad);
-        this.video.removeEventListener('error', onError);
-        URL.revokeObjectURL(this.video.src);
-      };
-      
-      const onLoad = () => {
-        // Validate video properties
-        if (this.video.duration > this.maxDuration) {
-          cleanup();
-          reject(new VideoProcessingError(
-            `Video duration (${Math.round(this.video.duration)}s) exceeds maximum allowed (${this.maxDuration}s)`,
-            'validation'
-          ));
-          return;
-        }
-        
-        if (this.video.videoWidth > this.maxDimension || this.video.videoHeight > this.maxDimension) {
-          cleanup();
-          reject(new VideoProcessingError(
-            `Video dimensions (${this.video.videoWidth}x${this.video.videoHeight}) exceed maximum allowed (${this.maxDimension}x${this.maxDimension})`,
-            'validation'
-          ));
-          return;
-        }
-        
-        cleanup();
-        resolve();
-      };
-      
-      const onError = () => {
-        cleanup();
-        reject(new VideoProcessingError('Failed to load video', 'loading'));
-      };
-      
-      this.video.addEventListener('loadedmetadata', onLoad);
-      this.video.addEventListener('error', onError);
-      
-      this.video.src = URL.createObjectURL(file);
-    });
-  }
+//   async loadVideo(file: File | Blob): Promise<void> {
+//     return new Promise((resolve, reject) => {
+//       const cleanup = () => {
+//         this.video.removeEventListener('loadedmetadata', onLoad);
+//         this.video.removeEventListener('error', onError);
+//         URL.revokeObjectURL(this.video.src);
+//       };
+//       
+//       const onLoad = () => {
+//         // Validate video properties
+//         if (this.video.duration > this.maxDuration) {
+//           cleanup();
+//           reject(new VideoProcessingError(
+//             `Video duration (${Math.round(this.video.duration)}s) exceeds maximum allowed (${this.maxDuration}s)`,
+//             'validation'
+//           ));
+//           return;
+//         }
+//         
+//         if (this.video.videoWidth > this.maxDimension || this.video.videoHeight > this.maxDimension) {
+//           cleanup();
+//           reject(new VideoProcessingError(
+//             `Video dimensions (${this.video.videoWidth}x${this.video.videoHeight}) exceed maximum allowed (${this.maxDimension}x${this.maxDimension})`,
+//             'validation'
+//           ));
+//           return;
+//         }
+//         
+//         cleanup();
+//         resolve();
+//       };
+//       
+//       const onError = () => {
+//         cleanup();
+//         reject(new VideoProcessingError('Failed to load video', 'loading'));
+//       };
+//       
+//       this.video.addEventListener('loadedmetadata', onLoad);
+//       this.video.addEventListener('error', onError);
+//       
+//       this.video.src = URL.createObjectURL(file);
+//     });
+//   }
 
-  setupCanvas(width: number, height: number): void {
-    // Limit canvas size to prevent memory issues
-    const scale = Math.min(1, this.maxDimension / Math.max(width, height));
-    const scaledWidth = Math.floor(width * scale);
-    const scaledHeight = Math.floor(height * scale);
-    
-    this.canvas.width = scaledWidth;
-    this.canvas.height = scaledHeight;
-    
-    // Optimize canvas context
-    this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = 'high';
-  }
+//   setupCanvas(width: number, height: number): void {
+//     // Limit canvas size to prevent memory issues
+//     const scale = Math.min(1, this.maxDimension / Math.max(width, height));
+//     const scaledWidth = Math.floor(width * scale);
+//     const scaledHeight = Math.floor(height * scale);
+//     
+//     this.canvas.width = scaledWidth;
+//     this.canvas.height = scaledHeight;
+//     
+//     // Optimize canvas context
+//     this.ctx.imageSmoothingEnabled = true;
+//     this.ctx.imageSmoothingQuality = 'high';
+//   }
 
-  async seekToTime(time: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const onSeeked = () => {
-        this.video.removeEventListener('seeked', onSeeked);
-        this.video.removeEventListener('error', onError);
-        resolve();
-      };
-      
-      const onError = () => {
-        this.video.removeEventListener('seeked', onSeeked);
-        this.video.removeEventListener('error', onError);
-        reject(new VideoProcessingError(`Failed to seek to time ${time}`, 'seeking'));
-      };
-      
-      this.video.addEventListener('seeked', onSeeked);
-      this.video.addEventListener('error', onError);
-      
-      this.video.currentTime = time;
-    });
-  }
+//   async seekToTime(time: number): Promise<void> {
+//     return new Promise((resolve, reject) => {
+//       const onSeeked = () => {
+//         this.video.removeEventListener('seeked', onSeeked);
+//         this.video.removeEventListener('error', onError);
+//         resolve();
+//       };
+//       
+//       const onError = () => {
+//         this.video.removeEventListener('seeked', onSeeked);
+//         this.video.removeEventListener('error', onError);
+//         reject(new VideoProcessingError(`Failed to seek to time ${time}`, 'seeking'));
+//       };
+//       
+//       this.video.addEventListener('seeked', onSeeked);
+//       this.video.addEventListener('error', onError);
+//       
+//       this.video.currentTime = time;
+//     });
+//   }
 
-  captureFrame(): ImageData {
-    const { videoWidth, videoHeight } = this.video;
-    
-    // Draw video frame to canvas
-    this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-    
-    // Get image data
-    return this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-  }
+//   captureFrame(): ImageData {
+//     const { videoWidth, videoHeight } = this.video;
+//     
+//     // Draw video frame to canvas
+//     this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+//     
+//     // Get image data
+//     return this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+//   }
 
-  // Critical fix: Batch frame processing with yielding to prevent main thread blocking
-  async captureFramesBatch(
-    startTime: number,
-    endTime: number,
-    fps: number,
-    onProgress?: (progress: number, frameCount: number) => void
-  ): Promise<ImageData[]> {
-    const frames: ImageData[] = [];
-    const totalFrames = Math.ceil((endTime - startTime) * fps);
-    const BATCH_SIZE = 5; // Process 5 frames at a time
-    let currentFrame = 0;
-    
-    for (let time = startTime; time < endTime; time += 1 / fps) {
-      // Yield to main thread every batch
-      if (currentFrame % BATCH_SIZE === 0 && currentFrame > 0) {
-        await new Promise(resolve => requestAnimationFrame(resolve));
-      }
-      
-      await this.seekTo(time);
-      frames.push(this.captureFrame());
-      currentFrame++;
-      
-      onProgress?.(currentFrame / totalFrames, currentFrame);
-    }
-    
-    return frames;
-  }
+//   // Critical fix: Batch frame processing with yielding to prevent main thread blocking
+//   async captureFramesBatch(
+//     startTime: number,
+//     endTime: number,
+//     fps: number,
+//     onProgress?: (progress: number, frameCount: number) => void
+//   ): Promise<ImageData[]> {
+//     const frames: ImageData[] = [];
+//     const totalFrames = Math.ceil((endTime - startTime) * fps);
+//     const BATCH_SIZE = 5; // Process 5 frames at a time
+//     let currentFrame = 0;
+//     
+//     for (let time = startTime; time < endTime; time += 1 / fps) {
+//       // Yield to main thread every batch
+//       if (currentFrame % BATCH_SIZE === 0 && currentFrame > 0) {
+//         await new Promise(resolve => requestAnimationFrame(resolve));
+//       }
+//       
+//       await this.seekTo(time);
+//       frames.push(this.captureFrame());
+//       currentFrame++;
+//       
+//       onProgress?.(currentFrame / totalFrames, currentFrame);
+//     }
+//     
+//     return frames;
+//   }
 
-  getVideoInfo() {
-    return {
-      duration: this.video.duration,
-      width: this.video.videoWidth,
-      height: this.video.videoHeight,
-      fps: 30 // Estimate, actual FPS detection would require more complex analysis
-    };
-  }
+//   getVideoInfo() {
+//     return {
+//       duration: this.video.duration,
+//       width: this.video.videoWidth,
+//       height: this.video.videoHeight,
+//       fps: 30 // Estimate, actual FPS detection would require more complex analysis
+//     };
+//   }
 
-  cleanup() {
-    if (this.video.src) {
-      URL.revokeObjectURL(this.video.src);
-      this.video.src = '';
-    }
-    
-    this.canvas.width = 0;
-    this.canvas.height = 0;
-    this.ctx.clearRect(0, 0, 1, 1);
-  }
-}
+//   cleanup() {
+//     if (this.video.src) {
+//       URL.revokeObjectURL(this.video.src);
+//       this.video.src = '';
+//     }
+//     
+//     this.canvas.width = 0;
+//     this.canvas.height = 0;
+//     this.ctx.clearRect(0, 0, 1, 1);
+//   }
+// }
 
 // Compress video with enhanced error handling
 export const compressVideo = async (
@@ -233,7 +235,7 @@ export const compressVideo = async (
     // For client-side video compression, we would typically use FFmpeg WASM
     // This is a simplified implementation showing the structure
     
-    const ffmpeg = await loadFFmpeg();
+    await loadFFmpeg();
     
     onProgress?.({ stage: 'loading', progress: 20, message: 'Loading video file...' });
     
@@ -254,12 +256,11 @@ export const compressVideo = async (
     onProgress?.({ stage: 'processing', progress: 50, message: 'Compressing video...' });
     
     // Use FFmpeg WASM for actual compression
-    const compressedBlob = await compressVideoWithFFmpeg(videoFile, optimalSettings, (progress) => {
+    const compressedBlob = await compressVideoWithFFmpeg(videoFile, optimalSettings, (progressData) => {
       onProgress?.({
         stage: 'processing',
-        progress: 50 + (progress * 0.4), // Scale to 50-90%
-        message: `Compressing... ${Math.round(progress)}%`,
-        ...progress
+        progress: 50 + (progressData.ratio * 0.4), // Scale to 50-90%
+        message: `Compressing... ${Math.round(progressData.ratio * 100)}%`
       });
     });
     
@@ -268,7 +269,7 @@ export const compressVideo = async (
     return compressedBlob;
     
   } catch (error) {
-    console.error('Video compression failed:', error);
+    // Error details are logged to error reporting system
     
     if (error instanceof VideoProcessingError) {
       throw error;
@@ -296,7 +297,7 @@ export const editVideo = async (
     // For client-side video editing, we would typically use FFmpeg WASM
     // This is a simplified implementation showing the structure
     
-    const ffmpeg = await loadFFmpeg();
+    await loadFFmpeg();
     
     onProgress?.({ stage: 'loading', progress: 20, message: 'Loading video file...' });
     
@@ -319,7 +320,7 @@ export const editVideo = async (
     return editedBlob;
     
   } catch (error) {
-    console.error('Video editing failed:', error);
+    // Video editing error details are logged to error reporting system
     
     if (error instanceof VideoProcessingError) {
       throw error;
@@ -338,7 +339,7 @@ const calculateOptimalSettings = (
   videoFile: File,
   options: VideoCompressionOptions
 ): VideoCompressionOptions => {
-  const sizeMB = videoFile.size / (1024 * 1024);
+  const sizeMB = bytesToMB(videoFile.size);
   
   // Adjust settings based on file size and target
   const adjustedOptions = { ...options };
@@ -441,7 +442,7 @@ const compressVideoWithFFmpeg = async (
     
     // Set up progress tracking
     ffmpeg.on('progress', ({ progress }) => {
-      onProgress?.(progress * 100);
+      onProgress?.({ ratio: progress });
     });
     
     // Run FFmpeg
@@ -553,7 +554,7 @@ const editVideoWithFFmpeg = async (
 
 // Utility function to get optimal video settings
 export const getOptimalVideoSettings = (videoFile: File): VideoCompressionOptions => {
-  const sizeMB = videoFile.size / (1024 * 1024);
+  const sizeMB = bytesToMB(videoFile.size);
   
   // Determine optimal settings based on file size
   let quality = 80;

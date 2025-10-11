@@ -3,8 +3,8 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
-import { ConversionOptions } from '@/utils/gifConverter';
+import type { ConversionOptions } from '@/types';
+import { formatDuration, formatFileSize } from '@/utils/formatters';
 import { Settings } from 'lucide-react';
 
 interface ConversionOptionsProps {
@@ -14,20 +14,6 @@ interface ConversionOptionsProps {
   videoDuration?: number; // Add video duration prop
 }
 
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
 const estimateGifSize = (width: number, height: number, fps: number, duration: number, quality: number): number => {
   // Rough estimation formula for GIF file size
   const frames = fps * duration;
@@ -36,7 +22,7 @@ const estimateGifSize = (width: number, height: number, fps: number, duration: n
   return frames * pixelsPerFrame * bytesPerPixel;
 };
 
-// Extend Switch component props to include thumbClassName
+// Extend component props for better type safety
 declare module 'react' {
   interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
     thumbClassName?: string;
@@ -84,13 +70,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
     });
   };
 
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    onChange({
-      ...options,
-      duration: isNaN(value) ? undefined : value
-    });
-  };
+  // Removed unused handleDurationChange function
 
   const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);

@@ -299,6 +299,56 @@ npm run dev
 
 ## 🏗️ Project Architecture
 
+### Component Structure
+
+The application follows a modern React component architecture with TypeScript:
+
+#### Core Components
+- **App.tsx**: Main application component with routing setup
+- **Pages/**: Directory containing page components
+  - **Home.tsx**: Landing page with hero section, feature highlights, and tools list
+  - **Tools.tsx**: Page displaying all available tools in a grid layout
+  - **tools/**: Individual tool components (VideoToGif.tsx, ImageCompressor.tsx, etc.)
+- **Components/**: Reusable UI components and utilities
+
+#### Key Animation Components
+- **AnimatedElement**: Reusable animation wrapper with Framer Motion providing various animation types (fadeIn, slideUp, slideIn, scale, bounce)
+- **SmoothScroll**: Wrapper component implementing smooth scrolling using Lenis library
+- **ParticleBackground**: Animated particle effect background for visual appeal
+
+#### 3D Graphics
+- **ThreeDScene**: Component rendering 3D scenes using Three.js (via React Three Fiber) with animated 3D cube
+
+#### File Processing Components
+- **FileUpload**: Handles file uploads with drag-and-drop support and validation
+- **VideoPreview**: Provides video playback with controls for uploaded videos
+- **GifPreview**: Displays converted GIFs with download options
+- **ConversionOptions**: User interface for adjusting conversion settings
+
+### Special Features & UI Elements
+
+#### Dancing GIF Element
+A signature visual element positioned in the left bottom corner of the sLixTOOLS section:
+- **Position**: `-left-[116px] -bottom-[90px]`
+- **Size**: `max-w-[180px] md:max-w-[240px]`
+- **Importance**: Key branding element preserved across refactoring
+
+#### Responsive Design
+- **Mobile**: Up to 640px
+- **Tablet**: 641px to 1024px  
+- **Desktop**: 1025px and above
+- Custom element sizing and positioning for mobile views
+- Specialized layout for tool interfaces on touch devices
+
+#### Performance Optimizations
+- Dynamic import of heavy libraries (pdfjs-dist, jspdf) to reduce initial load time
+- Optimized canvas rendering for image manipulation
+- Progressive loading of UI components
+- Lazy loading of tools and routes
+- Memory management with automatic cleanup of large file objects
+
+## 🏗️ Project Architecture
+
 ### 📁 Directory Structure
 
 ```

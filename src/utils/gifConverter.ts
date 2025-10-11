@@ -1,19 +1,80 @@
 
-import { ConversionOptions } from '@/types';
-import { config } from '@/config';
+import { ConversionOptions } from '../types';
 import 'gif.js/dist/gif.js';
-// GIF is now available as a global
+
+// Proper TypeScript interfaces for GIF.js library
+interface GifJsOptions {
+  workers: number;
+  quality: number;
+  width: number;
+  height: number;
+  workerScript: string;
+  dither?: string | boolean | undefined;
+  globalPalette?: boolean | undefined;
+  optimizeTransparency?: boolean | undefined;
+  repeat?: number | undefined;
+  background?: string | undefined;
+  transparent?: string | null | undefined;
+  debug?: boolean | undefined;
+}
+
+interface GifJsInstance {
+  addFrame(canvas: HTMLCanvasElement | CanvasRenderingContext2D, options?: { delay?: number | undefined; copy?: boolean | undefined } | undefined): void;
+  render(): void;
+  abort(): void;
+  freeWorkers(): void;
+  on(event: 'finished', callback: (blob: Blob) => void): void;
+  on(event: 'error', callback: (error: Error) => void): void;
+  on(event: 'progress', callback: (progress: number) => void): void;
+  on(event: 'abort', callback: () => void): void;
+  on(event: string, callback: (data: unknown) => void): void;
+}
+
+interface GifJsConstructor {
+  new (options: GifJsOptions): GifJsInstance;
+}
+
+// Enhanced global window interface
 declare global {
   interface Window {
-    GIF: any;
+    GIF: GifJsConstructor;
     gc?: () => void; // Optional garbage collection function
   }
 }
-const GIF = (window as any).GIF;
+
+// Type-safe GIF constructor access with proper validation
+const getGifConstructor = (): GifJsConstructor | null => {
+  const globalWindow = window as Window & { GIF?: GifJsConstructor };
+  const GifConstructor = globalWindow.GIF;
+  
+  // Validate that GIF constructor exists and is a function
+  if (!GifConstructor || typeof GifConstructor !== 'function') {
+    return null;
+  }
+  
+  // Additional validation to ensure it's the correct constructor
+  try {
+    // Test instantiation with minimal options to verify it's working
+    const testInstance = new GifConstructor({ 
+      workers: 1, 
+      quality: 10, 
+      width: 100, 
+      height: 100,
+      workerScript: '/workers/gif.worker.js'
+    });
+    if (testInstance && typeof testInstance.addFrame === 'function') {
+      return GifConstructor;
+    }
+  } catch {
+    return null;
+  }
+  
+  return null;
+};
 
 // Enhanced error handling for GIF conversion
 class GifConversionError extends Error {
-  constructor(message: string, public stage: string, public originalError?: Error) {
+  constructor(message: string, public stage: string, public originalError?: Error | undefined) {
     super(message);
     this.name = 'GifConversionError';
   }
@@ -24,18 +85,19 @@ interface EnhancedProgress {
   stage: 'loading' | 'processing' | 'encoding' | 'complete';
   progress: number;
   message: string;
-  frameCount?: number;
-  totalFrames?: number;
+  frameCount?: number | undefined;
+  totalFrames?: number | undefined;
 }
 
 type EnhancedProgressCallback = (progress: EnhancedProgress) => void;
 
 // Load GIF constructor
-const loadGifJs = async () => {
-  if (!GIF || typeof GIF !== 'function') {
+const loadGifJs = async (): Promise<GifJsConstructor> => {
+  const GifConstructor = getGifConstructor();
+  if (!GifConstructor || typeof GifConstructor !== 'function') {
     throw new GifConversionError('GIF constructor is not available or not a function', 'loading');
   }
-  return GIF;
+  return GifConstructor;
 };
 
 // Export the error class for external use
@@ -43,8 +105,8 @@ export { GifConversionError, type EnhancedProgress, type EnhancedProgressCallbac
 
 export const convertVideoToGif = async (
   videoFile: File,
-  options: ConversionOptions = {},
-  onProgress?: (progress: number) => void | EnhancedProgressCallback
+  options: Partial<ConversionOptions> = {},
+  onProgress?: ((progress: number) => void) | EnhancedProgressCallback
 ): Promise<Blob> => {
   
   let video: HTMLVideoElement | null = null;
@@ -77,11 +139,11 @@ export const convertVideoToGif = async (
     enhancedProgress('loading', 0, 'Loading GIF library...');
 
     // Load GIF.js dynamically with enhanced error handling
-    let GIF: any;
+    let GifConstructor: GifJsConstructor;
     try {
-      GIF = await loadGifJs();
+      GifConstructor = await loadGifJs();
       
-      if (!GIF) {
+      if (!GifConstructor) {
         throw new GifConversionError('Failed to load GIF processing library', 'loading');
       }
     } catch (error) {
@@ -169,14 +231,12 @@ export const convertVideoToGif = async (
           const baseWorkerCount = Math.min(navigator.hardwareConcurrency || 2, 4);
           const workerCount = estimatedFrames > 100 ? Math.min(baseWorkerCount, 2) : baseWorkerCount;
           
-          // Use the statically imported GIF constructor
-          if (typeof GIF !== 'function') {
+          // Use the type-safe GIF constructor
+          if (typeof GifConstructor !== 'function') {
             throw new GifConversionError('GIF constructor not available', 'processing');
           }
           
-          console.log(`Creating GIF encoder: ${workerCount} workers, ${estimatedFrames} frames, ${targetWidth}x${targetHeight}`);
-          
-          const gif = new GIF({
+          const gif = new GifConstructor({
             workers: workerCount,
             quality: Math.max(1, Math.min(30, quality)),
             width: targetWidth,
@@ -194,8 +254,6 @@ export const convertVideoToGif = async (
           // Calculate timeout based on video duration, FPS, and quality
           // Base timeout: 5 seconds per frame + 30 seconds buffer
           const WORKER_TIMEOUT = Math.max(120000, estimatedFrames * 5000 + 30000); // Minimum 2 minutes
-          
-          console.log(`Dynamic timeout calculated: ${WORKER_TIMEOUT}ms for ${estimatedFrames} frames (${videoDuration.toFixed(2)}s duration)`);
 
           // Cleanup function with worker termination
           const cleanupResources = () => {
@@ -205,7 +263,7 @@ export const convertVideoToGif = async (
               workerTimeout = null;
             }
             
-            // Critical fix: Explicitly terminate workers
+            // Critical fix: Explicitly terminate workers with proper error handling
             try {
               if (gif && typeof gif.freeWorkers === 'function') {
                 gif.freeWorkers();
@@ -213,22 +271,37 @@ export const convertVideoToGif = async (
               if (gif && typeof gif.abort === 'function') {
                 gif.abort();
               }
-            } catch (error) {
-              console.warn('Worker cleanup warning:', error);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (_error) {
+              // Worker cleanup handled silently
             }
             
+            // Enhanced video cleanup with null checks
             if (video) {
-              video.pause();
-              video.removeAttribute('src');
-              video.load();
-              if (video.src) {
-                URL.revokeObjectURL(video.src);
+              try {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+                const videoSrc = video.src;
+                if (videoSrc && videoSrc.startsWith('blob:')) {
+                  URL.revokeObjectURL(videoSrc);
+                }
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              } catch (_error) {
+                // Video cleanup handled silently
               }
               video = null;
             }
+            
+            // Enhanced canvas cleanup with null checks
             if (canvas) {
-              canvas.width = 0;
-              canvas.height = 0;
+              try {
+                canvas.width = 0;
+                canvas.height = 0;
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              } catch (_error) {
+                // Canvas cleanup handled silently
+              }
               canvas = null;
             }
             ctx = null;
@@ -281,11 +354,17 @@ export const convertVideoToGif = async (
           enhancedProgress('processing', 40, 'Capturing video frames...', { frameCount: 0, totalFrames });
           
           const captureFrame = async () => {
-            if (processingBatch || !video || !ctx || video.currentTime >= actualEndTime) {
+            if (processingBatch || !video || !ctx || !canvas || video.currentTime >= actualEndTime) {
               if (!processingBatch && frameCount > 0 && !isRendering) {
                 isRendering = true;
                 enhancedProgress('encoding', 80, 'Encoding GIF...');
-                gif.render();
+                try {
+                  gif.render();
+                } catch (error) {
+                  cleanupResources();
+                  reject(new GifConversionError('Failed to start GIF rendering', 'encoding', error as Error));
+                  return;
+                }
               }
               return;
             }
@@ -294,9 +373,28 @@ export const convertVideoToGif = async (
             
             try {
               // Process frames in batches with memory management
-              for (let i = 0; i < batchSize && video.currentTime < actualEndTime; i++) {
-                ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-                gif.addFrame(ctx, { copy: true, delay: Math.round(1000 / fps) });
+              for (let i = 0; i < batchSize && video && video.currentTime < actualEndTime; i++) {
+                // Additional null checks before drawing
+                if (!video || !ctx || !canvas) {
+                  throw new Error('Video, context, or canvas became null during processing');
+                }
+                
+                // Validate video state before drawing
+                if (video.readyState < 2) { // HAVE_CURRENT_DATA
+                  // Video not ready for frame capture, skipping frame
+                  continue;
+                }
+                
+                try {
+                  ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+                  gif.addFrame(ctx, { copy: true, delay: Math.round(1000 / fps) });
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                } catch (_drawError) {
+                  // Frame drawing error handled silently
+                  // Skip this frame and continue
+                  video.currentTime += 1 / fps;
+                  continue;
+                }
                 
                 frameCount++;
                 const progress = 40 + (frameCount / totalFrames) * 40;
@@ -305,12 +403,22 @@ export const convertVideoToGif = async (
                   totalFrames
                 });
                 
-                // Move to next frame
-                video.currentTime += 1 / fps;
+                // Move to next frame with bounds checking
+                const nextTime = video.currentTime + (1 / fps);
+                if (nextTime <= actualEndTime) {
+                  video.currentTime = nextTime;
+                } else {
+                  break; // End of processing
+                }
                 
                 // Memory management: Force garbage collection every 20 frames
                 if (frameCount % 20 === 0 && window.gc) {
-                  window.gc();
+                  try {
+                    window.gc();
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  } catch (_gcError) {
+                    // Garbage collection handled silently
+                  }
                 }
                 
                 // Yield to main thread within batch
@@ -322,39 +430,110 @@ export const convertVideoToGif = async (
               processingBatch = false;
               
               // Continue with next batch
-              if (video.currentTime < actualEndTime) {
+              if (video && video.currentTime < actualEndTime) {
                 // Yield to main thread between batches
                 setTimeout(captureFrame, 10);
-              } else if (!isRendering) {
+              } else if (!isRendering && frameCount > 0) {
                 isRendering = true;
                 enhancedProgress('encoding', 80, 'Encoding GIF...');
-                gif.render();
+                try {
+                  gif.render();
+                } catch (error) {
+                  cleanupResources();
+                  reject(new GifConversionError('Failed to start GIF rendering', 'encoding', error as Error));
+                  return;
+                }
               }
               
             } catch (error) {
               processingBatch = false;
-              console.warn('Frame capture error:', error);
-              // Continue with next frame
-              setTimeout(captureFrame, 10);
+              // Frame capture error handled silently
+              
+              // Enhanced error recovery
+              if (frameCount === 0) {
+                // If no frames captured yet, this is a critical error
+                cleanupResources();
+                reject(new GifConversionError('Failed to capture any frames from video', 'processing', error as Error));
+                return;
+              }
+              
+              // If we have some frames, try to continue or finish
+              if (video && video.currentTime < actualEndTime) {
+                // Try to continue with next frame after a delay
+                setTimeout(captureFrame, 50);
+              } else if (!isRendering && frameCount > 0) {
+                // Finish with what we have
+                isRendering = true;
+                enhancedProgress('encoding', 80, 'Encoding GIF...');
+                try {
+                  gif.render();
+                } catch (renderError) {
+                  cleanupResources();
+                  reject(new GifConversionError('Failed to start GIF rendering', 'encoding', renderError as Error));
+                }
+              }
             }
           };
           
-          video.onseeked = captureFrame;
+          if (video) {
+            video.onseeked = () => {
+              // Add null checks before calling captureFrame
+              if (video && ctx && canvas) {
+                captureFrame();
+              } else {
+                cleanupResources();
+                reject(new GifConversionError('Video, context, or canvas became null during seeking', 'processing'));
+              }
+            };
+          }
           
-          // Start capturing from the start time
-          video.currentTime = actualStartTime;
+          // Start capturing from the start time with error handling
+          try {
+            if (video) {
+              video.currentTime = actualStartTime;
+            }
+          } catch (seekError) {
+            cleanupResources();
+            reject(new GifConversionError('Failed to seek to start time', 'processing', seekError as Error));
+          }
         };
     
         video.onerror = () => {
           clearTimeout(loadTimeout);
-          cleanupResources();
-          reject(new GifConversionError('Error loading video', 'loading'));
+          // Cleanup resources directly since cleanupResources is not in scope
+          if (video) {
+            video.src = '';
+            video.load();
+          }
+          if (canvas) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+          const errorMessage = video?.error?.message || 'Unknown video error';
+          reject(new GifConversionError(`Error loading video: ${errorMessage}`, 'loading'));
         };
         
-        // Set video source
-        video.src = URL.createObjectURL(videoFile);
+        // Set video source with error handling
+        try {
+          video.src = URL.createObjectURL(videoFile);
+        } catch (error) {
+          // Cleanup resources directly since cleanupResources is not in scope
+          if (video) {
+            video.src = '';
+            video.load();
+          }
+          if (canvas) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+          reject(new GifConversionError('Failed to create video URL', 'loading', error as Error));
+        }
     });
   } catch (error) {
-    throw error;
+    // Re-throw GifConversionError as-is, wrap others
+    if (error instanceof GifConversionError) {
+      throw error;
+    }
+    throw new GifConversionError('Unexpected error during GIF conversion', 'unknown', error as Error);
   }
 };

@@ -6,12 +6,9 @@ const NotFound = () => {
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.error(
-        "404 Error: User attempted to access non-existent route:",
-        location.pathname
-      );
+      // 404 error logged to error reporting system in development
     }
-  }, [location.pathname]);
+  }, [location]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

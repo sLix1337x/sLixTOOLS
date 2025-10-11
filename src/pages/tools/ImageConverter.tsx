@@ -1,15 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { toast } from 'sonner';
-import { FileImage, Download, Settings, ImageIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { validateImageFile } from '@/utils/fileValidation';
-import AnimatedElement from '@/components/AnimatedElement';
-import ParticleBackground from '@/components/ParticleBackground';
+import { FileImage, Settings, Download } from 'lucide-react';
+import ToolPageLayout from '@/components/ToolPageLayout';
+import FileUploadArea from '@/components/FileUploadArea';
+import { toast } from 'sonner';
 
 interface ConversionOptions {
   format: string;
@@ -21,52 +19,84 @@ interface ConversionOptions {
 
 const ImageConverter: React.FC = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string>('');
   const [convertedImage, setConvertedImage] = useState<Blob | null>(null);
+  const [convertedUrl, setConvertedUrl] = useState<string>('');
   const [isConverting, setIsConverting] = useState(false);
+  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [options, setOptions] = useState<ConversionOptions>({
     format: 'jpeg',
-    quality: 90,
+    quality: 85,
+    width: 0,
+    height: 0,
     maintainAspectRatio: true
   });
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [convertedUrl, setConvertedUrl] = useState<string>('');
-  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
 
-  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const getImageDimensions = useCallback((file: File): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        resolve({
+          width: img.naturalWidth,
+          height: img.naturalHeight
+        });
+        URL.revokeObjectURL(img.src);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  }, []);
 
-    const validation = validateImageFile(file);
-    if (!validation.isValid) {
-      toast.error(validation.error || 'Invalid image file');
-      return;
-    }
-
-    setImageFile(file);
-    setConvertedImage(null);
-    setConvertedUrl('');
-    
-    // Create preview URL and get dimensions
-    if (imageUrl) {
-      URL.revokeObjectURL(imageUrl);
-    }
-    const url = URL.createObjectURL(file);
-    setImageUrl(url);
-    
-    // Get image dimensions
-    const img = new Image();
-    img.onload = () => {
-      setOriginalDimensions({ width: img.width, height: img.height });
+  const handleFileSelected = useCallback(async (file: File) => {
+    try {
+      setImageFile(file);
+      
+      // Create preview URL
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+      const url = URL.createObjectURL(file);
+      setImageUrl(url);
+      
+      // Get image dimensions
+      const dimensions = await getImageDimensions(file);
+      setOriginalDimensions(dimensions);
       setOptions(prev => ({
         ...prev,
-        width: img.width,
-        height: img.height
+        width: dimensions.width,
+        height: dimensions.height
       }));
-    };
-    img.src = url;
-    
-    toast.success('Image file loaded successfully!');
-  }, [imageUrl]);
+      
+      toast.success('Image loaded successfully!');
+    } catch (error) {
+      toast.error('Failed to load image', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  }, [imageUrl, getImageDimensions]);
+
+  const handleUrlSubmit = useCallback(async (url: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch image from URL');
+      }
+      
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) {
+        throw new Error('URL does not point to a valid image');
+      }
+      
+      const file = new File([blob], 'image-from-url', { type: blob.type });
+      await handleFileSelected(file);
+    } catch (error) {
+      toast.error('Failed to load image from URL', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  }, [handleFileSelected]);
 
   const convertImage = useCallback(async (file: File, options: ConversionOptions): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -126,8 +156,9 @@ const ImageConverter: React.FC = () => {
       
       toast.success('Image converted successfully!');
     } catch (error) {
-      console.error('Conversion error:', error);
-      toast.error('Failed to convert image. Please try again.');
+      toast.error('Failed to convert image', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
     } finally {
       setIsConverting(false);
     }
@@ -136,15 +167,20 @@ const ImageConverter: React.FC = () => {
   const handleDownload = useCallback(() => {
     if (!convertedImage || !imageFile) return;
 
+    const filename = `${imageFile.name.split('.')[0]}_converted.${options.format}`;
+    
+    // Create download link
+    const url = URL.createObjectURL(convertedImage);
     const link = document.createElement('a');
-    link.href = convertedUrl;
-    link.download = `${imageFile.name.split('.')[0]}_converted.${options.format}`;
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     
     toast.success('Download started!');
-  }, [convertedImage, convertedUrl, imageFile, options.format]);
+  }, [convertedImage, imageFile, options.format]);
 
   const handleDimensionChange = useCallback((dimension: 'width' | 'height', value: number) => {
     if (!originalDimensions) return;
@@ -173,224 +209,195 @@ const ImageConverter: React.FC = () => {
   // Cleanup URLs on unmount
   React.useEffect(() => {
     return () => {
-      if (imageUrl) URL.revokeObjectURL(imageUrl);
       if (convertedUrl) URL.revokeObjectURL(convertedUrl);
     };
-  }, [imageUrl, convertedUrl]);
+  }, [convertedUrl]);
 
   return (
-    <div className="text-white relative min-h-screen">
-      <ParticleBackground />
-      <Helmet>
-        <title>Image Converter - sLixTOOLS</title>
-        <meta name="description" content="Convert images between different formats like JPEG, PNG, WebP, and more with customizable quality settings." />
-        <link rel="canonical" href="https://slixtools.io/tools/image-converter" />
-      </Helmet>
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <AnimatedElement type="fadeIn" delay={0.2}>
-            <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-                Image Converter
-              </h1>
-              <p className="text-gray-300 max-w-2xl mx-auto">
-                Convert your images between different formats with customizable quality and size settings.
-                All processing happens in your browser for maximum privacy.
-              </p>
+    <ToolPageLayout
+      title="Image Converter | sLixTOOLS"
+      description="Convert your images between different formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
+      keywords="image converter, jpeg to png, png to jpeg, webp converter, image format converter"
+      canonicalUrl="/tools/image-converter"
+      pageTitle="Image Converter"
+      pageDescription="Convert your images between different formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
+    >
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Upload Section */}
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <FileImage className="h-5 w-5" />
+              Upload Image
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FileUploadArea
+              onFileSelected={handleFileSelected}
+              onUrlSubmit={handleUrlSubmit}
+              acceptedTypes={['image/*']}
+              maxFileSize={50 * 1024 * 1024}
+              fileCategory="image"
+              showUrlInput={true}
+            />
+            
+            {imageFile && (
+              <div className="space-y-2 mt-4">
+                <p className="text-sm text-gray-300">
+                  <strong>File:</strong> {imageFile.name}
+                </p>
+                <p className="text-sm text-gray-300">
+                  <strong>Size:</strong> {(imageFile.size / 1024).toFixed(2)} KB
+                </p>
+                {originalDimensions && (
+                  <p className="text-sm text-gray-300">
+                    <strong>Dimensions:</strong> {originalDimensions.width} × {originalDimensions.height}
+                  </p>
+                )}
+                {imageUrl && (
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    className="w-full rounded-lg mt-4"
+                    style={{ maxHeight: '200px', objectFit: 'contain' }}
+                  />
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Conversion Options */}
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Settings className="h-5 w-5" />
+              Conversion Options
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-white">Output Format</Label>
+              <Select value={options.format} onValueChange={(value) => setOptions(prev => ({ ...prev, format: value }))}>
+                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="jpeg">JPEG</SelectItem>
+                  <SelectItem value="png">PNG</SelectItem>
+                  <SelectItem value="webp">WebP</SelectItem>
+                  <SelectItem value="bmp">BMP</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </AnimatedElement>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Upload Section */}
-            <AnimatedElement type="slideUp" delay={0.4}>
-              <Card className="bg-gray-800/50 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <FileImage className="h-5 w-5" />
-                    Upload Image
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-green-500 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <label htmlFor="image-upload" className="cursor-pointer">
-                      <ImageIcon className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <p className="text-gray-300 mb-2">Click to upload or drag and drop</p>
-                      <p className="text-sm text-gray-500">Supports JPEG, PNG, WebP, GIF, BMP, and more</p>
-                    </label>
-                  </div>
-                  
-                  {imageFile && (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-300">
-                        <strong>File:</strong> {imageFile.name}
-                      </p>
-                      <p className="text-sm text-gray-300">
-                        <strong>Size:</strong> {(imageFile.size / 1024).toFixed(2)} KB
-                      </p>
-                      {originalDimensions && (
-                        <p className="text-sm text-gray-300">
-                          <strong>Dimensions:</strong> {originalDimensions.width} × {originalDimensions.height}
-                        </p>
-                      )}
-                      {imageUrl && (
-                        <img
-                          src={imageUrl}
-                          alt="Preview"
-                          className="w-full rounded-lg mt-4"
-                          style={{ maxHeight: '200px', objectFit: 'contain' }}
-                        />
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </AnimatedElement>
+            {options.format === 'jpeg' && (
+              <div className="space-y-2">
+                <Label className="text-white">Quality: {options.quality}%</Label>
+                <Slider
+                  value={[options.quality]}
+                  onValueChange={([value]) => setOptions(prev => ({ ...prev, quality: value }))}
+                  min={10}
+                  max={100}
+                  step={5}
+                  className="w-full"
+                />
+              </div>
+            )}
 
-            {/* Conversion Options */}
-            <AnimatedElement type="slideUp" delay={0.6}>
-              <Card className="bg-gray-800/50 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Settings className="h-5 w-5" />
-                    Conversion Options
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            {originalDimensions && (
+              <>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="maintain-aspect"
+                    checked={options.maintainAspectRatio}
+                    onChange={(e) => setOptions(prev => ({ ...prev, maintainAspectRatio: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <Label htmlFor="maintain-aspect" className="text-white text-sm">
+                    Maintain aspect ratio
+                  </Label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-white">Output Format</Label>
-                    <Select value={options.format} onValueChange={(value) => setOptions(prev => ({ ...prev, format: value }))}>
-                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-700 border-gray-600">
-                        <SelectItem value="jpeg">JPEG</SelectItem>
-                        <SelectItem value="png">PNG</SelectItem>
-                        <SelectItem value="webp">WebP</SelectItem>
-                        <SelectItem value="bmp">BMP</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {options.format === 'jpeg' && (
-                    <div className="space-y-2">
-                      <Label className="text-white">Quality: {options.quality}%</Label>
-                      <Slider
-                        value={[options.quality]}
-                        onValueChange={([value]) => setOptions(prev => ({ ...prev, quality: value }))}
-                        min={10}
-                        max={100}
-                        step={5}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
-
-                  {originalDimensions && (
-                    <>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="maintain-aspect"
-                          checked={options.maintainAspectRatio}
-                          onChange={(e) => setOptions(prev => ({ ...prev, maintainAspectRatio: e.target.checked }))}
-                          className="rounded"
-                        />
-                        <Label htmlFor="maintain-aspect" className="text-white text-sm">
-                          Maintain aspect ratio
-                        </Label>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-white">Width</Label>
-                          <input
-                            type="number"
-                            value={options.width || ''}
-                            onChange={(e) => handleDimensionChange('width', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-                            min="1"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-white">Height</Label>
-                          <input
-                            type="number"
-                            value={options.height || ''}
-                            onChange={(e) => handleDimensionChange('height', parseInt(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-                            min="1"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  <Button
-                    onClick={handleConvert}
-                    disabled={!imageFile || isConverting}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    {isConverting ? 'Converting...' : 'Convert Image'}
-                  </Button>
-                </CardContent>
-              </Card>
-            </AnimatedElement>
-          </div>
-
-          {/* Result Section */}
-          {convertedImage && (
-            <AnimatedElement type="fadeIn" delay={0.8}>
-              <Card className="bg-gray-800/50 border-gray-700 mt-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
-                    <Download className="h-5 w-5" />
-                    Converted Image
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-300 mb-2">
-                        <strong>Original:</strong> {(imageFile!.size / 1024).toFixed(2)} KB
-                      </p>
-                      <p className="text-sm text-gray-300 mb-4">
-                        <strong>Converted:</strong> {(convertedImage.size / 1024).toFixed(2)} KB
-                      </p>
-                      <p className="text-sm text-green-400">
-                        Size change: {(((convertedImage.size - imageFile!.size) / imageFile!.size) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    <div className="flex justify-end">
-                      <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {convertedUrl && (
-                    <img
-                      src={convertedUrl}
-                      alt="Converted"
-                      className="w-full rounded-lg"
-                      style={{ maxHeight: '300px', objectFit: 'contain' }}
+                    <Label className="text-white">Width</Label>
+                    <input
+                      type="number"
+                      value={options.width || ''}
+                      onChange={(e) => handleDimensionChange('width', parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                      min="1"
                     />
-                  )}
-                </CardContent>
-              </Card>
-            </AnimatedElement>
-          )}
-        </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white">Height</Label>
+                    <input
+                      type="number"
+                      value={options.height || ''}
+                      onChange={(e) => handleDimensionChange('height', parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                      min="1"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Button
+              onClick={handleConvert}
+              disabled={!imageFile || isConverting}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {isConverting ? 'Converting...' : 'Convert Image'}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+
+      {/* Result Section */}
+      {convertedImage && (
+        <Card className="bg-gray-800/50 border-gray-700 mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Download className="h-5 w-5" />
+              Converted Image
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-300 mb-2">
+                  <strong>Original:</strong> {(imageFile!.size / 1024).toFixed(2)} KB
+                </p>
+                <p className="text-sm text-gray-300 mb-4">
+                  <strong>Converted:</strong> {(convertedImage.size / 1024).toFixed(2)} KB
+                </p>
+                <p className="text-sm text-green-400">
+                  Size change: {(((convertedImage.size - imageFile!.size) / imageFile!.size) * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+            
+            {convertedUrl && (
+              <img
+                src={convertedUrl}
+                alt="Converted"
+                className="w-full rounded-lg"
+                style={{ maxHeight: '300px', objectFit: 'contain' }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </ToolPageLayout>
   );
 };
 

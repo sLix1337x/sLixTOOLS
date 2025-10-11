@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, FileVideo, FileImage, FileText, Music, Scissors, Zap, Lock, CircleDollarSign, Shield, Sparkles, Type } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import AnimatedElement from '@/components/AnimatedElement';
 import ParticleBackground from '@/components/ParticleBackground';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '../components/SEO';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 interface ToolItemProps {
   title: string;
@@ -47,11 +47,11 @@ const Home: React.FC = () => {
   return (
     <div className="text-white relative min-h-0">
       <ParticleBackground />
-      <Helmet>
-        <title>sLixTOOLS - No Ads, No Privacy Risks - Free File Conversion Tools</title>
-        <meta name="description" content="Convert files instantly without ads, tracking, or uploads. 150+ clients trust our browser-based tools for video, image, and document conversion. Start converting now!" />
-        <link rel="canonical" href="https://slixtools.io" />
-      </Helmet>
+      <SEO
+        title="sLixTOOLS - No Ads, No Privacy Risks - Free File Conversion Tools"
+        description="Convert files instantly without ads, tracking, or uploads. 150+ clients trust our browser-based tools for video, image, and document conversion. Start converting now!"
+        canonical="https://slixtools.io"
+      />
       
       {/* Hero Section */}
       <div className="hero-container mb-2">
@@ -103,7 +103,7 @@ const Home: React.FC = () => {
              <AnimatedElement type="slideUp" delay={0.5}>
                <div className="relative h-full min-h-[200px] flex flex-col">
                  <img 
-                   src="https://i.ibb.co/MkhkkNG6/funkykong.gif" 
+                   src={EXTERNAL_URLS.DEMO_IMAGES.FUNKY_KONG} 
                    alt="Funky Kong" 
                    className="absolute -top-16 -right-8 w-32 h-32 z-10"
                  />

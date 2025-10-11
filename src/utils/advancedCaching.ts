@@ -1,304 +1,243 @@
 /**
- * Simplified caching system
- * Basic memory and session storage caching
+ * Advanced Caching Utility
+ * Provides sophisticated caching mechanisms for file processing and data storage
  */
 
-import { MemoryAwareCache } from './memoryManager';
-
-interface CacheEntry<T> {
+export interface CacheEntry<T = unknown> {
   data: T;
   timestamp: number;
-  ttl: number;
-}
-
-interface CacheStats {
-  hits: number;
-  misses: number;
+  expiresAt: number;
   size: number;
-  entries: number;
-  hitRate: number;
+  accessCount: number;
+  lastAccessed: number;
 }
 
-// Simplified cache configuration
-const CACHE_CONFIGS = {
-  default: {
-    ttl: 60 * 60 * 1000, // 1 hour
-    maxSize: 30,
-  },
-  images: {
-    ttl: 24 * 60 * 60 * 1000, // 24 hours
-    maxSize: 50,
-  },
-  api: {
-    ttl: 5 * 60 * 1000, // 5 minutes
-    maxSize: 20,
-  },
-  processed: {
-    ttl: 7 * 24 * 60 * 60 * 1000, // 7 days
-    maxSize: 100,
-  },
-  temp: {
-    ttl: 60 * 1000, // 1 minute
-    maxSize: 10,
-  },
-};
+export interface CacheOptions {
+  maxSize?: number; // Maximum cache size in bytes
+  maxAge?: number; // Maximum age in milliseconds
+  maxEntries?: number; // Maximum number of entries
+  compressionEnabled?: boolean;
+}
 
-export class SimpleCache<T = unknown> {
-  private memoryCache = new MemoryAwareCache<string, CacheEntry<T>>();
-  private stats: CacheStats = {
+export interface CacheStats {
+  totalEntries: number;
+  totalSize: number;
+  hitRate: number;
+  missRate: number;
+  evictionCount: number;
+}
+
+class AdvancedCache {
+  private cache = new Map<string, CacheEntry>();
+  private options: Required<CacheOptions>;
+  private stats = {
     hits: 0,
     misses: 0,
-    size: 0,
-    entries: 0,
-    hitRate: 0,
+    evictions: 0
   };
-  private cacheType: keyof typeof CACHE_CONFIGS;
 
-  constructor(cacheType: keyof typeof CACHE_CONFIGS) {
-    this.cacheType = cacheType;
-    this.setupCleanup();
+  constructor(options: CacheOptions = {}) {
+    this.options = {
+      maxSize: options.maxSize || 50 * 1024 * 1024, // 50MB default
+      maxAge: options.maxAge || 30 * 60 * 1000, // 30 minutes default
+      maxEntries: options.maxEntries || 100,
+      compressionEnabled: options.compressionEnabled || false
+    };
+
+    // Cleanup expired entries periodically
+    setInterval(() => this.cleanup(), 5 * 60 * 1000); // Every 5 minutes
   }
 
-  private setupCleanup() {
-    // Clean up expired entries every 5 minutes
-    setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
-  }
+  /**
+   * Store data in cache
+   */
+  set<T>(key: string, data: T, customTTL?: number): void {
+    const now = Date.now();
+    const ttl = customTTL || this.options.maxAge;
+    const size = this.calculateSize(data);
 
-  private getConfig() {
-    return CACHE_CONFIGS[this.cacheType];
-  }
+    // Check if we need to evict entries
+    this.evictIfNeeded(size);
 
-  private createCacheEntry(data: T, ttl?: number): CacheEntry<T> {
-    return {
+    const entry: CacheEntry<T> = {
       data,
-      timestamp: Date.now(),
-      ttl: ttl || this.getConfig().ttl,
+      timestamp: now,
+      expiresAt: now + ttl,
+      size,
+      accessCount: 0,
+      lastAccessed: now
     };
+
+    this.cache.set(key, entry);
   }
 
-  private isExpired(entry: CacheEntry<T>): boolean {
-    return Date.now() - entry.timestamp > entry.ttl;
-  }
-
-  async get(key: string): Promise<T | null> {
-    // Try memory cache first
-    const memoryEntry = this.memoryCache.get(key);
-    if (memoryEntry && !this.isExpired(memoryEntry)) {
-      this.stats.hits++;
-      this.updateHitRate();
-      return memoryEntry.data;
+  /**
+   * Retrieve data from cache
+   */
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key) as CacheEntry<T> | undefined;
+    
+    if (!entry) {
+      this.stats.misses++;
+      return null;
     }
 
-    // Try session storage
-    try {
-      const sessionData = sessionStorage.getItem(`cache_${this.cacheType}_${key}`);
-      if (sessionData) {
-        const entry: CacheEntry<T> = JSON.parse(sessionData);
-        if (!this.isExpired(entry)) {
-          // Move back to memory cache
-          this.memoryCache.set(key, entry);
-          this.stats.hits++;
-          this.updateHitRate();
-          return entry.data;
-        } else {
-          // Remove expired entry
-          sessionStorage.removeItem(`cache_${this.cacheType}_${key}`);
-        }
-      }
-    } catch (error) {
-      console.warn('Session storage error:', error);
+    // Check if expired
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      this.stats.misses++;
+      return null;
     }
 
-    this.stats.misses++;
-    this.updateHitRate();
-    return null;
+    // Update access statistics
+    entry.accessCount++;
+    entry.lastAccessed = Date.now();
+    this.stats.hits++;
+
+    return entry.data;
   }
 
-  async set(key: string, data: T, ttl?: number): Promise<void> {
-    const entry = this.createCacheEntry(data, ttl);
+  /**
+   * Check if key exists and is not expired
+   */
+  has(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (!entry) return false;
     
-    // Set in memory cache
-    this.memoryCache.set(key, entry);
-    
-    // Set in session storage for persistence
-    try {
-      sessionStorage.setItem(`cache_${this.cacheType}_${key}`, JSON.stringify(entry));
-    } catch (error) {
-      console.warn('Session storage error:', error);
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(key);
+      return false;
     }
     
-    this.stats.entries++;
-    this.stats.size++;
+    return true;
   }
 
-  async delete(key: string): Promise<void> {
-    this.memoryCache.delete(key);
-    
-    try {
-      sessionStorage.removeItem(`cache_${this.cacheType}_${key}`);
-    } catch (error) {
-      console.warn('Session storage error:', error);
-    }
-    
-    this.stats.entries = Math.max(0, this.stats.entries - 1);
-    this.stats.size = Math.max(0, this.stats.size - 1);
+  /**
+   * Remove entry from cache
+   */
+  delete(key: string): boolean {
+    return this.cache.delete(key);
   }
 
-  async clear(): Promise<void> {
-    this.memoryCache.clear();
-    
-    // Clear session storage entries for this cache type
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => sessionStorage.removeItem(key));
-    } catch (error) {
-      console.warn('Session storage error:', error);
-    }
-    
-    this.resetStats();
+  /**
+   * Clear all cache entries
+   */
+  clear(): void {
+    this.cache.clear();
+    this.stats = { hits: 0, misses: 0, evictions: 0 };
   }
 
-  private cleanup(): void {
-    // Clean up memory cache
-    try {
-      for (const key of this.memoryCache.keys()) {
-        const entry = this.memoryCache.get(key);
-        if (entry && this.isExpired(entry)) {
-          this.memoryCache.delete(key);
-        }
-      }
-    } catch (error) {
-      console.warn('Memory cache cleanup error:', error);
-    }
-    
-    // Clean up session storage
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
-          const data = sessionStorage.getItem(key);
-          if (data) {
-            const entry: CacheEntry<T> = JSON.parse(data);
-            if (this.isExpired(entry)) {
-              keysToRemove.push(key);
-            }
-          }
-        }
-      }
-      keysToRemove.forEach(key => sessionStorage.removeItem(key));
-    } catch (error) {
-      console.warn('Session storage cleanup error:', error);
-    }
-  }
-
-  private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses;
-    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
-  }
-
-  private resetStats(): void {
-    this.stats = {
-      hits: 0,
-      misses: 0,
-      size: 0,
-      entries: 0,
-      hitRate: 0,
-    };
-  }
-
+  /**
+   * Get cache statistics
+   */
   getStats(): CacheStats {
-    return { ...this.stats };
+    const totalRequests = this.stats.hits + this.stats.misses;
+    return {
+      totalEntries: this.cache.size,
+      totalSize: this.getTotalSize(),
+      hitRate: totalRequests > 0 ? this.stats.hits / totalRequests : 0,
+      missRate: totalRequests > 0 ? this.stats.misses / totalRequests : 0,
+      evictionCount: this.stats.evictions
+    };
   }
 
-  async has(key: string): Promise<boolean> {
-    return (await this.get(key)) !== null;
+  /**
+   * Calculate approximate size of data
+   */
+  private calculateSize(data: unknown): number {
+    if (data instanceof Blob) {
+      return data.size;
+    }
+    if (data instanceof ArrayBuffer) {
+      return data.byteLength;
+    }
+    if (typeof data === 'string') {
+      return data.length * 2; // Approximate UTF-16 encoding
+    }
+    if (typeof data === 'object' && data !== null) {
+      return JSON.stringify(data).length * 2;
+    }
+    return 64; // Default size for primitives
   }
 
-  async keys(): Promise<string[]> {
-    const memoryKeys = this.memoryCache.keys();
-    const sessionKeys: string[] = [];
-    
-    try {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith(`cache_${this.cacheType}_`)) {
-          const cacheKey = key.replace(`cache_${this.cacheType}_`, '');
-          if (!memoryKeys.includes(cacheKey)) {
-            sessionKeys.push(cacheKey);
-          }
-        }
+  /**
+   * Get total cache size
+   */
+  private getTotalSize(): number {
+    let totalSize = 0;
+    for (const entry of this.cache.values()) {
+      totalSize += entry.size;
+    }
+    return totalSize;
+  }
+
+  /**
+   * Evict entries if needed to make space
+   */
+  private evictIfNeeded(newEntrySize: number): void {
+    // Check entry count limit
+    if (this.cache.size >= this.options.maxEntries) {
+      this.evictLeastRecentlyUsed();
+    }
+
+    // Check size limit
+    while (this.getTotalSize() + newEntrySize > this.options.maxSize && this.cache.size > 0) {
+      this.evictLeastRecentlyUsed();
+    }
+  }
+
+  /**
+   * Evict least recently used entry
+   */
+  private evictLeastRecentlyUsed(): void {
+    let oldestKey: string | null = null;
+    let oldestTime = Date.now();
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.lastAccessed < oldestTime) {
+        oldestTime = entry.lastAccessed;
+        oldestKey = key;
       }
-    } catch (error) {
-      console.warn('Session storage error:', error);
     }
-    
-    return [...memoryKeys, ...sessionKeys];
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      this.stats.evictions++;
+    }
+  }
+
+  /**
+   * Clean up expired entries
+   */
+  private cleanup(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (now > entry.expiresAt) {
+        keysToDelete.push(key);
+      }
+    }
+
+    keysToDelete.forEach(key => this.cache.delete(key));
   }
 }
 
-export class CacheManager {
-  private static instance: CacheManager;
-  private caches = new Map<string, SimpleCache>();
+// Create default cache instance
+export const defaultCache = new AdvancedCache();
 
-  private constructor() {}
+// File-specific cache for processed files
+export const fileCache = new AdvancedCache({
+  maxSize: 100 * 1024 * 1024, // 100MB for files
+  maxAge: 60 * 60 * 1000, // 1 hour
+  maxEntries: 50
+});
 
-  static getInstance(): CacheManager {
-    if (!CacheManager.instance) {
-      CacheManager.instance = new CacheManager();
-    }
-    return CacheManager.instance;
-  }
+// Memory-efficient cache for metadata
+export const metadataCache = new AdvancedCache({
+  maxSize: 10 * 1024 * 1024, // 10MB for metadata
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  maxEntries: 1000
+});
 
-  getCache<T>(type: keyof typeof CACHE_CONFIGS): SimpleCache<T> {
-    if (!this.caches.has(type)) {
-      this.caches.set(type, new SimpleCache<T>(type));
-    }
-    return this.caches.get(type) as SimpleCache<T>;
-  }
-
-  async clearAll(): Promise<void> {
-    for (const cache of this.caches.values()) {
-      await cache.clear();
-    }
-  }
-
-  getAllStats() {
-    const stats: Record<string, CacheStats> = {};
-    for (const [type, cache] of this.caches.entries()) {
-      stats[type] = cache.getStats();
-    }
-    return stats;
-  }
-}
-
-// Export singleton instance and specific caches
-export const cacheManager = CacheManager.getInstance();
-
-export const imageCache = cacheManager.getCache<Blob>('images');
-export const apiCache = cacheManager.getCache<Record<string, unknown>>('api');
-export const processedCache = cacheManager.getCache<Blob | ArrayBuffer | string>('processed');
-export const tempCache = cacheManager.getCache<unknown>('temp');
-
-// Export hook for React components
-export const useAdvancedCache = <T>(type: keyof typeof CACHE_CONFIGS) => {
-  const cache = cacheManager.getCache<T>(type);
-  
-  return {
-    get: (key: string) => cache.get(key),
-    set: (key: string, data: T, ttl?: number) => cache.set(key, data, ttl),
-    delete: (key: string) => cache.delete(key),
-    clear: () => cache.clear(),
-    has: (key: string) => cache.has(key),
-    keys: () => cache.keys(),
-    getStats: () => cache.getStats(),
-  };
-};
+export { AdvancedCache };

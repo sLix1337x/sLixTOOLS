@@ -8,13 +8,13 @@
   "theme_color": "#2AD587",
   "icons": [
     {
-      "src": "/pwa-192x192.png",
+      "src": "/formen.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/pwa-512x512.png",
+      "src": "/formen.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

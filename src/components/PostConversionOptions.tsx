@@ -6,11 +6,12 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Download, Crop, RotateCw, Rewind, Zap, Type, Maximize } from 'lucide-react';
 import { GifResult } from '@/types';
+import { formatFileSize } from '@/utils/formatters';
 
 interface PostConversionOptionsProps {
   gifResult: GifResult;
   onDownload: () => void;
-  onEdit: (editType: string, params?: any) => void;
+  onEdit: (editType: string, params?: Record<string, unknown> | undefined) => void;
 }
 
 const PostConversionOptions: React.FC<PostConversionOptionsProps> = ({ 
@@ -23,14 +24,6 @@ const PostConversionOptions: React.FC<PostConversionOptionsProps> = ({
   const [resizeParams, setResizeParams] = useState({ width: 480, height: 360 });
   const [speedMultiplier, setSpeedMultiplier] = useState([1]);
   const [textParams, setTextParams] = useState({ text: '', x: 50, y: 50, fontSize: 24, color: '#ffffff' });
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
 
   return (
     <div className="space-y-4">

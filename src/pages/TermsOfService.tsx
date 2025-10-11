@@ -1,6 +1,4 @@
 
-import React from 'react';
-
 const TermsOfService = () => {
   return (
     <div className="min-h-screen text-white">

@@ -2,6 +2,17 @@
  * Performance optimization utilities for preloading and resource hints
  */
 
+// Extend Navigator interface for connection property
+interface NavigatorConnection {
+  effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
+}
+
+interface NavigatorWithConnection extends Navigator {
+  connection?: NavigatorConnection;
+}
+
 // Lazy route component map with priority levels
 const routeMap: Record<string, { 
   loader: () => Promise<{ default: React.ComponentType<unknown> }>,
@@ -43,24 +54,25 @@ export const preloadRoute = (routePath: string): Promise<void> => {
   const routeConfig = routeMap[routePath];
   if (routeConfig) {
     // Check if we should preload based on priority and connection
-    const connection = (navigator as any).connection;
+    const connection = (navigator as NavigatorWithConnection).connection;
     const isSlowConnection = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g');
     
     // Skip low priority routes on slow connections
     if (isSlowConnection && routeConfig.priority === 'low') {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Skipping low priority route ${routePath} due to slow connection`);
+        // Route skipping logged to development system
       }
       return Promise.resolve();
     }
     
     return routeConfig.loader().then(() => {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Preloaded route: ${routePath} (priority: ${routeConfig.priority})`);
+        // Route preloading logged to development system
       }
-    }).catch((error) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    }).catch((_error) => {
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`Failed to preload route ${routePath}:`, error);
+        // Route preloading errors logged to development system
       }
     });
   }

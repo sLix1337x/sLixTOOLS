@@ -5,10 +5,10 @@ export interface ConversionOptions {
   quality: number;
   trimEnabled: boolean;
   startTime: number;
-  endTime: number;
-  duration: number;
-  width?: number;
-  height?: number;
+  endTime: number | undefined;
+  duration?: number | undefined;
+  width?: number | undefined;
+  height?: number | undefined;
 }
 
 export interface VideoFile {
@@ -21,6 +21,8 @@ export interface GifResult {
   blob: Blob;
   url: string;
   size: number;
+  width?: number | undefined;
+  height?: number | undefined;
 }
 
 export interface ToolItem {
@@ -60,8 +62,15 @@ export interface FileUploadProps {
 
 // Validation Types
 export interface ValidationResult {
-  valid: boolean;
+  isValid: boolean;
   error?: string;
+  warnings?: string[];
+  fileInfo?: {
+    name: string;
+    size: number;
+    type: string;
+    lastModified: number;
+  };
 }
 
 // Error Types
@@ -69,4 +78,36 @@ export interface AppError {
   message: string;
   code?: string;
   details?: Record<string, unknown>;
+}
+
+// Processing Types
+export interface ProcessingProgress {
+  stage: 'initializing' | 'processing' | 'finalizing' | 'complete';
+  percentage: number;
+  message?: string;
+}
+
+export interface ProcessingResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  warnings?: string[];
+}
+
+// File Processing Types
+export interface FileProcessingOptions {
+  quality: number;
+  maxSize?: number;
+  format?: string;
+  compression?: number;
+}
+
+// Performance Monitoring Types
+export interface PerformanceMetrics {
+  processingTime: number;
+  memoryUsage: number;
+  fileSize: {
+    input: number;
+    output: number;
+  };
 }

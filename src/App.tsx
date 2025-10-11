@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, useLocation, Link } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import React, { Suspense, lazy } from "react";
+import { Suspense, lazy } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 
@@ -21,6 +21,8 @@ const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
 const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
 const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
 const ConvertCaseTool = lazy(() => import("./pages/tools/ConvertCaseTool"));
+const XmlEditor = lazy(() => import("./pages/tools/XmlEditor"));
+const PdfEditor = lazy(() => import("./pages/tools/PdfEditor"));
 
 // Lazy load info pages
 const About = lazy(() => import("./pages/About"));
@@ -92,6 +94,16 @@ const AppContent = () => {
           <Route path="/tools/convert-case" element={
             <Suspense fallback={<LoadingSpinner text="Loading Convert Case Tool..." />}>
               <ConvertCaseTool />
+            </Suspense>
+          } />
+          <Route path="/tools/xml-editor" element={
+            <Suspense fallback={<LoadingSpinner text="Loading XML Editor..." />}>
+              <XmlEditor />
+            </Suspense>
+          } />
+          <Route path="/tools/pdf-editor" element={
+            <Suspense fallback={<LoadingSpinner text="Loading PDF Editor..." />}>
+              <PdfEditor />
             </Suspense>
           } />
           <Route path="/about" element={

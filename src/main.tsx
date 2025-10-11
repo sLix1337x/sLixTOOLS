@@ -11,5 +11,5 @@ if (root) {
     </React.StrictMode>
   );
 } else {
-  console.error('Could not find root element to mount React app!');
+  throw new Error('Could not find root element to mount React app!');
 }

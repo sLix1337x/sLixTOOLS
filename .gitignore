@@ -1,50 +1,116 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Build outputs
+/dist/
+/dist-ssr/
+/build/
+/out/
+/.output/
+/storybook-static/
+
+# Testing
+/coverage/
+/.nyc_output/
+*.lcov
+/cypress/videos/
+/cypress/screenshots/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env*.local
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Environment files
-.env
-.env.local
-.env.production
-.env.development
+dev-debug.log
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+!.vscode/settings.json.example
+!.vscode/launch.json.example
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.sublime-*
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.code-workspace
 
-dev-debug.log
-# Dependency directories
-node_modules/
-# Environment variables
-.vscode
-# OS specific
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
-# Task files
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Cache and temp files
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ESLint
+.eslintcache
+
+# Vite
+.vite/
+
+# Local files
+*.local
+
+# Package manager lock files (keep package-lock.json but ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Task and tooling directories
 tasks.json
 tasks/
-
-# Development and tooling directories
 .trae/
 .taskmaster/
 
-# Documentation that might be auto-generated
+# Auto-generated documentation
 CLEANUP_ANALYSIS.md
 VideoToGif_Analysis_and_Fix_Plan.md
 browser_console_error.md
+/docs/auto-generated/
+
+# Misc
+.vercel
+.netlify
+.turbo
+.history/
+.parcel-cache/
+.rollup.cache/
+stats.html

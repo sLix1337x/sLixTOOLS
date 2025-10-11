@@ -1,10 +1,10 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 
 interface ParticleBackgroundProps {
-  className?: string;
-  particleCount?: number;
-  animationSpeed?: number;
-  enableReducedMotion?: boolean;
+  className?: string | undefined;
+  particleCount?: number | undefined;
+  animationSpeed?: number | undefined;
+  enableReducedMotion?: boolean | undefined;
 }
 
 // Optimized Particle Background Component
@@ -41,6 +41,13 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
     if (prefersReducedMotion()) {
       return;
     }
+    
+    // Capture ref values at the start of the effect
+    const timeouts = timeoutsRef.current;
+    
+    // Clear any existing timeouts
+    timeouts.forEach(timeout => clearTimeout(timeout));
+    timeouts.clear();
     
     // Add CSS animations with better performance
     const style = document.createElement('style');
@@ -130,20 +137,20 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         if (particle.parentNode) {
           particle.remove();
         }
-        timeoutsRef.current.delete(cleanup); // Remove from tracking
+        timeouts.delete(cleanup); // Remove from tracking
       }, duration * 1000);
       
       // Track timeout for cleanup
-      timeoutsRef.current.add(cleanup);
+      timeouts.add(cleanup);
       // Store cleanup reference for early cleanup if needed
-      particle.dataset.cleanup = cleanup.toString();
+      (particle as HTMLElement).dataset.cleanup = cleanup.toString();
     };
 
     // Create fewer initial particles for better performance
     const initialParticles = Math.min(particleCount, 15); // Reduced for performance
     for (let i = 0; i < initialParticles; i++) {
       const timeout = setTimeout(createParticle, i * 200); // Slower creation
-      timeoutsRef.current.add(timeout); // Track timeout for cleanup
+      timeouts.add(timeout); // Track timeout for cleanup
     }
 
     // Add new particles periodically, but only when visible
@@ -160,10 +167,10 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
 
     return () => {
       // Critical fix: Clear all tracked timeouts to prevent memory leaks
-      timeoutsRef.current.forEach(timeout => {
+      timeouts.forEach(timeout => {
         clearTimeout(timeout);
       });
-      timeoutsRef.current.clear();
+      timeouts.clear();
       
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -175,7 +182,7 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         // Clean up any remaining particles
         const particles = container.querySelectorAll('.particle-custom');
         particles.forEach(particle => {
-          const cleanup = particle.dataset.cleanup;
+          const cleanup = (particle as HTMLElement & { dataset: { cleanup: string } }).dataset.cleanup;
           if (cleanup) {
             clearTimeout(parseInt(cleanup));
           }
@@ -183,12 +190,12 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = React.memo(({
         });
       }
     };
-  }, [particleCount, animationSpeed, isVisible, prefersReducedMotion]);
+  }, [particleCount, animationSpeed, isVisible, prefersReducedMotion, enableReducedMotion]);
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      className="particle-bg-container"
+      className={`particle-bg-container ${className}`}
       style={{
         position: 'fixed',
         top: 0,
