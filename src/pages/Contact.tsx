@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
 import { ExternalLink } from 'lucide-react';
+import Container from '@/components/layout/Container';
 
 const Contact = () => {
   return (
@@ -13,7 +14,7 @@ const Contact = () => {
         <link rel="canonical" href="https://slixtools.io/contact" />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
+      <Container className="py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">
           <AnimatedElement type="fadeIn" delay={0.2}>
             <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
@@ -23,15 +24,15 @@ const Contact = () => {
               Enjoying my free tools? Help me keep them running by buying me a coffee!
             </p>
             <div className="flex justify-center mb-8">
-              <a 
-                href="https://ko-fi.com/slix1337" 
-                target="_blank" 
+              <a
+                href="https://ko-fi.com/slix1337"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="block hover:opacity-90 transition-opacity transform hover:scale-105"
               >
-                <img 
-                  src="/sLixTOOLS/images/kofi.png" 
-                  alt="Buy Me a Coffee at ko-fi.com" 
+                <img
+                  src="/sLixTOOLS/images/kofi.png"
+                  alt="Buy Me a Coffee at ko-fi.com"
                   className="h-20 w-auto filter brightness-0 invert"
                 />
               </a>
@@ -50,7 +51,7 @@ const Contact = () => {
             </div>
           </AnimatedElement>
         </div>
-      </div>
+      </Container>
     </div>
   );
 };

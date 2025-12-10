@@ -22,13 +22,18 @@ body {
 
 /* Card styles */
 .card {
-  background-color: rgba(0, 0, 0, 0.7);
-  border: var(--border-style);
-  border-radius: var(--border-radius);
+  background-color: rgba(255, 255, 255, 0.03);
+  /* Glass effect */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  /* Slightly more rounded for modern feel */
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   position: relative;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .card:hover {
@@ -48,10 +53,12 @@ header button:focus {
 }
 
 /* Button styles */
-button, .btn {
+button,
+.btn {
   background-color: transparent;
   color: var(--text-color);
-  border: none; /* Remove green dashed outlines */
+  border: none;
+  /* Remove green dashed outlines */
   padding: 0.5rem 1rem;
   font-family: var(--font-mono);
   cursor: pointer;
@@ -62,15 +69,19 @@ button, .btn {
   overflow: hidden;
 }
 
-button:hover, .btn:hover {
+button:hover,
+.btn:hover {
   background-color: var(--accent-color);
   color: #000;
 }
 
 /* Input styles */
-input, select, textarea {
+input,
+select,
+textarea {
   background-color: rgba(0, 0, 0, 0.5);
-  border: none; /* Remove green dashed outlines */
+  border: none;
+  /* Remove green dashed outlines */
   color: var(--text-color);
   padding: 0.5rem;
   font-family: var(--font-mono);
@@ -79,8 +90,11 @@ input, select, textarea {
 }
 
 /* Remove focus outlines from form controls globally */
-button:focus, .btn:focus,
-input:focus, select:focus, textarea:focus {
+button:focus,
+.btn:focus,
+input:focus,
+select:focus,
+textarea:focus {
   outline: none !important;
   box-shadow: none !important;
 }
@@ -114,27 +128,35 @@ input:focus, select:focus, textarea:focus {
 
 /* Glitch effect for headings - optimized */
 @keyframes glitch {
-  0%, 100% {
+
+  0%,
+  100% {
     text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #4ADE80;
   }
+
   15% {
     text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #4ADE80;
   }
+
   16% {
     text-shadow: -0.05em 0 0 #ff00ff, 0.05em 0 0 #00ffff, 0 -0.05em 0 #4ADE80;
   }
+
   49% {
     text-shadow: -0.05em 0 0 #ff00ff, 0.05em 0 0 #00ffff, 0 -0.05em 0 #4ADE80;
   }
+
   50% {
     text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #4ADE80;
   }
+
   99% {
     text-shadow: 0.05em 0 0 #00ffff, -0.05em 0 0 #ff00ff, 0 0.05em 0 #4ADE80;
   }
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2 {
   animation: glitch 3s infinite;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -145,7 +167,7 @@ h1, h2, h3, h4, h5, h6 {
   .container {
     padding: 10px;
   }
-  
+
   .card {
     padding: 1rem;
   }

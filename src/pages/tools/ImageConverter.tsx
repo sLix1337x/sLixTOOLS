@@ -8,6 +8,10 @@ import { FileImage, Settings, Download } from 'lucide-react';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import { toast } from 'sonner';
+import { useUrlFileLoader, useToolFile } from '@/hooks';
+import { downloadBlob } from '@/utils/download';
+import { dataURItoBlob } from '@/utils/dataConversion';
+import { config } from '@/config';
 
 interface ConversionOptions {
   format: string;
@@ -18,10 +22,7 @@ interface ConversionOptions {
 }
 
 const ImageConverter: React.FC = () => {
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [convertedImage, setConvertedImage] = useState<Blob | null>(null);
-  const [convertedUrl, setConvertedUrl] = useState<string>('');
+  const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [options, setOptions] = useState<ConversionOptions>({
@@ -32,105 +33,69 @@ const ImageConverter: React.FC = () => {
     maintainAspectRatio: true
   });
 
-  const getImageDimensions = useCallback((file: File): Promise<{ width: number; height: number }> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      
-      img.onload = () => {
-        resolve({
-          width: img.naturalWidth,
-          height: img.naturalHeight
-        });
-        URL.revokeObjectURL(img.src);
-      };
-      
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  }, []);
+  // Use useToolFile hook for file handling
+  const {
+    file: imageFile,
+    previewUrl: imageUrl,
+    handleFileSelect
+  } = useToolFile({
+    acceptedTypes: ['image/*'],
+    maxFileSize: config.upload.maxFileSize,
+    onFileLoad: (file) => {
+      setConvertedImage(null);
 
-  const handleFileSelected = useCallback(async (file: File) => {
-    try {
-      setImageFile(file);
-      
-      // Create preview URL
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
-      const url = URL.createObjectURL(file);
-      setImageUrl(url);
-      
       // Get image dimensions
-      const dimensions = await getImageDimensions(file);
-      setOriginalDimensions(dimensions);
-      setOptions(prev => ({
-        ...prev,
-        width: dimensions.width,
-        height: dimensions.height
-      }));
-      
-      toast.success('Image loaded successfully!');
-    } catch (error) {
-      toast.error('Failed to load image', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
+      const img = new Image();
+      img.onload = () => {
+        setOriginalDimensions({ width: img.width, height: img.height });
+        setOptions(prev => ({
+          ...prev,
+          width: img.width,
+          height: img.height
+        }));
+      };
+      img.src = URL.createObjectURL(file);
     }
-  }, [imageUrl, getImageDimensions]);
+  });
 
-  const handleUrlSubmit = useCallback(async (url: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch image from URL');
-      }
-      
-      const blob = await response.blob();
-      if (!blob.type.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image');
-      }
-      
-      const file = new File([blob], 'image-from-url', { type: blob.type });
-      await handleFileSelected(file);
-    } catch (error) {
-      toast.error('Failed to load image from URL', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
-    }
-  }, [handleFileSelected]);
+  const { loadFromUrl } = useUrlFileLoader({
+    expectedType: 'image',
+    maxFileSize: config.upload.maxFileSize,
+    onSuccess: handleFileSelect
+  });
 
-  const convertImage = useCallback(async (file: File, options: ConversionOptions): Promise<Blob> => {
+
+  const handleUrlSubmit = async (url: string) => {
+    await loadFromUrl(url);
+  };
+
+  const convertImage = useCallback(async (file: File, options: ConversionOptions): Promise<string> => {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      
+
       img.onload = () => {
         try {
-          // Set canvas dimensions
           canvas.width = options.width || img.width;
           canvas.height = options.height || img.height;
-          
-          // Draw image on canvas
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
-          // Convert to desired format
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Failed to convert image'));
-              }
-            },
-            `image/${options.format}`,
-            options.format === 'jpeg' ? options.quality / 100 : undefined
-          );
+
+          const mimeType = `image/${options.format}`;
+          const quality = options.format === 'jpeg' ? options.quality / 100 : undefined;
+
+          try {
+            const dataUrl = canvas.toDataURL(mimeType, quality);
+            resolve(dataUrl);
+          } catch (error) {
+            reject(new Error(`Failed to convert image to ${options.format}: ${error instanceof Error ? error.message : 'Unknown error'}`));
+          }
         } catch (error) {
           reject(error);
         }
       };
-      
-      img.onerror = () => reject(new Error('Failed to load image'));
+
+      img.onerror = () => reject(new Error('Failed to load image for conversion'));
       img.src = URL.createObjectURL(file);
     });
   }, []);
@@ -142,18 +107,11 @@ const ImageConverter: React.FC = () => {
     }
 
     setIsConverting(true);
+    setConvertedImage(null);
 
     try {
-      const result = await convertImage(imageFile, options);
-      setConvertedImage(result);
-      
-      // Create download URL
-      if (convertedUrl) {
-        URL.revokeObjectURL(convertedUrl);
-      }
-      const url = URL.createObjectURL(result);
-      setConvertedUrl(url);
-      
+      const resultDataUrl = await convertImage(imageFile, options);
+      setConvertedImage(resultDataUrl);
       toast.success('Image converted successfully!');
     } catch (error) {
       toast.error('Failed to convert image', {
@@ -162,35 +120,30 @@ const ImageConverter: React.FC = () => {
     } finally {
       setIsConverting(false);
     }
-  }, [imageFile, options, convertedUrl, convertImage]);
+  }, [imageFile, options, convertImage]);
 
   const handleDownload = useCallback(() => {
     if (!convertedImage || !imageFile) return;
 
     const filename = `${imageFile.name.split('.')[0]}_converted.${options.format}`;
-    
-    // Create download link
-    const url = URL.createObjectURL(convertedImage);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Download started!');
+
+    downloadBlob(
+      dataURItoBlob(convertedImage),
+      filename,
+      { showToast: true }
+    );
   }, [convertedImage, imageFile, options.format]);
+
 
   const handleDimensionChange = useCallback((dimension: 'width' | 'height', value: number) => {
     if (!originalDimensions) return;
-    
+
     setOptions(prev => {
       const newOptions = { ...prev };
-      
+
       if (prev.maintainAspectRatio) {
         const aspectRatio = originalDimensions.width / originalDimensions.height;
-        
+
         if (dimension === 'width') {
           newOptions.width = value;
           newOptions.height = Math.round(value / aspectRatio);
@@ -201,17 +154,10 @@ const ImageConverter: React.FC = () => {
       } else {
         newOptions[dimension] = value;
       }
-      
+
       return newOptions;
     });
   }, [originalDimensions]);
-
-  // Cleanup URLs on unmount
-  React.useEffect(() => {
-    return () => {
-      if (convertedUrl) URL.revokeObjectURL(convertedUrl);
-    };
-  }, [convertedUrl]);
 
   return (
     <ToolPageLayout
@@ -233,14 +179,14 @@ const ImageConverter: React.FC = () => {
           </CardHeader>
           <CardContent>
             <FileUploadArea
-              onFileSelected={handleFileSelected}
+              onFileSelected={handleFileSelect}
               onUrlSubmit={handleUrlSubmit}
               acceptedTypes={['image/*']}
               maxFileSize={50 * 1024 * 1024}
               fileCategory="image"
               showUrlInput={true}
             />
-            
+
             {imageFile && (
               <div className="space-y-2 mt-4">
                 <p className="text-sm text-gray-300">
@@ -372,10 +318,7 @@ const ImageConverter: React.FC = () => {
                   <strong>Original:</strong> {(imageFile!.size / 1024).toFixed(2)} KB
                 </p>
                 <p className="text-sm text-gray-300 mb-4">
-                  <strong>Converted:</strong> {(convertedImage.size / 1024).toFixed(2)} KB
-                </p>
-                <p className="text-sm text-green-400">
-                  Size change: {(((convertedImage.size - imageFile!.size) / imageFile!.size) * 100).toFixed(1)}%
+                  <strong>Format:</strong> {options.format.toUpperCase()}
                 </p>
               </div>
               <div className="flex justify-end">
@@ -385,15 +328,13 @@ const ImageConverter: React.FC = () => {
                 </Button>
               </div>
             </div>
-            
-            {convertedUrl && (
-              <img
-                src={convertedUrl}
-                alt="Converted"
-                className="w-full rounded-lg"
-                style={{ maxHeight: '300px', objectFit: 'contain' }}
-              />
-            )}
+
+            <img
+              src={convertedImage}
+              alt="Converted"
+              className="w-full rounded-lg"
+              style={{ maxHeight: '300px', objectFit: 'contain' }}
+            />
           </CardContent>
         </Card>
       )}

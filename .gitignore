@@ -114,3 +114,6 @@ browser_console_error.md
 .parcel-cache/
 .rollup.cache/
 stats.html
+
+# Generated Workers
+public/workers/

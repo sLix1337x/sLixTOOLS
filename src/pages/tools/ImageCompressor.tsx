@@ -11,6 +11,10 @@ import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import { config } from '@/config';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
+import { useUrlFileLoader } from '@/hooks';
+import { downloadBlob } from '@/utils/download';
+import { dataURItoBlob } from '@/utils/dataConversion';
+import ToolActionButton from '@/components/tools/ToolActionButton';
 
 interface ImagePreviewProps {
   file: File | null;
@@ -37,9 +41,9 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-gray-300">Original</h3>
           <div className="relative aspect-square border-2 border-dashed border-gray-700 rounded-lg overflow-hidden">
-            <img 
-              src={URL.createObjectURL(file)} 
-              alt="Original" 
+            <img
+              src={URL.createObjectURL(file)}
+              alt="Original"
               className="w-full h-full object-contain p-2"
             />
             <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
@@ -47,7 +51,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-medium text-gray-300">Compressed</h3>
@@ -60,9 +64,9 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           <div className="relative aspect-square border-2 border-dashed border-green-500/30 rounded-lg overflow-hidden">
             {compressedUrl ? (
               <>
-                <img 
-                  src={compressedUrl} 
-                  alt="Compressed" 
+                <img
+                  src={compressedUrl}
+                  alt="Compressed"
                   className="w-full h-full object-contain p-2"
                 />
                 <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
@@ -103,25 +107,13 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
       </div>
 
       <div className="flex justify-center w-full">
-        <button 
+        <ToolActionButton
+          icon={Download}
           onClick={onDownload}
           disabled={!compressedUrl || isCompressing}
-          className="bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            outline: 'none',
-            border: 'none',
-            WebkitAppearance: 'none',
-            WebkitTapHighlightColor: 'transparent',
-            minWidth: '200px'
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.outline = 'none';
-            e.currentTarget.style.boxShadow = 'none';
-          }}
         >
-          <Download className="mr-2 h-5 w-5" />
-          <span className="relative z-10">Download Compressed</span>
-        </button>
+          Download Compressed
+        </ToolActionButton>
       </div>
     </div>
   );
@@ -149,65 +141,37 @@ const ImageCompressor: React.FC = () => {
     }
   };
 
-  const handleUrlSubmit = async (url: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      
-      // Validate file type
-      if (!blob.type.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image');
-      }
-      
-      // Validate file size
-      if (blob.size > 50 * 1024 * 1024) {
-        const error = new Error('Image file too large');
-        errorLogger.logFileProcessingError(
-          error,
-          new File([blob], 'image-from-url', { type: blob.type }),
-          'Image from URL exceeds 50MB limit',
-          'url_validation',
-          { maxSize: '50MB', actualSize: `${(blob.size / 1024 / 1024).toFixed(2)}MB`, url }
-        );
-        throw error;
-      }
-      
-      const file = new File([blob], 'image-from-url.jpg', { type: blob.type });
-      setImageFile(file);
+  const { loadFromUrl } = useUrlFileLoader({
+    expectedType: 'image',
+    maxFileSize: 50 * 1024 * 1024,
+    onSuccess: (loadedFile) => {
+      setImageFile(loadedFile);
       setCompressedUrl(null);
-      toast.success('Image loaded from URL successfully!');
-    } catch (error) {
-      // Error details are logged to error reporting system
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load image from URL';
-      toast.error(errorMessage, {
-        action: {
-          label: 'View Details',
-          onClick: () => {
-            const logs = errorLogger.getLogs().slice(-1)[0];
-            if (logs) {
-              // Error details are available in the error object for debugging
-              // Development debugging would use proper debugging tools
-            }
-          }
-        }
-      });
-      throw error;
+    },
+    onError: (error) => {
+      errorLogger.logFileProcessingError(
+        error,
+        new File([], 'url-load-error'),
+        'Failed to load image from URL',
+        'url_load',
+        { url: 'redacted' }
+      );
     }
+  });
+
+  const handleUrlSubmit = async (url: string) => {
+    await loadFromUrl(url);
   };
 
   const compressImage = useCallback(() => {
     if (!imageFile) return;
-    
+
     setIsCompressing(true);
     const startTime = performance.now();
-    
+
     try {
       const reader = new FileReader();
-      
+
       reader.onerror = () => {
         const error = new Error('Failed to read image file');
         errorLogger.logFileProcessingError(
@@ -220,11 +184,11 @@ const ImageCompressor: React.FC = () => {
         toast.error('Failed to read image file. Please try again.');
         setIsCompressing(false);
       };
-      
+
       reader.onload = (event) => {
         try {
           const img = new window.Image();
-          
+
           img.onerror = () => {
             const error = new Error('Failed to load image data');
             errorLogger.logFileProcessingError(
@@ -237,26 +201,26 @@ const ImageCompressor: React.FC = () => {
             toast.error('Failed to process image. The file may be corrupted.');
             setIsCompressing(false);
           };
-          
+
           img.onload = () => {
             try {
               const canvas = document.createElement('canvas');
               const ctx = canvas.getContext('2d');
-              
+
               if (!ctx) {
                 throw new Error('Failed to get canvas 2D context');
               }
-              
+
               // Calculate new dimensions (maintain aspect ratio)
               const maxDimension = 2000; // Max width/height
               let width = img.width;
               let height = img.height;
-              
+
               // Validate image dimensions
               if (width <= 0 || height <= 0) {
                 throw new Error('Invalid image dimensions');
               }
-              
+
               if (width > height && width > maxDimension) {
                 height = Math.round((height * maxDimension) / width);
                 width = maxDimension;
@@ -264,30 +228,30 @@ const ImageCompressor: React.FC = () => {
                 width = Math.round((width * maxDimension) / height);
                 height = maxDimension;
               }
-              
+
               canvas.width = width;
               canvas.height = height;
-              
+
               // Draw image with new dimensions
               ctx.drawImage(img, 0, 0, width, height);
-              
+
               // Convert to compressed format
               const compressedDataUrl = canvas.toDataURL('image/jpeg', quality / 100);
-              
+
               if (!compressedDataUrl || compressedDataUrl === 'data:,') {
                 throw new Error('Failed to generate compressed image data');
               }
-              
+
               setCompressedUrl(compressedDataUrl);
               setIsCompressing(false);
-              
+
               // Log successful compression
               const endTime = performance.now();
               const processingTime = endTime - startTime;
               const originalSize = imageFile.size;
               const compressedSize = Math.round(compressedDataUrl.length * 0.75); // Approximate size
               const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
-              
+
               errorLogger.logError({
                 message: 'Image compression completed successfully',
                 category: ErrorCategory.FILE_PROCESSING,
@@ -307,7 +271,7 @@ const ImageCompressor: React.FC = () => {
                   originalDimensions: `${img.width}x${img.height}`
                 }
               });
-              
+
             } catch (error) {
               errorLogger.logFileProcessingError(
                 error as Error,
@@ -324,9 +288,9 @@ const ImageCompressor: React.FC = () => {
               setIsCompressing(false);
             }
           };
-          
+
           img.src = event.target?.result as string;
-          
+
         } catch (error) {
           errorLogger.logFileProcessingError(
             error as Error,
@@ -339,9 +303,9 @@ const ImageCompressor: React.FC = () => {
           setIsCompressing(false);
         }
       };
-      
+
       reader.readAsDataURL(imageFile);
-      
+
     } catch (error) {
       errorLogger.logFileProcessingError(
         error as Error,
@@ -357,21 +321,22 @@ const ImageCompressor: React.FC = () => {
 
   const handleDownload = () => {
     if (!compressedUrl) return;
-    
-    const link = document.createElement('a');
-    link.href = compressedUrl;
-    link.download = `compressed-${imageFile?.name || 'image'}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    downloadBlob(
+      dataURItoBlob(compressedUrl),
+      `compressed-${imageFile?.name || 'image'}.jpg`,
+      { showToast: true }
+    );
   };
+
+
 
   useEffect(() => {
     if (imageFile) {
       const timer = setTimeout(() => {
         compressImage();
       }, 300);
-      
+
       return () => clearTimeout(timer);
     }
     // Return undefined for the case where imageFile is null

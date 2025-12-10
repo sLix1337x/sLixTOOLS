@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,6 +6,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -15,7 +15,7 @@
 .animate-shimmer {
   animation: shimmer 3s ease-in-out infinite;
 }
- 
+
 @layer base {
   :root {
     --background: 222 47% 8%;
@@ -23,64 +23,75 @@
 
     --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
- 
 
- 
+
+
     --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
- 
+
     --secondary: 217 32.6% 15.5%;
     --secondary-foreground: 210 40% 98%;
- 
+
     --muted: 217 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
- 
+
     --accent: 217 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
- 
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217 32.6% 17.5%;
     --input: 217 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
- 
+
     --radius: 0.5rem;
-    
+
     /* Indie Theme Variables - Essential for proper styling */
     --bg-color: #000000;
-    --text-color: #39ff14; /* Bright green text */
+    --text-color: #39ff14;
+    /* Bright green text */
     --border-color: #39ff14;
     --border-style: 2px dashed var(--border-color);
     --border-radius: 0;
-    --accent-color: #ff00ff; /* Magenta accent color */
-    --hover-color: #00ffff; /* Cyan hover effect */
-    --font-mono: 'Courier New', Courier, monospace;
-    
+    --accent-color: #ff00ff;
+    /* Magenta accent color */
+    --hover-color: #00ffff;
+    /* Cyan hover effect */
+    --font-mono: 'JetBrains Mono', monospace;
+
     /* Spacing System - Values divisible by 4 */
-    --spacing-xs: 0.25rem;  /* 4px */
-    --spacing-s: 0.5rem;    /* 8px */
-    --spacing-m: 0.75rem;   /* 12px */
-    --spacing-l: 1.25rem;   /* 20px */
-    --spacing-xl: 2.5rem;   /* 40px */
-    --spacing-xxl: 4rem;    /* 64px */
-    
+    --spacing-xs: 0.25rem;
+    /* 4px */
+    --spacing-s: 0.5rem;
+    /* 8px */
+    --spacing-m: 0.75rem;
+    /* 12px */
+    --spacing-l: 1.25rem;
+    /* 20px */
+    --spacing-xl: 2.5rem;
+    /* 40px */
+    --spacing-xxl: 4rem;
+    /* 64px */
+
 
   }
- 
+
   * {
     @apply border-border;
   }
+
   body {
-    @apply text-foreground overflow-x-hidden;
+    @apply text-foreground;
     background-color: #060708 !important;
+    overflow: auto;
   }
 }
 
 .bg-checkerboard {
   background-color: #1a1e2c;
-  background-image: 
-    linear-gradient(45deg, #212636 25%, transparent 25%), 
+  background-image:
+    linear-gradient(45deg, #212636 25%, transparent 25%),
     linear-gradient(-45deg, #212636 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #212636 75%),
     linear-gradient(-45deg, transparent 75%, #212636 75%);
@@ -101,6 +112,7 @@
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -141,9 +153,11 @@
   0% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
   }
+
   70% {
     box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
@@ -158,9 +172,21 @@
   animation: floating 3s ease-in-out infinite;
 }
 
+.floating-delayed {
+  animation: floating 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
 @keyframes floating {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-3px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .bg-particles {
@@ -256,12 +282,22 @@
 }
 
 /* Typography Spacing System */
-h1, h2, h3, h4, h5, h6, p {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
   margin-top: var(--spacing-xl);
 }
 
-h1:first-child, h2:first-child, h3:first-child, 
-h4:first-child, h5:first-child, h6:first-child, 
+h1:first-child,
+h2:first-child,
+h3:first-child,
+h4:first-child,
+h5:first-child,
+h6:first-child,
 p:first-child {
   margin-top: 0;
 }
@@ -309,11 +345,11 @@ p:first-child {
     padding-top: var(--spacing-xl);
     padding-bottom: var(--spacing-xl);
   }
-  
+
   .hero-content {
     gap: var(--spacing-l);
   }
-  
+
   .feature-grid {
     gap: var(--spacing-m);
   }
@@ -338,4 +374,45 @@ h1.tools-main-heading,
 body h1.tools-main-heading {
   font-size: clamp(8rem, 25vw, 25rem) !important;
   line-height: 0.8 !important;
+}
+
+/* New fullpage scroll system - CSS Transform based */
+.fullpage-container {
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  color: white;
+}
+
+.sections-wrapper {
+  will-change: transform;
+}
+
+.fullpage-section {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 8rem 2rem 0;
+  position: relative;
+}
+
+.home-page-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: transparent;
+  backdrop-filter: blur(8px);
+}
+
+/* Special class for last section - uses min-height to fit content */
+.fullpage-section-last {
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 8rem 2rem 0;
+  position: relative;
 }

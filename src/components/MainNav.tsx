@@ -8,131 +8,60 @@ import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 // Removed PERFORMANCE_CONFIG import - using simplified approach
 
-// Add rainbow hover effect styles
-const rainbowStyles = `
-  @keyframes slidebg {
-    to { background-position: 20vw; }
-  }
-  @keyframes shine {
-    0% {
-      background-position: -200% center;
-    }
-    50% {
-      background-position: 200% center;
-    }
-    100% {
-      background-position: -200% center;
-    }
-  }
-  .rainbow-hover {
-    transition: all 0.3s ease;
-  }
-  .rainbow-hover:hover {
-    background-image: linear-gradient(90deg, #00C0FF 0%, #FFCF00 49%, #FC4F4F 80%, #00C0FF 100%) !important;
-    background-size: 20vw auto !important;
-    animation: slidebg 5s linear infinite !important;
-    color: white !important;
-    border-color: transparent !important;
-    transform: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-  .rainbow-hover:focus {
-    outline: none !important;
-    box-shadow: none !important;
-    ring: 0 !important;
-  }
-  .shiny-text {
-    background: linear-gradient(
-      90deg,
-      #3b82f6 0%,
-      #22c55e 25%,
-      #ffffff 50%,
-      #22c55e 75%,
-      #3b82f6 100%
-    );
-    background-size: 200% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: shine 25s ease-in-out infinite;
-  }
-  .shiny-text-red {
-    background: linear-gradient(
-      90deg,
-      #ec4899 0%,
-      #22c55e 20%,
-      #f472b6 40%,
-      #ffffff 60%,
-      #22c55e 80%,
-      #ec4899 100%
-    );
-    background-size: 200% 100%;
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: shine 25s ease-in-out infinite;
-  }
-`;
-
-// Add styles to document head
-const styleElement = document.createElement('style');
-styleElement.textContent = rainbowStyles;
-document.head.appendChild(styleElement);
+// Styles moved to App.css
 
 const MainNav: React.FC = React.memo(() => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  
 
-  
+
+
   // Preload routes on hover with simple delay
   const handleRouteHover = useCallback((path: string) => {
     const delay = 100; // Simple 100ms delay
     setTimeout(() => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       preloadRoute(path).catch(_error => {
-          if (process.env.NODE_ENV === 'development') {
-            // Route preloading errors logged to development system
-          }
-        });
+        if (process.env.NODE_ENV === 'development') {
+          // Route preloading errors logged to development system
+        }
+      });
     }, delay);
   }, []);
 
   const availableTools = useMemo(() => [
-    { 
-      name: "Video to GIF", 
+    {
+      name: "Video to GIF",
       path: "/tools/video-to-gif",
       icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "GIF Compressor", 
+    {
+      name: "GIF Compressor",
       path: "/tools/gif-compressor",
       icon: <FileImage className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "Image Compressor", 
+    {
+      name: "Image Compressor",
       path: "/tools/image-compressor",
       icon: <ImageIcon className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "Image Resizer", 
+    {
+      name: "Image Resizer",
       path: "/tools/image-resizer",
       icon: <FileImage className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "Image Converter", 
+    {
+      name: "Image Converter",
       path: "/tools/image-converter",
       icon: <FileImage className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "Video Converter", 
+    {
+      name: "Video Converter",
       path: "/tools/video-converter",
       icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
     },
-    { 
-      name: "Convert Case Tool", 
+    {
+      name: "Convert Case Tool",
       path: "/tools/convert-case",
       icon: <Type className="h-5 w-5 flex-shrink-0" />
     }
@@ -165,11 +94,11 @@ const MainNav: React.FC = React.memo(() => {
       <div className="flex items-center justify-between h-16 w-full">
         <div className="flex items-center space-x-3">
           <Link to="/" className="flex items-center group">
-            <img 
+            <img
               src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
               alt="sLixTOOLS Logo"
               className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
-              style={{ 
+              style={{
                 display: 'block',
                 maxHeight: '40px'
               }}
@@ -182,21 +111,20 @@ const MainNav: React.FC = React.memo(() => {
             <span className="ml-2 font-bold text-xl shiny-text">sLixTOOLS</span>
           </Link>
         </div>
-        
+
         <nav className="hidden md:flex items-center space-x-4">
           <div className="relative" ref={menuRef}>
-            <button 
-              onClick={toggleTools} 
+            <button
+              onClick={toggleTools}
               className="flex items-center text-sm font-medium text-white hover:text-white transition-all bg-gray-800/80 hover:bg-gray-700/90 px-4 py-2.5 rounded-lg border border-gray-600/40 hover:border-gray-500/60"
             >
               <span>Tools</span>
               <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transform transition-transform ${toolsOpen ? 'rotate-180' : ''}`} />
             </button>
-            
-            <div 
-              className={`absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[320px] max-w-[380px] bg-black/40 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl overflow-hidden transition-all duration-200 ${
-                toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-              }`}
+
+            <div
+              className={`absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[320px] max-w-[380px] bg-black/40 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl overflow-hidden transition-all duration-200 ${toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+                }`}
               style={{
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
               }}
@@ -210,7 +138,7 @@ const MainNav: React.FC = React.memo(() => {
                   </div>
                   <div className="space-y-0">
                     {availableTools.map((tool, index) => (
-                      <Link 
+                      <Link
                         key={index}
                         to={tool.path}
                         className="group flex items-center space-x-3 px-3 py-2 text-lg hover:bg-white/10 transition-colors duration-150 rounded-md"
@@ -225,10 +153,10 @@ const MainNav: React.FC = React.memo(() => {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* View All Link */}
                 <div className="border-t border-white/10 mt-1">
-                  <Link 
+                  <Link
                     to="/tools"
                     className="flex items-center justify-between px-5 py-3 text-base text-white hover:bg-white/10 hover:text-blue-400 transition-colors duration-150"
                     onClick={closeTools}
@@ -241,21 +169,21 @@ const MainNav: React.FC = React.memo(() => {
               </div>
             </div>
           </div>
-          <Link 
-            to="/features" 
+          <Link
+            to="/features"
             className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50"
             onMouseEnter={() => handleRouteHover('/features')}
           >
             Features
           </Link>
         </nav>
-        
+
         <div className="flex items-center space-x-3">
-          <Button 
-            className="bg-[#2AD587] text-black font-medium rainbow-hover" 
+          <Button
+            className="bg-[#2AD587] text-black font-medium rainbow-hover"
             asChild
           >
-            <Link 
+            <Link
               to="/tools"
               onMouseEnter={() => handleRouteHover('/tools')}
             >

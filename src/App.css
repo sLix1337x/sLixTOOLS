@@ -5,15 +5,23 @@
   text-align: left;
 }
 
+body {
+  background-color: #060708;
+  color: white;
+  /* Ensure text is visible by default */
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -22,6 +30,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -79,4 +88,75 @@
   border: 1px solid rgba(66, 197, 116, 0.3);
   border-radius: 50%;
   box-shadow: 0 0 10px rgba(66, 197, 116, 0.2);
+}
+
+/* MainNav Animations */
+@keyframes slidebg {
+  to {
+    background-position: 20vw;
+  }
+}
+
+@keyframes shine {
+  0% {
+    background-position: -200% center;
+  }
+
+  50% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.rainbow-hover {
+  transition: all 0.3s ease;
+}
+
+.rainbow-hover:hover {
+  background-image: linear-gradient(90deg, #00C0FF 0%, #FFCF00 49%, #FC4F4F 80%, #00C0FF 100%) !important;
+  background-size: 20vw auto !important;
+  animation: slidebg 5s linear infinite !important;
+  color: white !important;
+  border-color: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.rainbow-hover:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: 0 !important;
+}
+
+.shiny-text {
+  background: linear-gradient(90deg,
+      #3b82f6 0%,
+      #22c55e 25%,
+      #ffffff 50%,
+      #22c55e 75%,
+      #3b82f6 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 25s ease-in-out infinite;
+}
+
+.shiny-text-red {
+  background: linear-gradient(90deg,
+      #ec4899 0%,
+      #22c55e 20%,
+      #f472b6 40%,
+      #ffffff 60%,
+      #22c55e 80%,
+      #ec4899 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 25s ease-in-out infinite;
 }

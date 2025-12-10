@@ -3,14 +3,17 @@ import { Download, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ConversionOptions as ConversionOptionsType, VideoPreviewProps, GifPreviewProps, ValidationResult } from '@/types';
+import { ConversionOptions as ConversionOptionsType, VideoPreviewProps, GifPreviewProps } from '@/types';
 import PostConversionOptions from '@/components/PostConversionOptions';
 import ConversionOptionsComponent from '@/components/ConversionOptions';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import { convertVideoToGif } from '@/utils/gifConverter';
 import AnimatedElement from '@/components/AnimatedElement';
-import errorLogger, { ErrorCategory } from '@/utils/errorLogger';
+import { useToolErrorHandler, useUrlFileLoader } from '@/hooks';
+import { validateFile } from '@/utils/fileValidation';
+import { downloadBlobWithGeneratedName } from '@/utils/download';
+import ToolActionButton from '@/components/tools/ToolActionButton';
 
 // Interface definitions
 interface GifResult {
@@ -83,21 +86,24 @@ const GifPreview = React.memo<GifPreviewProps>(({ gifBlob, onDownload, isConvert
   }, [gifBlob]);
 
   if (!gifBlob || !gifUrl) return null;
-  
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
-      <img 
-        src={gifUrl} 
-        alt="Generated GIF" 
-        className="w-full rounded-lg shadow-lg mb-4 border border-gray-700/50" 
+      <img
+        src={gifUrl}
+        alt="Generated GIF"
+        className="w-full rounded-lg shadow-lg mb-4 border border-gray-700/50"
         loading="lazy"
         decoding="async"
         style={{ contentVisibility: 'auto' }}
       />
-      <Button onClick={onDownload} disabled={isConverting} className="bg-[#2AD587] hover:bg-[#25c27a] text-black font-bold py-2.5 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0">
-        <Download className="mr-2 h-5 w-5" />
+      <ToolActionButton
+        icon={Download}
+        onClick={onDownload}
+        disabled={isConverting}
+      >
         Download GIF
-      </Button>
+      </ToolActionButton>
     </div>
   );
 });
@@ -133,115 +139,25 @@ const VideoToGif = () => {
     };
   }, [gifResult]);
 
-  // Comprehensive file validation function
-  const validateFile = useCallback((file: File): ValidationResult => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    
-    // Basic file checks
-    if (!file) {
-      errors.push('No file selected');
-      return { isValid: false, error: 'No file selected' };
-    }
-    
-    // Size validation
-    if (file.size === 0) {
-      errors.push('File appears to be empty');
-    } else if (file.size > CONFIG.MAX_FILE_SIZE) {
-      errors.push(`File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB`);
-    } else if (file.size > 100 * 1024 * 1024) { // 100MB warning
-      warnings.push('Large file size may result in slower processing and larger GIF files');
-    }
-    
-    // Format validation
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    if (!fileExtension) {
-      errors.push('File has no extension');
-    } else if (!CONFIG.SUPPORTED_FORMATS.includes(fileExtension)) {
-      errors.push(`Unsupported file format: .${fileExtension}. Supported formats: ${CONFIG.SUPPORTED_FORMATS.join(', ')}`);
-    }
-    
-    // MIME type validation
-    if (!file.type.startsWith('video/')) {
-      errors.push(`Invalid file type: ${file.type}. Expected video file.`);
-    }
-    
-    // File name validation
-    if (file.name.length > 255) {
-      warnings.push('File name is very long and may cause issues');
-    }
-    
-    const result: ValidationResult = {
-      isValid: errors.length === 0,
-      fileInfo: {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        lastModified: file.lastModified
-      }
-    };
-
-    if (errors.length > 0) {
-      result.error = errors[0];
-    }
-
-    if (warnings.length > 0) {
-      result.warnings = warnings;
-    }
-
-    return result;
-  }, []);
-
-  // Centralized error handler
-  const handleError = useCallback((error: Error, context: string, additionalData?: Record<string, unknown>) => {
-    const errorMessage = error.message || 'Unknown error occurred';
-    
-    // Determine error category
-    let errorCategory = ErrorCategory.FILE_PROCESSING;
-    if (errorMessage.toLowerCase().includes('memory')) {
-      errorCategory = ErrorCategory.MEMORY;
-    } else if (errorMessage.toLowerCase().includes('worker') || errorMessage.toLowerCase().includes('timeout')) {
-      errorCategory = ErrorCategory.WORKER;
-    }
-    
-    const errorId = errorLogger.logError({
-      category: errorCategory,
-      message: `${context}: ${errorMessage}`,
-      stack: error.stack,
-      context: {
-        component: 'VideoToGif',
-        action: context,
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-        ...additionalData
-      }
-    });
-    
-    toast.error(`${context} Failed`, {
-      description: errorMessage,
-      action: {
-        label: 'View Details',
-        onClick: () => {
-          const errorDetails = errorLogger.getLogById(errorId);
-          if (errorDetails) {
-            console.log('Error Details:', errorDetails);
-          }
-        }
-      }
-    });
-    
-    return errorId;
-  }, []);
+  // Use centralized error handler
+  const { handleError } = useToolErrorHandler({
+    componentName: 'VideoToGif',
+    showToast: true,
+    showDetailsAction: true
+  });
 
   const handleFileSelected = useCallback((file: File) => {
     try {
-      // Use comprehensive validation function
-      const validation = validateFile(file);
-      
+      // Use centralized validation function
+      const validation = validateFile(file, {
+        maxFileSize: CONFIG.MAX_FILE_SIZE,
+        supportedFormats: CONFIG.SUPPORTED_FORMATS
+      });
+
       if (!validation.isValid) {
         throw new Error(validation.error || 'File validation failed');
       }
-      
+
       // Show warnings if any
       if (validation.warnings && validation.warnings.length > 0) {
         validation.warnings.forEach(warning => {
@@ -250,11 +166,11 @@ const VideoToGif = () => {
           });
         });
       }
-      
+
       setVideoFile(file);
       setGifBlob(null);
       setConversionState('idle');
-      
+
       // Get video duration for trim options
       const video = document.createElement('video');
       video.preload = 'metadata';
@@ -264,7 +180,7 @@ const VideoToGif = () => {
           if (video.duration === 0 || !isFinite(video.duration)) {
             throw new Error('Invalid video duration detected');
           }
-          
+
           const duration = video.duration;
           setVideoDuration(duration);
           // Set default end time to 5 seconds or video duration if shorter
@@ -276,12 +192,12 @@ const VideoToGif = () => {
             fileSize: file.size,
             fileType: file.type
           });
-      setConversionState('error');
+          setConversionState('error');
         } finally {
           window.URL.revokeObjectURL(video.src);
         }
       };
-      
+
       video.onerror = () => {
         window.URL.revokeObjectURL(video.src);
         handleError(new Error('Failed to load video file. The file may be corrupted or in an unsupported format.'), 'Video file validation', {
@@ -290,90 +206,70 @@ const VideoToGif = () => {
           fileType: file.type
         });
       };
-      
+
     } catch (error) {
-       handleError(error instanceof Error ? error : new Error(String(error)), 'File validation', {
-         fileName: file?.name,
-         fileSize: file?.size,
-         fileType: file?.type
-       });
-     }
-   }, [handleError, validateFile]);
+      handleError(error instanceof Error ? error : new Error(String(error)), 'File validation', {
+        fileName: file?.name,
+        fileSize: file?.size,
+        fileType: file?.type
+      });
+    }
+  }, [handleError]);
+
+  // Use centralized URL file loader
+  const { loadFromUrl } = useUrlFileLoader({
+    expectedType: 'video',
+    maxFileSize: CONFIG.MAX_FILE_SIZE,
+    onSuccess: handleFileSelected
+  });
 
   const handleUrlSubmit = useCallback(async (url: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to load video from URL');
-      
-      const blob = await response.blob();
-      if (!blob.type.startsWith('video/')) {
-        throw new Error('The URL does not point to a valid video file');
-      }
-      
-      const file = new File([blob], 'video-from-url.mp4', { type: blob.type });
-      handleFileSelected(file);
-      toast.success('Video loaded from URL');
-    } catch (error) {
-      // Error details are logged to error reporting system
-      toast.error(error instanceof Error ? error.message : 'Failed to load video from URL');
-    }
-  }, [handleFileSelected]);
+    await loadFromUrl(url);
+  }, [loadFromUrl]);
 
   const handlePostEdit = useCallback(async (editType: string, params?: Record<string, unknown>) => {
     if (!gifResult) return;
-    
+
     try {
       toast.info(`Applying ${editType}...`);
       // Here you would implement the actual editing logic
       // For now, we'll just show a success message
       toast.success(`${editType} applied successfully!`);
-    } catch (error) {
-      handleError(error instanceof Error ? error : new Error(String(error)), `Post-processing ${editType}`, {
-        editType,
-        params,
-        gifResult
-      });
+    } catch (editError) {
+      handleError(
+        editError instanceof Error ? editError : new Error(String(editError)),
+        'Post-conversion editing',
+        { editType, params }
+      );
     }
   }, [gifResult, handleError]);
 
   const handleDownload = useCallback(() => {
     if (gifBlob) {
-      const url = URL.createObjectURL(gifBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `converted-${Date.now()}.gif`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('GIF downloaded successfully!');
+      downloadBlobWithGeneratedName(
+        gifBlob,
+        'converted',
+        videoFile?.name,
+        'gif',
+        { showToast: true }
+      );
     }
-  }, [gifBlob]);
+  }, [gifBlob, videoFile]);
 
   const handleConvert = async () => {
     if (!videoFile) return;
 
     // Check file size before conversion
     if (videoFile.size > CONFIG.MAX_FILE_SIZE) {
-      const errorId = errorLogger.logFileProcessingError(
+      handleError(
         new Error(`File size (${(videoFile.size / 1024 / 1024).toFixed(1)}MB) exceeds the ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit`),
-        videoFile,
         'File size validation failed',
-        'file_size_validation'
-      );
-      
-      toast.error('File too large', {
-        description: `File size (${(videoFile.size / 1024 / 1024).toFixed(1)}MB) exceeds the ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB limit. Please use a smaller file.`,
-        action: {
-          label: 'View Details',
-          onClick: () => {
-            const errorDetails = errorLogger.getLogById(errorId);
-            if (errorDetails) {
-              console.log('Error Details:', errorDetails);
-            }
-          }
+        {
+          fileName: videoFile.name,
+          fileSize: videoFile.size,
+          fileType: videoFile.type
         }
-      });
+      );
       setConversionState('error');
       return;
     }
@@ -405,7 +301,7 @@ const VideoToGif = () => {
       const processingTime = Math.round(endTime - startTime);
 
       setGifBlob(gifBlob);
-      
+
       // Create GIF result with metadata
       const gifUrl = URL.createObjectURL(gifBlob);
       setGifResult({
@@ -414,36 +310,24 @@ const VideoToGif = () => {
         size: gifBlob.size,
         processingTime
       });
-      setConversionState('completed');
       setShowPostOptions(true);
-      
+      setConversionState('completed');
+
+      const fileSizeMB = (gifBlob.size / 1024 / 1024).toFixed(2);
       toast.success('Conversion Successful!', {
-        description: `File size: ${(gifBlob.size / 1024 / 1024).toFixed(2)}MB (${processingTime}ms)`
+        description: `File size: ${fileSizeMB}MB (${processingTime}ms)`
       });
-    } catch (error) {
-      handleError(error instanceof Error ? error : new Error(String(error)), 'GIF Conversion', {
-        fileInfo: {
-          name: videoFile.name,
-          size: videoFile.size,
-          type: videoFile.type
-        },
-        conversionOptions,
-        reproductionSteps: [
-          '1. Upload a video file',
-          `2. File: ${videoFile.name} (${(videoFile.size / 1024 / 1024).toFixed(2)}MB)`,
-          `3. Set conversion options: FPS=${conversionOptions.fps}, Quality=${conversionOptions.quality}`,
-          `4. Set trim: ${conversionOptions.startTime}s to ${conversionOptions.endTime}s`,
-          '5. Click "Convert to GIF" button',
-          '6. Conversion process failed'
-        ],
-        metadata: {
-          conversionOptions,
-          videoMetadata: {
-            duration: videoDuration,
-            trimDuration: conversionOptions.endTime ? (conversionOptions.endTime - conversionOptions.startTime) : videoDuration
-          }
+    } catch (conversionError) {
+      handleError(
+        conversionError instanceof Error ? conversionError : new Error(String(conversionError)),
+        'Video conversion',
+        {
+          fileName: videoFile.name,
+          fileSize: videoFile.size,
+          options: conversionOptions
         }
-      });
+      );
+      setConversionState('error');
     } finally {
       setIsConverting(false);
       // Reset conversion state to idle after a delay to allow UI updates
@@ -485,37 +369,29 @@ const VideoToGif = () => {
           <AnimatedElement type="fadeIn" delay={0.2}>
             <VideoPreview file={videoFile} onDurationChange={setVideoDuration} />
           </AnimatedElement>
-          
+
           <AnimatedElement type="fadeIn" delay={0.4}>
             <ConversionOptionsComponent options={conversionOptions} onChange={setConversionOptions} videoDuration={videoDuration} videoFile={videoFile} />
           </AnimatedElement>
-          
+
           <AnimatedElement type="fadeIn" delay={0.6}>
             <div className="flex justify-center">
-              <button 
+              <ToolActionButton
+                icon={Wand2}
                 onClick={handleConvert}
                 disabled={isConverting}
-                className="w-full md:w-auto flex items-center justify-center bg-[#2AD587] text-black font-bold py-2.5 px-6 rounded-lg rainbow-hover disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                style={{
-                  minWidth: '200px'
-                }}
-                aria-label={isConverting ? 'Converting video to GIF, please wait' : 'Convert video to GIF'}
-                aria-describedby={isConverting ? 'conversion-progress' : 'conversion-description'}
-                role="button"
-                tabIndex={0}
+                isLoading={isConverting}
+                loadingText="Converting..."
+                fullWidth
               >
-                {isConverting ? (
-                  <><Loader2 className="animate-spin mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Converting...</span></>
-                ) : (
-                  <><Wand2 className="mr-2 h-5 w-5" aria-hidden="true" /><span className="relative z-10">Convert to GIF</span></>
-                )}
-              </button>
+                Convert to GIF
+              </ToolActionButton>
               <div id="conversion-description" className="sr-only">
                 Click to start converting your video file to an animated GIF
               </div>
             </div>
           </AnimatedElement>
-          
+
           {isConverting && (
             <AnimatedElement type="fadeIn" delay={0.2}>
               <div className="max-w-md mx-auto space-y-3" id="conversion-progress" role="status" aria-live="polite">
@@ -527,17 +403,17 @@ const VideoToGif = () => {
               </div>
             </AnimatedElement>
           )}
-          
+
           {showPostOptions && gifResult && (
             <AnimatedElement type="fadeIn" delay={0.2}>
-              <PostConversionOptions 
+              <PostConversionOptions
                 gifResult={gifResult}
                 onDownload={handleDownload}
                 onEdit={handlePostEdit}
               />
             </AnimatedElement>
           )}
-          
+
           {gifBlob && !showPostOptions && (
             <AnimatedElement type="fadeIn" delay={0.2}>
               <div className="mt-8">

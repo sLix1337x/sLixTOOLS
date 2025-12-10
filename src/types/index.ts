@@ -5,10 +5,10 @@ export interface ConversionOptions {
   quality: number;
   trimEnabled: boolean;
   startTime: number;
-  endTime: number | undefined;
-  duration?: number | undefined;
-  width?: number | undefined;
-  height?: number | undefined;
+  endTime?: number;
+  duration?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface VideoFile {
@@ -21,8 +21,8 @@ export interface GifResult {
   blob: Blob;
   url: string;
   size: number;
-  width?: number | undefined;
-  height?: number | undefined;
+  width?: number;
+  height?: number;
 }
 
 export interface ToolItem {
@@ -110,4 +110,15 @@ export interface PerformanceMetrics {
     input: number;
     output: number;
   };
+}
+
+// Processing state type
+export type ProcessingState = 'idle' | 'processing' | 'completed' | 'error';
+
+// Tool-specific result types
+export interface ToolProcessingResult<T = Blob> {
+  data: T;
+  size: number;
+  processingTime: number;
+  metadata?: Record<string, unknown>;
 }

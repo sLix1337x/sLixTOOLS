@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { FileVideo, Download, Settings } from 'lucide-react';
+```typescript
+import React, { useState, useCallback, useEffect } from 'react';
+import { Loader2, Download, VideoIcon, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +14,7 @@ import { formatFileSizeMB } from '@/utils/formatters';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import { toast } from 'sonner';
+import { downloadBlobWithGeneratedName } from '@/utils/download';
 
 const VideoConverter: React.FC = () => {
   const [convertedVideo, setConvertedVideo] = useState<Blob | null>(null);
@@ -42,7 +44,7 @@ const VideoConverter: React.FC = () => {
       setConvertedUrl('');
     },
     onFileError: (error) => {
-      toast.error(`File validation error: ${error}`);
+      toast.error(`File validation error: ${ error } `);
     }
   });
 
@@ -70,30 +72,26 @@ const VideoConverter: React.FC = () => {
       
       toast.success('Video converted successfully!');
     } catch (error) {
-      toast.error(`Video conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Video conversion failed: ${ error instanceof Error ? error.message : 'Unknown error' } `);
     } finally {
       setIsConverting(false);
     }
   }, [videoFile, options, convertedUrl]);
 
   const handleDownload = useCallback(() => {
-    if (!convertedVideo || !videoFile) return;
+    if (!convertedVideo) return;
     
-    // Create download link inline
-    const url = URL.createObjectURL(convertedVideo);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `converted_${videoFile.name.split('.')[0]}.${options.format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    toast.success('Download started!');
-  }, [convertedVideo, videoFile, options.format]);
+    downloadBlobWithGeneratedName(
+      convertedVideo,
+      'converted',
+      videoFile?.name,
+      options.format,
+      { showToast: true }
+    );
+  }, [convertedVideo, videoFile?.name, options.format]);
 
   // Cleanup URLs on unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (convertedUrl) {
         URL.revokeObjectURL(convertedUrl);

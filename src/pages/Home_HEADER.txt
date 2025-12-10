@@ -1,0 +1,79 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Scissors, Zap, Lock, CircleDollarSign, Shield, Sparkles, FileVideo, FileImage } from 'lucide-react';
+import AnimatedElement from '@/components/AnimatedElement';
+import CTAButton from '@/components/common/CTAButton';
+import ToolListItem from '@/components/common/ToolListItem';
+import FeatureCard from '@/components/home/FeatureCard';
+import Container from '@/components/layout/Container';
+import { getFeaturedTools } from '@/config/toolsData';
+
+import { SEO } from '@/components/SEO';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
+
+const Home: React.FC = () => {
+  const [currentSection, setCurrentSection] = useState(0);
+  const isScrolling = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Custom SLOW smooth scroll animation
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (isScrolling.current) return;
+      e.preventDefault();
+      
+      const scrollingDown = e.deltaY > 0;
+      const newSection = scrollingDown 
+        ? Math.min(currentSection + 1, 2) 
+        : Math.max(currentSection - 1, 0);
+
+      if (newSection !== currentSection) {
+        isScrolling.current = true;
+        setCurrentSection(newSection);
+
+        const sections = containerRef.current?.querySelectorAll('.scroll-snap-section');
+        if (sections && sections[newSection] && containerRef.current) {
+          const targetSection = sections[newSection] as HTMLElement;
+          const container = containerRef.current;
+          const startPos = container.scrollTop;
+          const targetPos = targetSection.offsetTop;
+          const distance = targetPos - startPos;
+          const duration = 2500;
+          let startTime: number | null = null;
+
+          const easeInOutQuart = (t: number): number => {
+            return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+          };
+
+          const animate = (currentTime: number) => {
+            if (startTime === null) startTime = currentTime;
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = easeInOutQuart(progress);
+            
+            container.scrollTop = startPos + distance * eased;
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            }
+          };
+
+          requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => {
+          isScrolling.current = false;
+        }, 2800);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [currentSection]);

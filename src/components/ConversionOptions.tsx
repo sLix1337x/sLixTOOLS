@@ -22,13 +22,6 @@ const estimateGifSize = (width: number, height: number, fps: number, duration: n
   return frames * pixelsPerFrame * bytesPerPixel;
 };
 
-// Extend component props for better type safety
-declare module 'react' {
-  interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
-    thumbClassName?: string;
-  }
-}
-
 const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onChange, videoFile, videoDuration = 0 }) => {
   // Calculate estimated file size
   const getEstimatedSize = () => {
@@ -40,26 +33,24 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
   const handleFpsChange = (value: number[]) => {
     onChange({ ...options, fps: value[0] });
   };
-  
+
   const handleQualityChange = (value: number[]) => {
     onChange({ ...options, quality: value[0] });
   };
-  
+
   const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     const numValue = parseInt(value);
-    
+
+    const newOptions = { ...options };
+
     if (!isNaN(numValue)) {
-      onChange({ 
-        ...options, 
-        [name]: numValue 
-      });
+      (newOptions as Record<string, unknown>)[name] = numValue;
     } else if (value === '') {
-      onChange({
-        ...options,
-        [name]: undefined
-      });
+      delete (newOptions as Record<string, unknown>)[name];
     }
+
+    onChange(newOptions);
   };
 
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,10 +65,15 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
 
   const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    onChange({
-      ...options,
-      endTime: isNaN(value) ? undefined : value
-    });
+    const newOptions = { ...options };
+
+    if (isNaN(value)) {
+      delete newOptions.endTime;
+    } else {
+      newOptions.endTime = value;
+    }
+
+    onChange(newOptions);
   };
 
 
@@ -95,7 +91,7 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
           </div>
         )}
       </div>
-      
+
       <div className="space-y-6">
         <div className="space-y-2 bg-black/50 p-4 border border-gray-600/50">
           <div className="flex justify-between mb-2">
@@ -105,14 +101,14 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
             <span className="text-blue-400 font-bold">{options.fps} FPS</span>
           </div>
           <div className="px-2">
-            <Slider 
+            <Slider
               id="fps"
-              min={1} 
-              max={30} 
+              min={1}
+              max={30}
               step={1}
-              value={[options.fps || 10]} 
+              value={[options.fps || 10]}
               onValueChange={handleFpsChange}
-              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-green-900/50 [&>span:first-child_span]:bg-green-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-green-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5" 
+              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-green-900/50 [&>span:first-child_span]:bg-green-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-green-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5"
             />
           </div>
           <p className="text-sm text-green-300/80 mt-2">HIGHER FPS = SMOOTHER ANIMATION BUT LARGER FILE SIZE</p>
@@ -126,14 +122,14 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
             <span className="text-yellow-400 font-semibold text-sm">EST. SIZE: {formatFileSize(getEstimatedSize())}</span>
           </div>
           <div className="px-2">
-            <Slider 
+            <Slider
               id="quality"
-              min={1} 
-              max={20} 
+              min={1}
+              max={20}
               step={1}
-              value={[options.quality || 10]} 
+              value={[options.quality || 10]}
               onValueChange={handleQualityChange}
-              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-green-900/50 [&>span:first-child_span]:bg-green-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-green-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5" 
+              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-green-900/50 [&>span:first-child_span]:bg-green-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-green-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5"
             />
           </div>
           <p className="text-sm text-green-300/80 mt-2">LOWER VALUES = BETTER QUALITY BUT LARGER FILE SIZE</p>
@@ -173,14 +169,14 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
               />
             </div>
           </div>
-          
+
           {videoDuration > 0 && (
             <div className="text-sm text-green-300/80 italic">
               VIDEO DURATION: {formatDuration(videoDuration)}
             </div>
           )}
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
           <div>
             <Label htmlFor="width" className="text-gray-300 mb-1 block">Width (px)</Label>

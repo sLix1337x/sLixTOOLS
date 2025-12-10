@@ -20,6 +20,10 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['Space Grotesk', 'sans-serif'],
+				mono: ['JetBrains Mono', 'monospace'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -63,16 +67,20 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				'primary-action': '#2AD587'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			backgroundImage: {
+				'brand-gradient': 'linear-gradient(to right, #4ade80, #60a5fa)',
+				'brand-text': 'linear-gradient(to right, #4ade80, #60a5fa)',
+			},
 
 		}
 	},
 	plugins: [tailwindcssAnimate],
 } satisfies Config;
-

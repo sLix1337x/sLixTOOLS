@@ -6,11 +6,12 @@ interface AnimatedElementProps extends MotionProps {
   delay?: number;
   className?: string;
   type?: 'fadeIn' | 'slideUp' | 'slideIn' | 'scale' | 'bounce';
+  isVisible?: boolean;
 }
 
 type AnimationPreset = {
-  initial: Record<string, unknown>;
-  animate: Record<string, unknown>;
+  initial: any;
+  animate: any;
   transition: Transition;
 };
 
@@ -19,6 +20,7 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
   delay = 0,
   className = '',
   type = 'fadeIn',
+  isVisible = true,
   ...props
 }) => {
   const selectedAnimation = useMemo(() => {
@@ -46,11 +48,11 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
       bounce: {
         initial: { opacity: 0, scale: 0.8 },
         animate: { opacity: 1, scale: 1 },
-        transition: { 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 15, 
-          delay 
+        transition: {
+          type: "spring",
+          stiffness: 300,
+          damping: 15,
+          delay
         }
       }
     };
@@ -61,7 +63,7 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
     <motion.div
       className={className}
       initial={selectedAnimation.initial}
-      animate={selectedAnimation.animate}
+      animate={isVisible ? selectedAnimation.animate : selectedAnimation.initial}
       transition={selectedAnimation.transition}
       {...props}
     >
