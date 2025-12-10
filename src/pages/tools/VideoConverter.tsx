@@ -1,4 +1,3 @@
-```typescript
 import React, { useState, useCallback, useEffect } from 'react';
 import { Loader2, Download, VideoIcon, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,9 +31,9 @@ const VideoConverter: React.FC = () => {
   });
   const [convertedUrl, setConvertedUrl] = useState<string>('');
 
-  const { 
-    file: videoFile, 
-    fileUrl: videoUrl, 
+  const {
+    file: videoFile,
+    fileUrl: videoUrl,
     handleFileSelect
   } = useFileHandler({
     validateFunction: validateVideoFile,
@@ -44,7 +43,7 @@ const VideoConverter: React.FC = () => {
       setConvertedUrl('');
     },
     onFileError: (error) => {
-      toast.error(`File validation error: ${ error } `);
+      toast.error('File validation error: ' + error);
     }
   });
 
@@ -62,17 +61,17 @@ const VideoConverter: React.FC = () => {
       );
 
       setConvertedVideo(result);
-      
+
       // Create download URL
       if (convertedUrl) {
         URL.revokeObjectURL(convertedUrl);
       }
       const url = URL.createObjectURL(result);
       setConvertedUrl(url);
-      
+
       toast.success('Video converted successfully!');
     } catch (error) {
-      toast.error(`Video conversion failed: ${ error instanceof Error ? error.message : 'Unknown error' } `);
+      toast.error('Video conversion failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsConverting(false);
     }
@@ -80,7 +79,7 @@ const VideoConverter: React.FC = () => {
 
   const handleDownload = useCallback(() => {
     if (!convertedVideo) return;
-    
+
     downloadBlobWithGeneratedName(
       convertedVideo,
       'converted',
@@ -125,7 +124,7 @@ const VideoConverter: React.FC = () => {
               title="Upload Video"
               description="Supports MP4, WebM, AVI, MOV, and more"
             />
-            
+
             {videoFile && (
               <div className="space-y-2">
                 <p className="text-sm text-gray-300">
@@ -151,7 +150,7 @@ const VideoConverter: React.FC = () => {
         <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
-              <Settings className="h-5 w-5" />
+              <Settings2 className="h-5 w-5" />
               Conversion Options
             </CardTitle>
           </CardHeader>
@@ -269,7 +268,7 @@ const VideoConverter: React.FC = () => {
                 </Button>
               </div>
             </div>
-            
+
             {convertedUrl && (
               <video
                 src={convertedUrl}
