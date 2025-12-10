@@ -99,7 +99,6 @@ tasks.json
 tasks/
 .trae/
 .taskmaster/
-.github/
 
 # Auto-generated documentation
 CLEANUP_ANALYSIS.md
