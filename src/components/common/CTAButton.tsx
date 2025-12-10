@@ -29,7 +29,7 @@ export const CTAButton: React.FC<CTAButtonProps> = ({
     const baseStyles = 'font-bold inline-flex items-center rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
     const variantStyles = {
-        primary: 'bg-primary-action text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 focus:ring-white',
+        primary: 'bg-primary-action text-white shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transform hover:-translate-y-1 focus:ring-white',
         secondary: 'bg-gray-700 text-white hover:bg-gray-600 shadow-md hover:shadow-lg focus:ring-gray-500',
     };
 

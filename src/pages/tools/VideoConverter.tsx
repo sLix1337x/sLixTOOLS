@@ -224,7 +224,7 @@ const VideoConverter: React.FC = () => {
             <Button
               onClick={handleConvert}
               disabled={!videoFile || isConverting}
-              className="w-full bg-primary-action hover:bg-primary-action/90"
+              className="w-full bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300"
             >
               {isConverting ? 'Converting...' : 'Convert Video'}
             </Button>

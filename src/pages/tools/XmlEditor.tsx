@@ -314,7 +314,7 @@ const XmlEditor: React.FC = () => {
             <Button
               onClick={formatXml}
               disabled={!xmlContent.trim() || !isValid}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 h-9"
             >
               Format
             </Button>

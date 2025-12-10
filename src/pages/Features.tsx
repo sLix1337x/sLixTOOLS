@@ -185,7 +185,7 @@ const Features: React.FC = () => {
           <div className="mt-6 text-center">
             <Link to="/tools">
               <button
-                className="bg-primary-action text-white font-bold py-3 px-8 rounded-xl rainbow-hover flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-400/25"
+                className="bg-primary-action text-white font-bold py-3 px-8 rounded-xl rainbow-hover flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-green-400/25"
                 style={{
                   outline: 'none',
                   border: 'none',

@@ -49,7 +49,7 @@ export const ToolActionButton: React.FC<ToolActionButtonProps> = ({
     const minWidthStyles = { minWidth: '200px' };
 
     const variantClasses = variant === 'primary'
-        ? "bg-primary-action text-black rainbow-hover focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+        ? "bg-primary-action text-white shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 rainbow-hover focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
         : "bg-gray-700 text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500";
 
     const combinedClasses = cn(

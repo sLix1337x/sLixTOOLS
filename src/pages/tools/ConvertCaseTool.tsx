@@ -99,7 +99,7 @@ const ConvertCaseTool: React.FC = () => {
             <Button
               onClick={convertToLowerCase}
               disabled={!inputText.trim()}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               lowercase
             </Button>
@@ -107,7 +107,7 @@ const ConvertCaseTool: React.FC = () => {
             <Button
               onClick={convertToUpperCase}
               disabled={!inputText.trim()}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               UPPERCASE
             </Button>
@@ -115,7 +115,7 @@ const ConvertCaseTool: React.FC = () => {
             <Button
               onClick={convertToCapitalizedCase}
               disabled={!inputText.trim()}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               Capitalized Case
             </Button>
@@ -123,7 +123,7 @@ const ConvertCaseTool: React.FC = () => {
             <Button
               onClick={convertToSentenceCase}
               disabled={!inputText.trim()}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               Sentence case
             </Button>
@@ -131,14 +131,14 @@ const ConvertCaseTool: React.FC = () => {
             <Button
               onClick={convertToAlternatingCase}
               disabled={!inputText.trim()}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               aLtErNaTiNg cAsE
             </Button>
 
             <Button
               onClick={clearText}
-              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Clear
@@ -149,7 +149,7 @@ const ConvertCaseTool: React.FC = () => {
             <div className="flex justify-center">
               <Button
                 onClick={copyToClipboard}
-                className="bg-primary-action hover:bg-primary-action/90 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
+                className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300 text-white border-0 outline-none focus:outline-none focus:ring-0 h-9"
               >
                 <Copy className="h-4 w-4 mr-2" />
                 Copy Text
