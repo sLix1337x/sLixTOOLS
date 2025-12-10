@@ -10,13 +10,13 @@ const copyGifWorkers = () => ({
   buildStart() {
     const publicDir = resolve(__dirname, 'public');
     const workerDir = resolve(publicDir, 'workers');
-    
+
     if (!existsSync(workerDir)) {
       mkdirSync(workerDir, { recursive: true });
     }
-    
+
     const gifJsPath = resolve(__dirname, 'node_modules/gif.js/dist');
-    
+
     if (existsSync(resolve(gifJsPath, 'gif.worker.js'))) {
       copyFileSync(
         resolve(gifJsPath, 'gif.worker.js'),
@@ -86,8 +86,5 @@ export default defineConfig({
     port: 3000,
     host: true,
     open: true,
-  },
-  define: {
-    'import.meta.env.BASE_URL': JSON.stringify('/'),
   },
 });
