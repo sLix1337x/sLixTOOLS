@@ -69,7 +69,17 @@ export const animationStyles = {
   slideUp: "animate-in slide-in-from-bottom-4 duration-500",
   slideDown: "animate-in slide-in-from-top-4 duration-500",
   scaleIn: "animate-in zoom-in-95 duration-300",
+  scaleIn: "animate-in zoom-in-95 duration-300",
   bounce: "animate-bounce"
+} as const;
+
+// Home Page Animation Constants
+export const homeAnimations = {
+  SCROLL_TRANSITION_DURATION: '1.5s',
+  SCROLL_TRANSITION_EASING: 'cubic-bezier(0.65, 0, 0.35, 1)',
+  SCROLL_TIMEOUT_MS: 1600,
+  SEPARATOR_DELAY_START: '0.4s',
+  COPYRIGHT_DELAY_START: '0.7s',
 } as const;
 
 // Responsive breakpoint utilities

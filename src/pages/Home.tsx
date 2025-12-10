@@ -1,70 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Scissors, Zap, Lock, CircleDollarSign, Shield, Sparkles, FileVideo, FileImage } from 'lucide-react';
+import React from 'react';
+import { Zap, Lock, CircleDollarSign } from 'lucide-react';
 import AnimatedElement from '@/components/AnimatedElement';
 import CTAButton from '@/components/common/CTAButton';
 import ToolListItem from '@/components/common/ToolListItem';
 import FeatureCard from '@/components/home/FeatureCard';
+import SectionSeparator from '@/components/home/SectionSeparator';
+import HomeDemoFeature from '@/components/home/HomeDemoFeature';
+import SocialProof from '@/components/home/SocialProof';
 import Container from '@/components/layout/Container';
 import { getFeaturedTools } from '@/config/toolsData';
+import { homeAnimations } from '@/styles/constants';
+import { useFullPageScroll } from '@/hooks/useFullPageScroll';
 
 import { SEO } from '@/components/SEO';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 const Home: React.FC = () => {
-  const [currentSection, setCurrentSection] = useState(0);
-  const isScrolling = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Setup native wheel event listener with {passive: false}
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      // Prevent scrolling if already transitioning
-      if (isScrolling.current) {
-        e.preventDefault();
-        return;
-      }
-
-      e.preventDefault();
-
-      if (e.deltaY > 0 && currentSection < 2) {
-        // Scroll down
-        isScrolling.current = true;
-        setCurrentSection(currentSection + 1);
-        window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
-
-        // Reset after animation completes
-        setTimeout(() => {
-          isScrolling.current = false;
-        }, 1600); // Slightly longer than 1.5s animation
-
-      } else if (e.deltaY < 0 && currentSection > 0) {
-        // Scroll up
-        isScrolling.current = true;
-        setCurrentSection(currentSection - 1);
-        window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
-
-        // Reset after animation completes
-        setTimeout(() => {
-          isScrolling.current = false;
-        }, 1600);
-      }
-    };
-
-    // Add event listener with passive: false to allow preventDefault
-    container.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-    };
-  }, [currentSection]); // Re-attach when currentSection changes
+  const { currentSection, containerRef } = useFullPageScroll({ totalSections: 3 });
 
   return (
     <div className="fullpage-container" ref={containerRef}>
@@ -79,7 +31,7 @@ const Home: React.FC = () => {
         className="sections-wrapper"
         style={{
           transform: `translateY(-${currentSection * 100}vh)`,
-          transition: 'transform 1.5s cubic-bezier(0.65, 0, 0.35, 1)'
+          transition: `transform ${homeAnimations.SCROLL_TRANSITION_DURATION} ${homeAnimations.SCROLL_TRANSITION_EASING}`
         }}
       >
         {/* Section 1: Hero + Features + First CTA */}
@@ -146,31 +98,7 @@ const Home: React.FC = () => {
             </Container>
           </div>
 
-          {/* Animated bottom separator & Copyright */}
-          <div className="w-full flex flex-col items-center mt-0">
-            <div
-              className="border-b border-dashed border-green-400 h-px"
-              style={{
-                width: '100%',
-                clipPath: (currentSection === 0 && mounted) ? 'inset(0 0 0 0)' : 'inset(0 50% 0 50%)',
-                maxWidth: '42rem', // max-w-2xl equivalent
-                transitionProperty: 'clip-path',
-                transitionDuration: currentSection === 0 ? '1.5s' : '0.4s',
-                transitionTimingFunction: 'cubic-bezier(0.65, 0, 0.35, 1)',
-                transitionDelay: currentSection === 0 ? '0.4s' : '0s'
-              }}
-            />
-            <p
-              className="text-xs mt-2 leading-none"
-              style={{
-                opacity: (currentSection === 0 && mounted) ? 1 : 0,
-                transition: `opacity ${currentSection === 0 ? '1.5s' : '0.4s'} cubic-bezier(0.65, 0, 0.35, 1)`,
-                transitionDelay: currentSection === 0 ? '0.7s' : '0s'
-              }}
-            >
-              © {new Date().getFullYear()} sLixTOOLS. All rights reserved.
-            </p>
-          </div>
+          <SectionSeparator isVisible={currentSection === 0} />
         </section>
 
         {/* Section 2: Hero Content (No Ads, No Privacy Risks) */}
@@ -195,17 +123,7 @@ const Home: React.FC = () => {
                     </p>
 
                     {/* Social Proof */}
-                    <div className="social-proof flex flex-col sm:flex-row items-center justify-center lg:justify-start">
-                      <div className="flex items-center gap-2 text-green-400 font-semibold">
-                        <Zap className="h-5 w-5" />
-                        <span>150+ BPM</span>
-                      </div>
-                      <div className="hidden sm:block w-px h-4 bg-gray-600 mx-4"></div>
-                      <div className="flex items-center gap-2 text-blue-400 font-semibold">
-                        <Lock className="h-5 w-5" />
-                        <span>100% Private Processing</span>
-                      </div>
-                    </div>
+                    <SocialProof />
 
                     {/* CTA Button */}
                     <div className="mt-1">
@@ -219,77 +137,12 @@ const Home: React.FC = () => {
 
               {/* Media Content - Right Column */}
               <div className="flex-1 lg:pl-12 mt-8 lg:mt-0">
-                <AnimatedElement type="scale" delay={0.3} isVisible={currentSection === 1}>
-                  <div className="relative">
-                    {/* Main demo image/video placeholder */}
-                    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 border border-green-400/20 shadow-2xl">
-                      <div className="text-center">
-                        <div className="mb-6">
-                          <FileVideo className="h-16 w-16 mx-auto text-green-400 mb-4" />
-                          <h3 className="text-xl font-bold text-white mb-2">Instant File Conversion</h3>
-                          <p className="text-gray-300 text-sm">Drag, drop, convert. It's that simple.</p>
-                        </div>
-
-                        {/* Feature highlights */}
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="flex items-center gap-2 text-green-400">
-                            <Zap className="h-4 w-4" />
-                            <span>Lightning Fast</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-blue-400">
-                            <Shield className="h-4 w-4" />
-                            <span>Secure</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-purple-400">
-                            <FileImage className="h-4 w-4" />
-                            <span>Multiple Formats</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-pink-400">
-                            <CircleDollarSign className="h-4 w-4" />
-                            <span>Always Free</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Floating elements for visual interest */}
-                    <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-3 shadow-lg floating">
-                      <Scissors className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="absolute -bottom-2 -left-2 bg-blue-500 rounded-full p-3 shadow-lg floating-delayed">
-                      <Sparkles className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                </AnimatedElement>
+                <HomeDemoFeature isVisible={currentSection === 1} />
               </div>
             </div>
           </Container>
 
-          {/* Animated bottom separator & Copyright */}
-          <div className="w-full flex flex-col items-center mt-0">
-            <div
-              className="border-b border-dashed border-green-400 h-px"
-              style={{
-                width: '100%',
-                clipPath: (currentSection === 1 && mounted) ? 'inset(0 0 0 0)' : 'inset(0 50% 0 50%)',
-                maxWidth: '42rem', // max-w-2xl equivalent
-                transitionProperty: 'clip-path',
-                transitionDuration: currentSection === 1 ? '1.5s' : '0.4s',
-                transitionTimingFunction: 'cubic-bezier(0.65, 0, 0.35, 1)',
-                transitionDelay: currentSection === 1 ? '0.4s' : '0s'
-              }}
-            />
-            <p
-              className="text-xs mt-2 leading-none"
-              style={{
-                opacity: (currentSection === 1 && mounted) ? 1 : 0,
-                transition: `opacity ${currentSection === 1 ? '1.5s' : '0.4s'} cubic-bezier(0.65, 0, 0.35, 1)`,
-                transitionDelay: currentSection === 1 ? '0.7s' : '0s'
-              }}
-            >
-              © {new Date().getFullYear()} sLixTOOLS. All rights reserved.
-            </p>
-          </div>
+          <SectionSeparator isVisible={currentSection === 1} />
         </section>
 
         {/* Section 3: All Tools */}
@@ -329,27 +182,8 @@ const Home: React.FC = () => {
             </AnimatedElement>
 
             {/* Footer - only visible in section 3 */}
-            <div className="w-full flex flex-col items-center mt-20">
-              <div
-                className="border-b border-dashed border-green-400 h-px"
-                style={{
-                  width: '100%',
-                  clipPath: (currentSection === 2 && mounted) ? 'inset(0 0 0 0)' : 'inset(0 50% 0 50%)',
-                  maxWidth: '42rem', // max-w-2xl equivalent
-                  transitionProperty: 'clip-path',
-                  transitionDuration: currentSection === 2 ? '1.5s' : '0.4s',
-                  transitionTimingFunction: 'cubic-bezier(0.65, 0, 0.35, 1)',
-                  transitionDelay: currentSection === 2 ? '0.4s' : '0s'
-                }}
-              />
-              <div
-                className="text-xs px-4 leading-none pt-4 pb-0"
-                style={{
-                  opacity: (currentSection === 2 && mounted) ? 1 : 0,
-                  transition: `opacity ${currentSection === 2 ? '1.5s' : '0.4s'} cubic-bezier(0.65, 0, 0.35, 1)`,
-                  transitionDelay: currentSection === 2 ? '0.7s' : '0s'
-                }}
-              >
+            <div className="mt-20">
+              <SectionSeparator isVisible={currentSection === 2}>
                 <div className="text-center mb-0 leading-none">
                   <p className="mb-0 leading-none">© {new Date().getFullYear()} sLixTOOLS. All rights reserved.</p>
                   <div className="mt-1 mb-0 leading-none">
@@ -364,7 +198,7 @@ const Home: React.FC = () => {
                     <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors">GitHub</a>
                   </div>
                 </div>
-              </div>
+              </SectionSeparator>
             </div>
           </div>
         </section>
