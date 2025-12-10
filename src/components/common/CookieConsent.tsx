@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 const CookieConsent = () => {
   const [show, setShow] = useState(false);
 
-  
+
   useEffect(() => {
     try {
       // Check if consent was already given
@@ -17,7 +17,7 @@ const CookieConsent = () => {
         }, 1000);
         return () => clearTimeout(timer);
       }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error) {
       // Error reading cookie consent handled silently
     }
@@ -29,7 +29,7 @@ const CookieConsent = () => {
     try {
       localStorage.setItem('cookie-consent', 'all');
       setShow(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error) {
       // Error saving cookie consent handled silently
       // Still hide the banner even if we can't save the preference
@@ -41,14 +41,14 @@ const CookieConsent = () => {
     try {
       localStorage.setItem('cookie-consent', 'essential');
       setShow(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error) {
       // Error saving cookie consent handled silently
       // Still hide the banner even if we can't save the preference
       setShow(false);
     }
   };
-  
+
   if (!show) return null;
 
   return (
@@ -64,15 +64,15 @@ const CookieConsent = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={acceptEssential}
               className="px-4 py-2 text-xs bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
             >
               Essential Only
             </button>
-            <button 
+            <button
               onClick={acceptAll}
-              className="px-4 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-500 transition-colors"
+              className="px-4 py-2 text-xs bg-primary-action text-white rounded hover:bg-primary-action/90 transition-colors"
             >
               Accept All
             </button>

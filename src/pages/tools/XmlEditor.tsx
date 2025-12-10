@@ -25,7 +25,7 @@ const XmlEditor: React.FC = () => {
       const parser = new DOMParser();
       const doc = parser.parseFromString(xml, 'application/xml');
       const parserError = doc.querySelector('parsererror');
-      
+
       if (parserError) {
         setIsValid(false);
         setValidationError(parserError.textContent || 'Invalid XML format');
@@ -47,10 +47,10 @@ const XmlEditor: React.FC = () => {
 
   const updateLineNumbers = useCallback(() => {
     if (!lineNumbersRef.current || !textareaRef.current) return;
-    
+
     const lines = xmlContent.split('\n').length;
     const lineNumbers = Array.from({ length: lines }, (_, i) => i + 1);
-    
+
     lineNumbersRef.current.innerHTML = lineNumbers
       .map(num => `<div class="line-number">${num}</div>`)
       .join('');
@@ -83,7 +83,7 @@ const XmlEditor: React.FC = () => {
       const parser = new DOMParser();
       const doc = parser.parseFromString(xmlContent, 'application/xml');
       const parserError = doc.querySelector('parsererror');
-      
+
       if (parserError) {
         toast.error('Cannot format invalid XML!');
         return;
@@ -91,7 +91,7 @@ const XmlEditor: React.FC = () => {
 
       const serializer = new XMLSerializer();
       const formatted = serializer.serializeToString(doc);
-      
+
       // Simple formatting with indentation
       const formattedXml = formatted
         .replace(/></g, '>\n<')
@@ -121,7 +121,7 @@ const XmlEditor: React.FC = () => {
         .replace(/>\s+</g, '><')
         .replace(/\s+/g, ' ')
         .trim();
-      
+
       setXmlContent(minified);
       toast.success('XML minified successfully!');
     } catch (error) {
@@ -141,7 +141,7 @@ const XmlEditor: React.FC = () => {
       toast.error('No XML content to copy!');
       return;
     }
-    
+
     try {
       await navigator.clipboard.writeText(xmlContent);
       toast.success('XML copied to clipboard!');
@@ -206,7 +206,7 @@ const XmlEditor: React.FC = () => {
     <price currency="USD">14.99</price>
   </book>
 </bookstore>`;
-    
+
     setXmlContent(sampleXml);
     validateXml(sampleXml);
     toast.success('Sample XML loaded!');
@@ -243,7 +243,7 @@ const XmlEditor: React.FC = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="file"
@@ -279,10 +279,10 @@ const XmlEditor: React.FC = () => {
           <div className="relative">
             <div className="flex border border-white/20 rounded-lg overflow-hidden" style={{ backgroundColor: '#171714' }}>
               {/* Line Numbers */}
-              <div 
+              <div
                 ref={lineNumbersRef}
                 className="flex flex-col text-gray-500 text-sm font-mono bg-gray-800/50 border-r border-white/10 px-2 py-3 select-none overflow-hidden"
-                style={{ 
+                style={{
                   minWidth: '50px',
                   maxHeight: '400px',
                   lineHeight: '1.5rem'
@@ -290,7 +290,7 @@ const XmlEditor: React.FC = () => {
               >
                 <div className="line-number">1</div>
               </div>
-              
+
               {/* Textarea */}
               <Textarea
                 ref={textareaRef}
@@ -299,7 +299,7 @@ const XmlEditor: React.FC = () => {
                 value={xmlContent}
                 onChange={(e) => handleXmlChange(e.target.value)}
                 className="flex-1 min-h-[400px] border-0 text-white placeholder-gray-400 resize-none text-sm font-mono bg-transparent focus:ring-0 focus:outline-none"
-                style={{ 
+                style={{
                   lineHeight: '1.5rem',
                   paddingLeft: '12px',
                   paddingTop: '12px',
@@ -314,11 +314,11 @@ const XmlEditor: React.FC = () => {
             <Button
               onClick={formatXml}
               disabled={!xmlContent.trim() || !isValid}
-              className="bg-green-600 hover:bg-green-700 text-white border-0 h-9"
+              className="bg-primary-action hover:bg-primary-action/90 text-white border-0 h-9"
             >
               Format
             </Button>
-            
+
             <Button
               onClick={minifyXml}
               disabled={!xmlContent.trim()}
@@ -326,7 +326,7 @@ const XmlEditor: React.FC = () => {
             >
               Minify
             </Button>
-            
+
             <Button
               onClick={copyToClipboard}
               disabled={!xmlContent.trim()}
@@ -335,7 +335,7 @@ const XmlEditor: React.FC = () => {
               <Copy className="h-4 w-4 mr-1" />
               Copy
             </Button>
-            
+
             <Button
               onClick={downloadXml}
               disabled={!xmlContent.trim()}
@@ -344,7 +344,7 @@ const XmlEditor: React.FC = () => {
               <Download className="h-4 w-4 mr-1" />
               Download
             </Button>
-            
+
             <Button
               onClick={clearContent}
               disabled={!xmlContent.trim()}

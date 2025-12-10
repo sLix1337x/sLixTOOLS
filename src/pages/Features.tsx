@@ -184,8 +184,8 @@ const Features: React.FC = () => {
         <AnimatedElement type="fadeIn" delay={1.2} className="w-full">
           <div className="mt-6 text-center">
             <Link to="/tools">
-              <button 
-                className="bg-[#2AD587] text-black font-bold py-3 px-8 rounded-xl rainbow-hover flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-400/25"
+              <button
+                className="bg-primary-action text-white font-bold py-3 px-8 rounded-xl rainbow-hover flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-green-400/25"
                 style={{
                   outline: 'none',
                   border: 'none',

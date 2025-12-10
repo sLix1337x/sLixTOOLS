@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Loader2, Download, VideoIcon, Settings2 } from 'lucide-react';
+import { Download, Settings2, FileVideo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -224,7 +224,7 @@ const VideoConverter: React.FC = () => {
             <Button
               onClick={handleConvert}
               disabled={!videoFile || isConverting}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-primary-action hover:bg-primary-action/90"
             >
               {isConverting ? 'Converting...' : 'Convert Video'}
             </Button>

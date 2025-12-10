@@ -180,7 +180,7 @@ const MainNav: React.FC = React.memo(() => {
 
         <div className="flex items-center space-x-3">
           <Button
-            className="bg-[#2AD587] text-black font-medium rainbow-hover"
+            className="bg-primary-action text-white font-medium rainbow-hover"
             asChild
           >
             <Link

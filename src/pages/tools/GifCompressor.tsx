@@ -153,7 +153,7 @@ function GifCompressor() {
                     </div>
                     <Button
                       onClick={handleDownload}
-                      className="bg-green-400 text-black hover:bg-green-500"
+                      className="bg-primary-action text-white hover:bg-primary-action/90"
                     >
                       <Download className="mr-2 h-4 w-4" />
                       Download

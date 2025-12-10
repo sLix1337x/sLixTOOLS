@@ -134,7 +134,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
     setFileName(file.name);
     setFileSize(fileSizeInMB);
     onFileSelected(file);
-    
+
     toast.success('File selected', {
       description: file.name
     });
@@ -164,12 +164,12 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (!e.dataTransfer) {
       // DataTransfer not available - logged to error reporting system
       return;
     }
-    
+
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       const file = files[0];
@@ -179,7 +179,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   const handleUrlSubmit = async () => {
     if (!urlValue.trim() || !onUrlSubmit) return;
-    
+
     try {
       await executeWithLoading(async () => {
         await onUrlSubmit(urlValue.trim());
@@ -192,16 +192,15 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
     }
   };
 
-  const acceptString = acceptedTypes.includes('*') 
-    ? undefined 
+  const acceptString = acceptedTypes.includes('*')
+    ? undefined
     : acceptedTypes.map(type => type.startsWith('.') ? type : `.${type}`).join(',');
 
   return (
     <AnimatedElement type="fadeIn" delay={0.6} className="space-y-6 w-full max-w-2xl mx-auto">
-      <motion.div 
-        className={`border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-green-400/50 transition-colors ${
-          isDragging ? 'border-green-400 bg-green-400/10' : ''
-        } ${className}`}
+      <motion.div
+        className={`border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-green-400/50 transition-colors ${isDragging ? 'border-green-400 bg-green-400/10' : ''
+          } ${className}`}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={handleDragOver as React.DragEventHandler<HTMLDivElement>}
         onDragLeave={handleDragLeave as React.DragEventHandler<HTMLDivElement>}
@@ -210,14 +209,14 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         whileTap={{ scale: 0.995 }}
       >
         {isDragging && (
-          <motion.div 
+          <motion.div
             className="absolute inset-0 bg-green-500/10 border-2 border-green-400 rounded-lg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
         )}
-        
+
         <div className="flex flex-col items-center justify-center space-y-4">
           <div className="p-3 rounded-full bg-gray-800/50">
             {getIcon()}
@@ -226,7 +225,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             <h3 className="text-lg font-medium text-white">{displayTitle}</h3>
             <p className="text-sm text-gray-400 mt-1">{displayDescription}</p>
           </div>
-          
+
           {fileName && (
             <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg w-full max-w-sm">
               <div className="flex items-center gap-3">
@@ -239,7 +238,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             </div>
           )}
         </div>
-        
+
         <input
           type="file"
           ref={fileInputRef}
@@ -248,7 +247,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
           onChange={handleFileChange}
         />
       </motion.div>
-      
+
       {showUrlInput && (
         <div className="relative">
           <div className="flex items-center mb-2">
@@ -256,7 +255,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             <span className="px-3 text-sm text-gray-400">or</span>
             <div className="h-px bg-gray-700 flex-1"></div>
           </div>
-          
+
           <div className="flex gap-2">
             <input
               type="url"
@@ -270,7 +269,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             <Button
               onClick={handleUrlSubmit}
               disabled={!urlValue.trim() || isLoadingFromUrl}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary-action hover:bg-primary-action/90 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoadingFromUrl ? 'Loading...' : 'Load'}
             </Button>

@@ -294,7 +294,7 @@ const ImageConverter: React.FC = () => {
             <Button
               onClick={handleConvert}
               disabled={!imageFile || isConverting}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-primary-action hover:bg-primary-action/90"
             >
               {isConverting ? 'Converting...' : 'Convert Image'}
             </Button>
