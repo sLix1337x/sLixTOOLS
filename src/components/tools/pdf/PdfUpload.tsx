@@ -9,7 +9,7 @@ interface PdfUploadProps {
     hasFile: boolean;
 }
 
-const PdfUpload: React.FC<PdfUploadProps> = ({ onUpload, resetAll, isUploading, hasFile }) => {
+const PdfUpload = ({ onUpload, resetAll, isUploading, hasFile }: PdfUploadProps) => {
     return (
         <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">

@@ -8,45 +8,31 @@ const CookieConsent = () => {
 
   useEffect(() => {
     try {
-      // Check if consent was already given
-      const consent = localStorage.getItem('cookie-consent');
-      if (!consent) {
-        // Wait a bit before showing the banner to prevent immediate popup on first visit
-        const timer = setTimeout(() => {
-          setShow(true);
-        }, 1000);
+      if (!localStorage.getItem('cookie-consent')) {
+        const timer = setTimeout(() => setShow(true), 1000);
         return () => clearTimeout(timer);
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_error) {
-      // Error reading cookie consent handled silently
+    } catch {
+      // localStorage not available
     }
-    // Return undefined for the case where no cleanup is needed
-    return undefined;
   }, []);
 
   const acceptAll = () => {
     try {
       localStorage.setItem('cookie-consent', 'all');
-      setShow(false);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_error) {
-      // Error saving cookie consent handled silently
-      // Still hide the banner even if we can't save the preference
-      setShow(false);
+    } catch {
+      // localStorage not available
     }
+    setShow(false);
   };
 
   const acceptEssential = () => {
     try {
       localStorage.setItem('cookie-consent', 'essential');
-      setShow(false);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_error) {
-      // Error saving cookie consent handled silently
-      // Still hide the banner even if we can't save the preference
-      setShow(false);
+    } catch {
+      // localStorage not available
     }
+    setShow(false);
   };
 
   if (!show) return null;

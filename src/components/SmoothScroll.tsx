@@ -6,7 +6,7 @@ interface SmoothScrollProps {
   children: ReactNode;
 }
 
-const SmoothScroll: React.FC<SmoothScrollProps> = ({ children }) => {
+const SmoothScroll = ({ children }: SmoothScrollProps) => {
   const lenisRef = useRef<Lenis | null>(null);
   const { pathname } = useLocation();
 

@@ -30,7 +30,7 @@ const SUPPORTED_IMAGE_TYPES = [
   'image/jxl'
 ];
 
-const ImageResizer: React.FC = () => {
+const ImageResizer = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const { isLoading: isResizing, executeWithLoading: executeResizing } = useLoading();

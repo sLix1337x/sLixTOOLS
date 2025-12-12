@@ -314,7 +314,7 @@ ${errorReport.componentStack || 'No component stack available'}
   private getPerformanceMetrics(): PerformanceMetrics {
     const metrics: PerformanceMetrics = {};
     
-    // Memory metrics
+    // Memory metrics (Chrome-specific)
     if ('memory' in performance) {
       const memoryInfo = (performance as unknown as { memory: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number; } }).memory;
       metrics.memory = {
@@ -324,13 +324,19 @@ ${errorReport.componentStack || 'No component stack available'}
       };
     }
     
-    // Timing metrics
-    if (performance.timing) {
-      metrics.timing = {
-        navigationStart: performance.timing.navigationStart,
-        loadEventEnd: performance.timing.loadEventEnd,
-        domContentLoadedEventEnd: performance.timing.domContentLoadedEventEnd
-      };
+    // Timing metrics using modern Navigation Timing API (Level 2)
+    try {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      if (navEntries.length > 0) {
+        const navTiming = navEntries[0];
+        metrics.timing = {
+          navigationStart: navTiming.startTime,
+          loadEventEnd: navTiming.loadEventEnd,
+          domContentLoadedEventEnd: navTiming.domContentLoadedEventEnd
+        };
+      }
+    } catch {
+      // Navigation Timing API not available
     }
     
     return metrics;

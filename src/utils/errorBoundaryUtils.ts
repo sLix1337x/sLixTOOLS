@@ -10,7 +10,7 @@ export interface ErrorReport {
   userAgent: string;
   url: string;
   userId?: string | undefined;
-  performanceMetrics?: Record<string, unknown> | undefined;
+  performanceMetrics?: import('@/types/common').ErrorMetadata | undefined;
 }
 
 // Enhanced error logging with validation

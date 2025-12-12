@@ -22,7 +22,7 @@ export const useToolErrorHandler = (options: ToolErrorHandlerOptions) => {
     const handleError = useCallback((
         error: Error | unknown,
         context: string,
-        additionalData?: Record<string, unknown>
+        additionalData?: import('@/types/common').ErrorMetadata
     ): string => {
         const err = error instanceof Error ? error : new Error(String(error));
         const errorMessage = err.message || 'Unknown error occurred';

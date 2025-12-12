@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import ToolPageLayout from '@/components/ToolPageLayout';
 
-const ConvertCaseTool: React.FC = () => {
+const ConvertCaseTool = () => {
   const [inputText, setInputText] = useState<string>('');
 
   const convertToLowerCase = useCallback(() => {

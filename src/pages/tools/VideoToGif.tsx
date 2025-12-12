@@ -227,7 +227,7 @@ const VideoToGif = () => {
     await loadFromUrl(url);
   }, [loadFromUrl]);
 
-  const handlePostEdit = useCallback(async (editType: string, params?: Record<string, unknown>) => {
+  const handlePostEdit = useCallback(async (editType: string, params?: import('@/types/common').EditParams) => {
     if (!gifResult) return;
 
     try {

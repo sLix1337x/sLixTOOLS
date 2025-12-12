@@ -83,7 +83,30 @@ export const validateFile = (file: File, options: FileValidationOptions = {}): E
   
   // Format validation
   if (options.supportedFormats && options.supportedFormats.length > 0) {
-    if (!options.supportedFormats.includes(file.type)) {
+    const fileExtension = getFileExtension(file.name);
+    const fileMimeType = file.type;
+    
+    // Check if file matches any supported format
+    const isSupported = options.supportedFormats.some(format => {
+      // If format is a MIME type pattern (contains '/')
+      if (format.includes('/')) {
+        // Handle wildcard MIME types like 'video/*'
+        if (format.endsWith('/*')) {
+          const baseType = format.slice(0, -2); // Remove '/*'
+          return fileMimeType.startsWith(baseType + '/');
+        }
+        // Exact MIME type match
+        return fileMimeType === format;
+      }
+      // If format is a file extension (starts with '.')
+      if (format.startsWith('.')) {
+        return '.' + fileExtension === format.toLowerCase();
+      }
+      // If format is an extension without dot, add it
+      return '.' + fileExtension === '.' + format.toLowerCase();
+    });
+    
+    if (!isSupported) {
       errors.push(`Unsupported file format. Supported formats: ${options.supportedFormats.join(', ')}`);
     }
   }

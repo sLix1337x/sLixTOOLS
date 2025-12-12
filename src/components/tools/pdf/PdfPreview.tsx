@@ -18,7 +18,7 @@ interface PdfPreviewProps {
     overlayRef: React.RefObject<HTMLDivElement>;
 }
 
-const PdfPreview: React.FC<PdfPreviewProps> = ({
+const PdfPreview = ({
     previewPage,
     previewTotalPages,
     zoom,
@@ -31,7 +31,7 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
     onCanvasClick,
     canvasRef,
     overlayRef,
-}) => {
+}: PdfPreviewProps) => {
     return (
         <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">

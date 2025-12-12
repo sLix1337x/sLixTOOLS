@@ -14,8 +14,10 @@ interface NavigatorWithConnection extends Navigator {
 }
 
 // Lazy route component map with priority levels
+type RouteComponent = React.ComponentType;
+
 const routeMap: Record<string, { 
-  loader: () => Promise<{ default: React.ComponentType<unknown> }>,
+  loader: () => Promise<{ default: RouteComponent }>,
   priority: 'high' | 'medium' | 'low',
   dependencies?: string[]
 }> = {

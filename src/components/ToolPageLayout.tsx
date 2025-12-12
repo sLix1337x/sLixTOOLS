@@ -2,6 +2,8 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import ParticleBackground from '@/components/ParticleBackground';
 import AnimatedElement from '@/components/AnimatedElement';
+import SectionSeparator from '@/components/home/SectionSeparator';
+import FooterLinks, { COPYRIGHT_TEXT } from '@/components/common/FooterLinks';
 
 interface ToolPageLayoutProps {
   title: string;
@@ -19,7 +21,7 @@ interface ToolPageLayoutProps {
  * Shared layout component for tool pages providing consistent structure
  * Includes ParticleBackground, SEO meta tags, animated header, and content area
  */
-const ToolPageLayout: React.FC<ToolPageLayoutProps> = ({
+const ToolPageLayout = ({
   title,
   description,
   keywords,
@@ -29,7 +31,7 @@ const ToolPageLayout: React.FC<ToolPageLayoutProps> = ({
   children,
   maxWidth = '4xl',
   headerGradient = 'from-green-400 to-blue-400'
-}) => {
+}: ToolPageLayoutProps) => {
   const maxWidthClass = {
     'sm': 'max-w-sm',
     'md': 'max-w-md',
@@ -69,6 +71,16 @@ const ToolPageLayout: React.FC<ToolPageLayoutProps> = ({
         {/* Content Area */}
         <div className={`${maxWidthClass} mx-auto w-full`}>
           {children}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-20">
+          <SectionSeparator isVisible={true}>
+            <div className="text-center mb-0 leading-none">
+              <p className="mb-0 leading-none">{COPYRIGHT_TEXT}</p>
+              <FooterLinks className="mt-1 mb-0 leading-none gap-2" linkClassName="mx-1" />
+            </div>
+          </SectionSeparator>
         </div>
       </div>
     </div>

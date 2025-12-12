@@ -20,7 +20,7 @@ interface SEOProps {
   structuredData?: object;
 }
 
-export const SEO: React.FC<SEOProps> = ({
+export const SEO = ({
   title = 'sLixTOOLS - Free Online Tools for Developers',
   description = 'Free online tools for developers including GIF maker, image compressor, file converter, and more. Fast, secure, and easy to use.',
   keywords = 'online tools, gif maker, image compressor, file converter, developer tools, free tools',
@@ -37,7 +37,7 @@ export const SEO: React.FC<SEOProps> = ({
   canonical,
   alternateLanguages = [],
   structuredData
-}) => {
+}: SEOProps) => {
   const fullTitle = title.includes('sLixTOOLS') ? title : `${title} - sLixTOOLS`;
 
   return (

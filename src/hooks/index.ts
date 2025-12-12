@@ -1,15 +1,15 @@
-export { useFileHandler } from './useFileHandler';
+export { useToolFile, useFileHandler } from './useToolFile';
 export { useErrorHandler, ErrorCategory, errorLogger } from './useErrorHandler';
 export { useLoading } from './useLoading';
 export { useUrlFileLoader } from './useUrlFileLoader';
 export { useToolErrorHandler } from './useToolErrorHandler';
 export { useProcessingState } from './useProcessingState';
-export { useToolFile } from './useToolFile';
+export { useIsMobile } from './useMobile';
 
 export type {
-  FileHandlerOptions,
-  FileHandlerState
-} from './useFileHandler';
+  UseToolFileOptions,
+  UseToolFileReturn
+} from './useToolFile';
 export type {
   ErrorContext,
   ErrorLogEntry,
@@ -29,3 +29,4 @@ export type {
   UseToolFileOptions,
   UseToolFileReturn
 } from './useToolFile';
+export { MOBILE_BREAKPOINT } from './useMobile';

@@ -25,14 +25,14 @@ interface ImagePreviewProps {
   isCompressing: boolean;
 }
 
-const ImagePreview: React.FC<ImagePreviewProps> = ({
+const ImagePreview = ({
   file,
   compressedUrl,
   quality,
   onQualityChange,
   onDownload,
   isCompressing
-}) => {
+}: ImagePreviewProps) => {
   if (!file) return null;
 
   return (
@@ -119,7 +119,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
   );
 };
 
-const ImageCompressor: React.FC = () => {
+const ImageCompressor = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
   const [quality, setQuality] = useState<number>(70);
@@ -399,7 +399,7 @@ const ImageCompressor: React.FC = () => {
   );
 };
 
-const ImageCompressorWithErrorBoundary: React.FC = () => {
+const ImageCompressorWithErrorBoundary = () => {
   return (
     <ErrorBoundary isFileProcessing={true} showDetailedError={true}>
       <ImageCompressor />

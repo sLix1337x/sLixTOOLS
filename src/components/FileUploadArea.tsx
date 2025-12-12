@@ -25,7 +25,7 @@ interface FileUploadAreaProps {
  * Reusable file upload area component with drag-and-drop support
  * Supports different file types, validation, and URL input
  */
-const FileUploadArea: React.FC<FileUploadAreaProps> = ({
+const FileUploadArea = ({
   onFileSelected,
   acceptedTypes = ['*'],
   maxFileSize,
@@ -36,7 +36,7 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
   showUrlInput = false,
   onUrlSubmit,
   urlPlaceholder = 'Enter URL...'
-}) => {
+}: FileUploadAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -194,7 +194,14 @@ const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   const acceptString = acceptedTypes.includes('*')
     ? undefined
-    : acceptedTypes.map(type => type.startsWith('.') ? type : `.${type}`).join(',');
+    : acceptedTypes.map(type => {
+        // If it's a MIME type (contains '/'), use as-is
+        if (type.includes('/')) {
+          return type;
+        }
+        // Otherwise, treat as file extension and add dot if needed
+        return type.startsWith('.') ? type : `.${type}`;
+      }).join(',');
 
   return (
     <AnimatedElement type="fadeIn" delay={0.6} className="space-y-6 w-full max-w-2xl mx-auto">

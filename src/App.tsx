@@ -1,8 +1,7 @@
 
-// Core imports
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, useLocation, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { Suspense, lazy, useState, useEffect, useRef } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -18,7 +17,7 @@ const VideoToGif = lazy(() => import("./pages/tools/VideoToGif"));
 const GifCompressor = lazy(() => import("./pages/tools/GifCompressor"));
 const ImageCompressor = lazy(() => import("./pages/tools/ImageCompressor"));
 const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
-const VideoConverter = lazy(() => import("./pages/tools/VideoConverter") as any);
+const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
 const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
 const ConvertCaseTool = lazy(() => import("./pages/tools/ConvertCaseTool"));
 const XmlEditor = lazy(() => import("./pages/tools/XmlEditor"));
@@ -42,8 +41,13 @@ const SmoothScroll = lazy(() => import("@/components/SmoothScroll"));
 import CookieConsent from "@/components/common/CookieConsent";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import AppBackground from "@/components/AppBackground";
+import FooterLinks, { CURRENT_YEAR } from "@/components/common/FooterLinks";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 60 * 1000, refetchOnWindowFocus: false }
+  }
+});
 
 const AnimatedHeaderLine = () => {
   const [visible, setVisible] = useState(false);
@@ -51,45 +55,33 @@ const AnimatedHeaderLine = () => {
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    // Initial mount animation
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setVisible(true));
     });
 
-    const handleReset = (e: any) => {
-      if (e.detail === 'reset') {
-        // Clear any pending expansion
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
-        // Retract fast
-        setDuration('0.3s');
-        setVisible(false);
-
-        // Expand slow after retraction
-        timeoutRef.current = setTimeout(() => {
-          setDuration('1.5s');
-          setVisible(true);
-        }, 350);
-      }
+    const handleReset = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setDuration('0.3s');
+      setVisible(false);
+      timeoutRef.current = setTimeout(() => {
+        setDuration('1.5s');
+        setVisible(true);
+      }, 350);
     };
 
     window.addEventListener('header-animation-trigger', handleReset);
     return () => {
       window.removeEventListener('header-animation-trigger', handleReset);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current && clearTimeout(timeoutRef.current);
     };
   }, []);
 
   return (
     <div
-      className="border-b border-dashed border-green-400 h-px"
+      className="border-b border-dashed border-green-400 h-px w-full"
       style={{
-        width: '100%',
-        clipPath: visible ? 'inset(0 0 0 0)' : 'inset(0 50% 0 50%)',
-        transitionProperty: 'clip-path',
-        transitionDuration: duration,
-        transitionTimingFunction: 'cubic-bezier(0.65, 0, 0.35, 1)',
-        transitionDelay: '0s'
+        clipPath: visible ? 'inset(0)' : 'inset(0 50%)',
+        transition: `clip-path ${duration} cubic-bezier(0.65, 0, 0.35, 1)`,
       }}
     />
   );
@@ -98,11 +90,12 @@ const AnimatedHeaderLine = () => {
 const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const isPdfEditor = location.pathname === '/tools/pdf-editor';
+  const showHeader = !location.pathname.endsWith('/tools') && !isPdfEditor;
 
   return (
     <ErrorBoundary>
-
-      {!location.pathname.endsWith('/tools') && (
+      {showHeader && (
         <header className={`flex-shrink-0 ${isHomePage ? 'home-page-header' : ''}`}>
           <div className="container mx-auto max-w-2xl flex flex-col items-center">
             <div className="h-20 flex items-center w-full">
@@ -113,7 +106,9 @@ const AppContent = () => {
         </header>
       )}
 
-      <main className={`${!isHomePage && location.pathname !== '/contact' ? 'container mx-auto px-4 py-6' : 'flex flex-col min-h-0'}`}>
+      <main className={!isHomePage && location.pathname !== '/contact' && !isPdfEditor
+        ? 'container mx-auto px-4 py-6' 
+        : 'flex flex-col min-h-0'}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/tools" element={<Tools />} />
@@ -199,23 +194,11 @@ const AppContent = () => {
         </Routes>
       </main>
 
-      {!isHomePage && (
+      {!isHomePage && location.pathname !== '/tools' && !location.pathname.startsWith('/tools/') && (
         <footer className={`border-t border-dashed border-green-400 py-4 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}>
-          <div className="container mx-auto px-4 text-sm">
-            <div className="text-center">
-              <p>© {new Date().getFullYear()} sLixTOOLS. All rights reserved.</p>
-              <div className="mt-2">
-                <Link to="/privacy-policy" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="privacy-policy">Privacy Policy</Link>
-                <span>•</span>
-                <Link to="/terms-of-service" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="terms-of-service">Terms of Service</Link>
-                <span>•</span>
-                <Link to="/impressum" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="impressum">Impressum</Link>
-                <span>•</span>
-                <Link to="/contact" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="contact">Contact</Link>
-                <span>•</span>
-                <a href="https://github.com/sLix1337x/sLixTOOLS" target="_blank" rel="noopener noreferrer" className="mx-2 hover:text-pink-400 transition-colors" data-tool-name="github">GitHub</a>
-              </div>
-            </div>
+          <div className="container mx-auto px-4 text-sm text-center">
+            <p>© {CURRENT_YEAR} sLixTOOLS. All rights reserved.</p>
+            <FooterLinks className="mt-2" />
           </div>
         </footer>
       )}
@@ -248,30 +231,20 @@ const App = () => {
 const AppWrapper = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
-
-  if (isHomePage) {
-    // Home page WITHOUT SmoothScroll wrapper
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-        <div className="flex-grow flex flex-col relative z-10">
-          <AppContent />
-        </div>
-        <CookieConsent />
+  const layout = (
+    <div className="flex flex-col min-h-[calc(100vh-5rem)]">
+      <div className="flex-grow flex flex-col relative z-10">
+        <AppContent />
       </div>
-    );
-  }
+      <CookieConsent />
+    </div>
+  );
 
-  // All other pages WITH SmoothScroll wrapper
+  if (isHomePage) return layout;
+
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <SmoothScroll>
-        <div className="flex flex-col min-h-[calc(100vh-5rem)]">
-          <div className="flex-grow flex flex-col relative z-10">
-            <AppContent />
-          </div>
-          <CookieConsent />
-        </div>
-      </SmoothScroll>
+      <SmoothScroll>{layout}</SmoothScroll>
     </Suspense>
   );
 };

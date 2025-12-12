@@ -13,25 +13,13 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
 
-    <!-- Content Security Policy for enhanced security -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' data: blob: https:;
-      media-src 'self' blob: data:;
-      font-src 'self' data: https://fonts.gstatic.com;
-      connect-src 'self' blob:;
-      worker-src 'self' blob:;
-      child-src 'self' blob:;
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-    ">
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
 
-    <!-- Custom social media embeds with slixtool-banner.svg -->
+    <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="sLixTOOLS - Free Online File Conversion Tools" />
     <meta property="og:description" content="Free online tools for all your file conversion needs." />
@@ -42,9 +30,7 @@
     <meta name="twitter:title" content="sLixTOOLS" />
     <meta name="twitter:image" content="https://sLix1337x.github.io/sLixTOOLS/assets/images/slixtool-banner.svg" />
     
-    <!-- Apple touch icon -->
     <link rel="apple-touch-icon" href="/sLixTOOLS/formen.png" />
-    <!-- No loading styles needed -->
   </head>
 
   <body>

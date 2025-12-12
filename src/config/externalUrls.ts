@@ -3,22 +3,30 @@
  * Centralized management of all external URLs used in the application
  */
 
+// Helper to get local asset path (works in both dev and production)
+const getLocalAssetPath = (path: string): string => {
+  const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
+  // Remove trailing slash from basePath if present, add leading slash to path if not present
+  const cleanBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
+};
+
 export const EXTERNAL_URLS = {
   // Social Media and Branding
   OG_IMAGE: 'https://slixtools.io/og-image.png',
   BANNER_IMAGE: 'https://sLix1337x.github.io/sLixTOOLS/assets/images/slixtool-banner.svg',
   
-  // Demo Images
+  // Demo Images - Using local paths to avoid COEP blocking
+  // These files are in public/images/ directory
   DEMO_IMAGES: {
-    FUNKY_KONG: 'https://i.ibb.co/MkhkkNG6/funkykong.gif',
-    VORN_CRASH: 'https://i.ibb.co/s8Cz1nC/vorncrash2.gif',
-    LOGO: 'https://i.ibb.co/s8Cz1nC/vorncrash2.gif',
+    FUNKY_KONG: getLocalAssetPath('images/funkykong.gif'),
+    LOGO: getLocalAssetPath('images/vorncrash2.gif'),
   },
   
   // Example URLs for placeholders
   PLACEHOLDERS: {
     IMAGE: 'https://example.com/image.jpg',
-    IMAGE_JPG: 'https://example.com/image.jpg',
     ANIMATION_GIF: 'https://example.com/animation.gif',
   },
   
@@ -43,13 +51,15 @@ export const getExternalUrl = (category: keyof typeof EXTERNAL_URLS, key?: strin
   }
   
   if (key && typeof categoryUrls === 'object' && key in categoryUrls) {
-    return (categoryUrls as Record<string, string>)[key];
+    const urlMap = categoryUrls as Record<string, string>;
+    return urlMap[key];
   }
   
   // Return first URL in category as fallback
   if (typeof categoryUrls === 'object') {
-    const firstKey = Object.keys(categoryUrls)[0];
-    return (categoryUrls as Record<string, string>)[firstKey] || '';
+    const urlMap = categoryUrls as Record<string, string>;
+    const firstKey = Object.keys(urlMap)[0];
+    return urlMap[firstKey] || '';
   }
   
   return '';

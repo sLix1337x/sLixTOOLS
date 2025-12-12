@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import backgroundOverlay from '../assets/ColorBackgroundOverlay.webp';
 
 interface ParticleBackgroundProps {
   className?: string | undefined;
@@ -9,7 +10,7 @@ interface ParticleBackgroundProps {
 
 // Simplified Background Component (formerly ParticleBackground)
 // Now focuses on the Background Overlay and base styles
-const ParticleBackground: React.FC<ParticleBackgroundProps> = memo(({
+const ParticleBackground = memo(({
   className = ''
 }) => {
   return (
@@ -33,11 +34,11 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = memo(({
           left: 0,
           width: '100%',
           height: '100%',
-          backgroundImage: 'url(/ColorBackgroundOverlay.webp)',
+          backgroundImage: `url(${backgroundOverlay})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          opacity: 0.8,
+          opacity: 0.06,
         }}
       />
     </div>

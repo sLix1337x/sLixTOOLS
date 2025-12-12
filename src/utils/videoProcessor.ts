@@ -48,11 +48,25 @@ interface ProcessingProgress {
 
 type ProgressCallback = (progress: ProcessingProgress) => void;
 
+// Helper function to convert File/Blob to Uint8Array
+const fileToUint8Array = async (file: File | Blob): Promise<Uint8Array> => {
+  return new Uint8Array(await file.arrayBuffer());
+};
+
+// Helper function to get public file URL
+const getPublicFileURL = (path: string): string => {
+  const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
+  return `${basePath}${path}`;
+};
+
 // FFmpeg WASM loader with enhanced error handling
 const loadFFmpeg = async () => {
   try {
-    const ffmpeg = await import('@ffmpeg/ffmpeg');
-    return ffmpeg;
+    const [{ FFmpeg }, { fetchFile, toBlobURL }] = await Promise.all([
+      import('@ffmpeg/ffmpeg'),
+      import('@ffmpeg/util')
+    ]);
+    return { FFmpeg, fetchFile, toBlobURL };
   } catch (error) {
     throw new VideoProcessingError('Failed to load FFmpeg library', 'loading', error as Error);
   }
@@ -409,28 +423,210 @@ const compressVideoWithFFmpeg = async (
   options: VideoCompressionOptions,
   onProgress?: (progress: { ratio: number }) => void
 ): Promise<Blob> => {
-  const { FFmpeg } = await loadFFmpeg();
+  const { FFmpeg, fetchFile, toBlobURL } = await loadFFmpeg();
   const ffmpeg = new FFmpeg();
   
   try {
-    await ffmpeg.load();
+    // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
+    if (typeof SharedArrayBuffer === 'undefined') {
+      throw new VideoProcessingError(
+        'SharedArrayBuffer is not available. This browser may not support FFmpeg WASM, or the required cross-origin isolation headers are missing.',
+        'loading'
+      );
+    }
+    
+    // Load FFmpeg with core and wasm files from local public directory
+    // Use fetchFile and toBlobURL from @ffmpeg/util for proper loading
+    ffmpeg.on('log', ({ message }) => {
+      console.log('FFmpeg log:', message);
+    });
+    
+    const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
+    const coreJsURL = `${basePath}workers/ffmpeg-core.js`;
+    const coreWasmURL = `${basePath}workers/ffmpeg-core.wasm`;
+    
+    console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
+    
+    // Use absolute URLs with window.location.origin for proper resolution
+    const fullCoreJsURL = new URL(coreJsURL, window.location.origin).href;
+    const fullCoreWasmURL = new URL(coreWasmURL, window.location.origin).href;
+    
+    // Remove any query parameters that might interfere with module imports
+    const cleanCoreJsURL = fullCoreJsURL.split('?')[0];
+    const cleanCoreWasmURL = fullCoreWasmURL.split('?')[0];
+    
+    console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
+    
+    try {
+      // FFmpeg WASM 0.12.x - The "failed to import" error suggests the core.js file
+      // is trying to do a dynamic import internally. This might be a version issue.
+      // Try loading without specifying URLs first (uses default CDN), then fallback to local
+      console.log('Loading FFmpeg with local core files...');
+      
+      await ffmpeg.load({
+        coreURL: cleanCoreJsURL,
+        wasmURL: cleanCoreWasmURL,
+      });
+      
+      console.log('FFmpeg loaded successfully');
+    } catch (loadError) {
+      console.error('FFmpeg load error:', loadError);
+      
+      // The "failed to import" error is a known issue with FFmpeg WASM 0.12.x
+      // It happens when the core.js file tries to dynamically import modules
+      // This might be fixed in newer versions or require a different loading approach
+      const errorMessage = loadError instanceof Error ? loadError.message : String(loadError);
+      const isSharedArrayBufferError = errorMessage.includes('SharedArrayBuffer') || 
+                                       errorMessage.includes('cross-origin') ||
+                                       errorMessage.includes('COEP') ||
+                                       errorMessage.includes('COOP');
+      const isImportError = errorMessage.includes('import') || errorMessage.includes('Import') || errorMessage.includes('failed to import');
+      
+      let errorDetails = '';
+      if (isSharedArrayBufferError) {
+        errorDetails = 'Make sure cross-origin isolation headers (COOP/COEP) are set correctly.';
+      } else if (isImportError) {
+        errorDetails = 'FFmpeg core.js is trying to dynamically import modules, which is failing. This is a known issue with FFmpeg WASM 0.12.x. The UMD build might have internal ES module imports that are incompatible with COEP. Consider using a different FFmpeg version or loading method.';
+      } else {
+        errorDetails = 'Check that files exist in public/workers/ and are accessible.';
+      }
+      
+      throw new VideoProcessingError(
+        `Failed to load FFmpeg: ${errorMessage}. ${errorDetails}`,
+        'loading',
+        loadError instanceof Error ? loadError : undefined
+      );
+    }
+    
+    // Determine input and output file names based on format
+    const getFileNames = (format: string) => {
+      const inputExt = videoFile.name.split('.').pop()?.toLowerCase() || 'mp4';
+      const outputExt = format;
+      return {
+        inputName: `input.${inputExt}`,
+        outputName: `output.${outputExt}`
+      };
+    };
+    
+    const { inputName, outputName } = getFileNames(options.format);
     
     // Write input file
-    const inputName = 'input.mp4';
-    const outputName = 'output.mp4';
-    await ffmpeg.writeFile(inputName, new Uint8Array(await videoFile.arrayBuffer()));
+    await ffmpeg.writeFile(inputName, await fileToUint8Array(videoFile));
     
-    // Build FFmpeg command
-    const args = [
-      '-i', inputName,
-      '-c:v', options.codec === 'h265' ? 'libx265' : 'libx264',
-      '-preset', 'medium',
-      '-crf', String(Math.round((100 - options.quality) * 0.51)), // Convert quality to CRF (0-51)
-    ];
+    // Probe video to get input dimensions (needed to detect upscaling)
+    let inputWidth = 0;
+    let inputHeight = 0;
+    try {
+      // Use FFprobe-like approach: run ffmpeg with -f null to get video info
+      const probeArgs = ['-i', inputName, '-f', 'null', '-'];
+      await ffmpeg.exec(probeArgs);
+    } catch (probeError) {
+      // If probe fails, we'll proceed without dimension info
+      console.warn('Could not probe video dimensions:', probeError);
+    }
     
-    // Add resolution if specified
-    if (options.maxWidth && options.maxHeight) {
-      args.push('-vf', `scale=${options.maxWidth}:${options.maxHeight}`);
+    // Try to get dimensions from video metadata using a video element
+    // This is a fallback if FFmpeg probe doesn't work
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = URL.createObjectURL(videoFile);
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        inputWidth = video.videoWidth;
+        inputHeight = video.videoHeight;
+        URL.revokeObjectURL(video.src);
+        resolve();
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Failed to load video metadata'));
+      };
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Video metadata loading timeout'));
+      }, 5000);
+    }).catch(() => {
+      // If we can't get dimensions, assume no upscaling
+      console.warn('Could not get video dimensions, proceeding with caution');
+    });
+    
+    // Calculate upscale factor and adjust output resolution if needed
+    let outputWidth = options.maxWidth;
+    let outputHeight = options.maxHeight;
+    const maxUpscaleFactor = 2.0; // Limit upscaling to 2x to prevent memory issues
+    
+    if (inputWidth > 0 && inputHeight > 0 && outputWidth > 0 && outputHeight > 0) {
+      const widthScale = outputWidth / inputWidth;
+      const heightScale = outputHeight / inputHeight;
+      const maxScale = Math.max(widthScale, heightScale);
+      
+      if (maxScale > maxUpscaleFactor) {
+        console.warn(`Large upscale detected (${maxScale.toFixed(1)}x). Limiting to ${maxUpscaleFactor}x to prevent memory issues.`);
+        // Limit upscale to maxUpscaleFactor
+        const aspectRatio = inputWidth / inputHeight;
+        if (inputWidth > inputHeight) {
+          outputWidth = Math.min(outputWidth, Math.round(inputWidth * maxUpscaleFactor));
+          outputHeight = Math.round(outputWidth / aspectRatio);
+        } else {
+          outputHeight = Math.min(outputHeight, Math.round(inputHeight * maxUpscaleFactor));
+          outputWidth = Math.round(outputHeight * aspectRatio);
+        }
+        // Ensure even dimensions (required for some codecs)
+        outputWidth = outputWidth % 2 === 0 ? outputWidth : outputWidth - 1;
+        outputHeight = outputHeight % 2 === 0 ? outputHeight : outputHeight - 1;
+      }
+    }
+    
+    // Build FFmpeg command based on output format
+    const args = ['-i', inputName];
+    
+    // Memory management for FFmpeg WASM
+    // Limit threads to reduce memory usage (WASM has limited threading support)
+    args.push('-threads', '1');
+    
+    // Codec selection based on format
+    // Note: For large upscales with WebM, consider using H.264 instead (less memory-intensive)
+    const isLargeUpscale = inputWidth > 0 && inputHeight > 0 && 
+                           (outputWidth / inputWidth > 1.5 || outputHeight / inputHeight > 1.5);
+    
+    if (options.format === 'webm') {
+      // For large upscales, VP9 is very memory-intensive
+      // Consider using VP8 or limiting resolution further
+      if (isLargeUpscale) {
+        console.warn('Large upscale with WebM/VP9 detected. Using VP8 instead for better memory efficiency.');
+        args.push('-c:v', 'libvpx'); // VP8 is less memory-intensive than VP9
+      } else {
+        args.push('-c:v', 'libvpx-vp9');
+        // VP9 memory optimizations for WASM
+        args.push('-deadline', 'realtime'); // Faster encoding, less memory
+        args.push('-cpu-used', '8'); // Maximum speed, minimum memory
+        args.push('-row-mt', '0'); // Disable row-based multithreading (saves memory)
+      }
+      args.push('-c:a', 'libopus');
+    } else if (options.format === 'avi') {
+      // AVI format - use simpler codecs that are more likely available
+      args.push('-c:v', 'libx264'); // H.264 is more widely supported
+      args.push('-c:a', 'aac'); // Use AAC instead of MP3 for better compatibility
+    } else if (options.format === 'mov') {
+      // MOV format (QuickTime)
+      args.push('-c:v', 'libx264');
+      args.push('-c:a', 'aac');
+    } else {
+      // MP4 format (default)
+      args.push('-c:v', 'libx264'); // Always use H.264 for MP4
+      args.push('-c:a', 'aac');
+    }
+    
+    // Use faster preset for WASM (medium might be too slow)
+    args.push('-preset', 'ultrafast'); // Changed from 'medium' for better WASM performance
+    args.push('-crf', String(Math.round((100 - options.quality) * 0.51))); // Convert quality to CRF (0-51)
+    args.push('-movflags', '+faststart'); // Optimize for web playback
+    
+    // Add resolution if specified - use memory-efficient scaling
+    if (outputWidth > 0 && outputHeight > 0) {
+      // Use fast_bilinear for memory efficiency, especially for large upscales
+      args.push('-vf', `scale=${outputWidth}:${outputHeight}:flags=fast_bilinear`);
     }
     
     // Add frame rate if specified
@@ -441,28 +637,105 @@ const compressVideoWithFFmpeg = async (
     args.push(outputName);
     
     // Set up progress tracking
-    ffmpeg.on('progress', ({ progress }) => {
-      onProgress?.({ ratio: progress });
+    ffmpeg.on('progress', ({ progress: prog }) => {
+      const ratio = prog / 100;
+      onProgress?.({ ratio });
     });
     
     // Run FFmpeg
-    await ffmpeg.exec(args);
+    console.log('FFmpeg command:', args.join(' '));
+    try {
+      await ffmpeg.exec(args);
+    } catch (execError) {
+      console.error('FFmpeg exec error:', execError);
+      // List files to debug
+      try {
+        const files = await ffmpeg.listDir('/');
+        console.log('Files in FFmpeg FS:', files);
+      } catch (listError) {
+        console.error('Failed to list files:', listError);
+      }
+      throw new VideoProcessingError(
+        `FFmpeg execution failed: ${execError instanceof Error ? execError.message : String(execError)}`,
+        'processing',
+        execError instanceof Error ? execError : undefined
+      );
+    }
     
     // Read output file
-    const data = await ffmpeg.readFile(outputName);
+    let data: Uint8Array | string;
+    try {
+      data = await ffmpeg.readFile(outputName);
+      console.log('Output file read successfully, type:', typeof data, 'size:', data instanceof Uint8Array ? data.length : data.length);
+    } catch (readError) {
+      console.error('FFmpeg readFile error:', readError);
+      // List files to debug
+      try {
+        const files = await ffmpeg.listDir('/');
+        console.log('Files in FFmpeg FS after exec:', files);
+      } catch (listError) {
+        console.error('Failed to list files:', listError);
+      }
+      throw new VideoProcessingError(
+        `Failed to read output file: ${readError instanceof Error ? readError.message : String(readError)}`,
+        'processing',
+        readError instanceof Error ? readError : undefined
+      );
+    }
+    
+    // Determine MIME type based on format
+    const mimeTypes: Record<string, string> = {
+      'mp4': 'video/mp4',
+      'webm': 'video/webm',
+      'avi': 'video/x-msvideo',
+      'mov': 'video/quicktime'
+    };
+    
+    const mimeType = mimeTypes[options.format] || 'video/mp4';
     
     // Clean up
-    await ffmpeg.deleteFile(inputName);
-    await ffmpeg.deleteFile(outputName);
+    try {
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+    } catch (cleanupError) {
+      console.warn('Failed to cleanup FFmpeg files:', cleanupError);
+    }
     
-    return new Blob([data], { type: 'video/mp4' });
+    // Convert FileData to Uint8Array for Blob
+    // FFmpeg returns Uint8Array<ArrayBufferLike>, we need to create a new ArrayBuffer
+    let uint8Array: Uint8Array<ArrayBuffer>;
+    if (data instanceof Uint8Array) {
+      // Create a new ArrayBuffer by copying the data byte by byte
+      const buffer = new ArrayBuffer(data.byteLength);
+      uint8Array = new Uint8Array(buffer);
+      for (let i = 0; i < data.byteLength; i++) {
+        uint8Array[i] = data[i];
+      }
+    } else {
+      // Handle other types (shouldn't happen, but TypeScript requires it)
+      const buffer = new ArrayBuffer(0);
+      uint8Array = new Uint8Array(buffer);
+    }
+    
+    return new Blob([uint8Array], { type: mimeType });
     
   } catch (error) {
+    console.error('FFmpeg compression error:', error);
+    if (error instanceof VideoProcessingError) {
+      throw error;
+    }
     throw new VideoProcessingError(
       `FFmpeg compression failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       'processing',
       error instanceof Error ? error : undefined
     );
+  } finally {
+    // Cleanup FFmpeg instance
+    try {
+      ffmpeg.terminate();
+    } catch (cleanupError) {
+      console.warn('FFmpeg cleanup error:', cleanupError);
+    }
   }
 };
 
@@ -472,16 +745,85 @@ const editVideoWithFFmpeg = async (
   options: VideoEditOptions,
   onProgress?: (progress: number) => void
 ): Promise<Blob> => {
-  const { FFmpeg } = await loadFFmpeg();
+  const { FFmpeg, fetchFile, toBlobURL } = await loadFFmpeg();
   const ffmpeg = new FFmpeg();
   
   try {
-    await ffmpeg.load();
+    // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
+    if (typeof SharedArrayBuffer === 'undefined') {
+      throw new VideoProcessingError(
+        'SharedArrayBuffer is not available. This browser may not support FFmpeg WASM, or the required cross-origin isolation headers are missing.',
+        'loading'
+      );
+    }
+    
+    // Load FFmpeg with core and wasm files from local public directory
+    // Use fetchFile and toBlobURL from @ffmpeg/util for proper loading
+    ffmpeg.on('log', ({ message }) => {
+      console.log('FFmpeg log:', message);
+    });
+    
+    const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
+    const coreJsURL = `${basePath}workers/ffmpeg-core.js`;
+    const coreWasmURL = `${basePath}workers/ffmpeg-core.wasm`;
+    
+    console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
+    
+    // Use absolute URLs with window.location.origin for proper resolution
+    const fullCoreJsURL = new URL(coreJsURL, window.location.origin).href;
+    const fullCoreWasmURL = new URL(coreWasmURL, window.location.origin).href;
+    
+    // Remove any query parameters that might interfere with module imports
+    const cleanCoreJsURL = fullCoreJsURL.split('?')[0];
+    const cleanCoreWasmURL = fullCoreWasmURL.split('?')[0];
+    
+    console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
+    
+    try {
+      // FFmpeg WASM 0.12.x - The "failed to import" error suggests the core.js file
+      // is trying to do a dynamic import internally. This might be a version issue.
+      // Try loading without specifying URLs first (uses default CDN), then fallback to local
+      console.log('Loading FFmpeg with local core files...');
+      
+      await ffmpeg.load({
+        coreURL: cleanCoreJsURL,
+        wasmURL: cleanCoreWasmURL,
+      });
+      
+      console.log('FFmpeg loaded successfully');
+    } catch (loadError) {
+      console.error('FFmpeg load error:', loadError);
+      
+      // The "failed to import" error is a known issue with FFmpeg WASM 0.12.x
+      // It happens when the core.js file tries to dynamically import modules
+      // This might be fixed in newer versions or require a different loading approach
+      const errorMessage = loadError instanceof Error ? loadError.message : String(loadError);
+      const isSharedArrayBufferError = errorMessage.includes('SharedArrayBuffer') || 
+                                       errorMessage.includes('cross-origin') ||
+                                       errorMessage.includes('COEP') ||
+                                       errorMessage.includes('COOP');
+      const isImportError = errorMessage.includes('import') || errorMessage.includes('Import') || errorMessage.includes('failed to import');
+      
+      let errorDetails = '';
+      if (isSharedArrayBufferError) {
+        errorDetails = 'Make sure cross-origin isolation headers (COOP/COEP) are set correctly.';
+      } else if (isImportError) {
+        errorDetails = 'FFmpeg core.js is trying to dynamically import modules, which is failing. This is a known issue with FFmpeg WASM 0.12.x. The UMD build might have internal ES module imports that are incompatible with COEP. Consider using a different FFmpeg version or loading method.';
+      } else {
+        errorDetails = 'Check that files exist in public/workers/ and are accessible.';
+      }
+      
+      throw new VideoProcessingError(
+        `Failed to load FFmpeg: ${errorMessage}. ${errorDetails}`,
+        'loading',
+        loadError instanceof Error ? loadError : undefined
+      );
+    }
     
     // Write input file
     const inputName = 'input.mp4';
     const outputName = 'output.mp4';
-    await ffmpeg.writeFile(inputName, new Uint8Array(await videoFile.arrayBuffer()));
+    await ffmpeg.writeFile(inputName, await fileToUint8Array(videoFile));
     
     // Build FFmpeg command
     const args = ['-i', inputName];
@@ -527,8 +869,8 @@ const editVideoWithFFmpeg = async (
     args.push(outputName);
     
     // Set up progress tracking
-    ffmpeg.on('progress', ({ progress }) => {
-      onProgress?.(progress * 100);
+    ffmpeg.on('progress', ({ progress: prog }) => {
+      onProgress?.(prog);
     });
     
     // Run FFmpeg
@@ -541,7 +883,23 @@ const editVideoWithFFmpeg = async (
     await ffmpeg.deleteFile(inputName);
     await ffmpeg.deleteFile(outputName);
     
-    return new Blob([data], { type: 'video/mp4' });
+    // Convert FileData to Uint8Array for Blob
+    // FFmpeg returns Uint8Array<ArrayBufferLike>, we need to create a new ArrayBuffer
+    let uint8Array: Uint8Array<ArrayBuffer>;
+    if (data instanceof Uint8Array) {
+      // Create a new ArrayBuffer by copying the data byte by byte
+      const buffer = new ArrayBuffer(data.byteLength);
+      uint8Array = new Uint8Array(buffer);
+      for (let i = 0; i < data.byteLength; i++) {
+        uint8Array[i] = data[i];
+      }
+    } else {
+      // Handle other types (shouldn't happen, but TypeScript requires it)
+      const buffer = new ArrayBuffer(0);
+      uint8Array = new Uint8Array(buffer);
+    }
+    
+    return new Blob([uint8Array], { type: 'video/mp4' });
     
   } catch (error) {
     throw new VideoProcessingError(

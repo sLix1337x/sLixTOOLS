@@ -69,7 +69,6 @@ export const animationStyles = {
   slideUp: "animate-in slide-in-from-bottom-4 duration-500",
   slideDown: "animate-in slide-in-from-top-4 duration-500",
   scaleIn: "animate-in zoom-in-95 duration-300",
-  scaleIn: "animate-in zoom-in-95 duration-300",
   bounce: "animate-bounce"
 } as const;
 

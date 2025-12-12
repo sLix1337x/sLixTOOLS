@@ -43,7 +43,7 @@ export interface ErrorLogEntry {
     userAgent: string;
     url: string;
   };
-  metadata?: Record<string, unknown> | undefined;
+  metadata?: import('@/types/common').ErrorMetadata | undefined;
 }
 
 // Simplified error logger class
@@ -233,7 +233,7 @@ class ErrorLogger {
     file: File | { name: string; size: number; type: string }, 
     description: string,
     action: string = 'file_processing',
-    metadata?: Record<string, unknown>
+    metadata?: import('@/types/common').ErrorMetadata
   ): string {
     return this.logError({
       message: typeof error === 'string' ? error : error.message,

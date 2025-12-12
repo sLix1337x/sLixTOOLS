@@ -1,21 +1,55 @@
-import React, { ReactNode, useMemo } from 'react';
-import { motion, MotionProps, Transition } from 'framer-motion';
+import { memo } from 'react';
+import type { ReactNode } from 'react';
+import { motion, type MotionProps, type Transition, type TargetAndTransition } from 'framer-motion';
+
+type AnimationType = 'fadeIn' | 'slideUp' | 'slideIn' | 'scale' | 'bounce';
 
 interface AnimatedElementProps extends MotionProps {
   children: ReactNode;
   delay?: number;
   className?: string;
-  type?: 'fadeIn' | 'slideUp' | 'slideIn' | 'scale' | 'bounce';
+  type?: AnimationType;
   isVisible?: boolean;
 }
 
-type AnimationPreset = {
-  initial: any;
-  animate: any;
+interface AnimationPreset {
+  initial: TargetAndTransition;
+  animate: TargetAndTransition;
   transition: Transition;
+}
+
+const EXIT_TRANSITION: Transition = { duration: 0.35, ease: 'easeIn' };
+const EXIT_STATE: TargetAndTransition = { opacity: 0 };
+
+const ANIMATIONS: Record<AnimationType, (delay: number) => AnimationPreset> = {
+  fadeIn: (delay) => ({
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: 0.6, delay },
+  }),
+  slideUp: (delay) => ({
+    initial: { opacity: 0, y: 50 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.7, delay },
+  }),
+  slideIn: (delay) => ({
+    initial: { opacity: 0, x: -50 },
+    animate: { opacity: 1, x: 0 },
+    transition: { duration: 0.8, delay, ease: 'easeOut' },
+  }),
+  scale: (delay) => ({
+    initial: { opacity: 0, scale: 0.8 },
+    animate: { opacity: 1, scale: 1 },
+    transition: { duration: 0.5, delay },
+  }),
+  bounce: (delay) => ({
+    initial: { opacity: 0, scale: 0.8 },
+    animate: { opacity: 1, scale: 1 },
+    transition: { type: 'spring', stiffness: 300, damping: 15, delay },
+  }),
 };
 
-const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
+const AnimatedElement = memo<AnimatedElementProps>(({
   children,
   delay = 0,
   className = '',
@@ -23,59 +57,14 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
   isVisible = true,
   ...props
 }) => {
-  const selectedAnimation = useMemo(() => {
-    const animations: Record<string, AnimationPreset> = {
-      fadeIn: {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        transition: { duration: 0.6, delay }
-      },
-      slideUp: {
-        initial: { opacity: 0, y: 50 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.7, delay }
-      },
-      slideIn: {
-        initial: { opacity: 0, x: -50 },
-        animate: { opacity: 1, x: 0 },
-        transition: { duration: 0.8, delay, ease: "easeOut" }
-      },
-      scale: {
-        initial: { opacity: 0, scale: 0.8 },
-        animate: { opacity: 1, scale: 1 },
-        transition: { duration: 0.5, delay }
-      },
-      bounce: {
-        initial: { opacity: 0, scale: 0.8 },
-        animate: { opacity: 1, scale: 1 },
-        transition: {
-          type: "spring",
-          stiffness: 300,
-          damping: 15,
-          delay
-        }
-      }
-    };
-    return animations[type];
-  }, [type, delay]);
-
-  // Use faster transition for exit (when isVisible becomes false)
-  const exitTransition: Transition = useMemo(() => ({
-    duration: 0.35,
-    ease: "easeIn" as const
-  }), []);
-
-  // Exit state - only fade out, don't move position (cleaner exit)
-  const exitState = useMemo(() => ({
-    opacity: 0
-  }), []);
+  const animation = ANIMATIONS[type](delay);
 
   return (
     <motion.div
       className={className}
-      initial={selectedAnimation.initial}
-      animate={isVisible ? selectedAnimation.animate : exitState}
-      transition={isVisible ? selectedAnimation.transition : exitTransition}
+      initial={animation.initial}
+      animate={isVisible ? animation.animate : EXIT_STATE}
+      transition={isVisible ? animation.transition : EXIT_TRANSITION}
       {...props}
     >
       {children}
@@ -86,4 +75,3 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
 AnimatedElement.displayName = 'AnimatedElement';
 
 export default AnimatedElement;
-

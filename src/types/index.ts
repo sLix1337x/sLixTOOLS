@@ -25,15 +25,11 @@ export interface GifResult {
   height?: number;
 }
 
-export interface ToolItem {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  path?: string;
-  category: string;
-  featured?: boolean;
-  comingSoon?: boolean;
-}
+/**
+ * @deprecated Use ToolConfig from '@/config/toolsData' instead.
+ * This type is kept for backwards compatibility but ToolConfig is the canonical source.
+ */
+export type { ToolConfig as ToolItem } from '@/config/toolsData';
 
 // Component Props Types
 export interface VideoPreviewProps {
@@ -77,7 +73,7 @@ export interface ValidationResult {
 export interface AppError {
   message: string;
   code?: string;
-  details?: Record<string, unknown>;
+  details?: import('./common').ErrorMetadata;
 }
 
 // Processing Types
@@ -120,5 +116,5 @@ export interface ToolProcessingResult<T = Blob> {
   data: T;
   size: number;
   processingTime: number;
-  metadata?: Record<string, unknown>;
+  metadata?: import('./common').ProcessingMetadata;
 }

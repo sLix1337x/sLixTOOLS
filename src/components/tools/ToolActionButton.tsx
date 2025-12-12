@@ -30,7 +30,7 @@ export interface ToolActionButtonProps {
  * </ToolActionButton>
  * ```
  */
-export const ToolActionButton: React.FC<ToolActionButtonProps> = ({
+export const ToolActionButton = ({
     onClick,
     children,
     icon: Icon,
@@ -40,7 +40,7 @@ export const ToolActionButton: React.FC<ToolActionButtonProps> = ({
     fullWidth = false,
     variant = 'primary',
     className
-}) => {
+}: ToolActionButtonProps) => {
     const LoadingIcon = Loader2;
 
     const baseClasses = "font-bold py-2.5 px-6 rounded-lg flex items-center justify-center transition-all duration-200";

@@ -118,6 +118,8 @@ function GifCompressor() {
           showUrlInput={true}
           urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.ANIMATION_GIF}
           fileCategory="image"
+          title="Drop your GIF here"
+          description="or click to browse files (GIF)"
         />
       ) : (
         <div className="space-y-8">

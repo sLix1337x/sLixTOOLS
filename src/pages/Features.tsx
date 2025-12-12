@@ -19,7 +19,7 @@ const FeatureItem = ({ icon, title, description }: { icon: React.ReactNode, titl
   </div>
 );
 
-const Features: React.FC = () => {
+const Features = () => {
   const coreFeatures = [
     {
       icon: <Zap className="h-6 w-6" />,

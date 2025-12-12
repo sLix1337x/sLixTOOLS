@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import '@/styles/xml-editor.css';
 
-const XmlEditor: React.FC = () => {
+const XmlEditor = () => {
   const [xmlContent, setXmlContent] = useState<string>('');
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [validationError, setValidationError] = useState<string>('');
@@ -67,10 +67,10 @@ const XmlEditor: React.FC = () => {
 
   useEffect(() => {
     const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.addEventListener('scroll', handleScroll);
-      return () => textarea.removeEventListener('scroll', handleScroll);
-    }
+    if (!textarea) return;
+
+    textarea.addEventListener('scroll', handleScroll);
+    return () => textarea.removeEventListener('scroll', handleScroll);
   }, [handleScroll]);
 
   const formatXml = useCallback(() => {
@@ -96,7 +96,7 @@ const XmlEditor: React.FC = () => {
       const formattedXml = formatted
         .replace(/></g, '>\n<')
         .split('\n')
-        .map((line, index) => {
+        .map((line) => {
           const depth = (line.match(/</g) || []).length - (line.match(/\//g) || []).length;
           const indent = '  '.repeat(Math.max(0, depth - 1));
           return indent + line.trim();

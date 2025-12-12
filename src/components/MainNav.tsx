@@ -1,105 +1,52 @@
-
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronRight, FileImage, FileVideo, Image as ImageIcon, Type, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { preloadRoute } from '@/utils/preloader';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
+import { cn } from '@/lib/utils';
 
-// Removed PERFORMANCE_CONFIG import - using simplified approach
+const AVAILABLE_TOOLS = [
+  { name: "Video to GIF", path: "/tools/video-to-gif", icon: FileVideo },
+  { name: "GIF Compressor", path: "/tools/gif-compressor", icon: FileImage },
+  { name: "Image Compressor", path: "/tools/image-compressor", icon: ImageIcon },
+  { name: "Image Resizer", path: "/tools/image-resizer", icon: FileImage },
+  { name: "Image Converter", path: "/tools/image-converter", icon: FileImage },
+  { name: "Video Converter", path: "/tools/video-converter", icon: FileVideo },
+  { name: "Convert Case Tool", path: "/tools/convert-case", icon: Type },
+] as const;
 
-// Styles moved to App.css
+const NAV_ITEM_VARIANTS = {
+  visible: { opacity: 1, x: 0 },
+  hidden: { opacity: 0, x: -30 }
+} as const;
 
-const MainNav: React.FC = React.memo(() => {
+const FALLBACK_LOGO = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
+
+const MainNav = () => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const isHomePage = location.pathname === '/';
 
-
-
-  // Preload routes on hover with simple delay
   const handleRouteHover = useCallback((path: string) => {
-    const delay = 100; // Simple 100ms delay
-    setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      preloadRoute(path).catch(_error => {
-        if (process.env.NODE_ENV === 'development') {
-          // Route preloading errors logged to development system
-        }
-      });
-    }, delay);
+    setTimeout(() => preloadRoute(path).catch(() => {}), 100);
   }, []);
 
-  const availableTools = useMemo(() => [
-    {
-      name: "Video to GIF",
-      path: "/tools/video-to-gif",
-      icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "GIF Compressor",
-      path: "/tools/gif-compressor",
-      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "Image Compressor",
-      path: "/tools/image-compressor",
-      icon: <ImageIcon className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "Image Resizer",
-      path: "/tools/image-resizer",
-      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "Image Converter",
-      path: "/tools/image-converter",
-      icon: <FileImage className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "Video Converter",
-      path: "/tools/video-converter",
-      icon: <FileVideo className="h-5 w-5 flex-shrink-0" />
-    },
-    {
-      name: "Convert Case Tool",
-      path: "/tools/convert-case",
-      icon: <Type className="h-5 w-5 flex-shrink-0" />
-    }
-  ], []);
-
-  // Listen for section changes on home page to trigger animations
   useEffect(() => {
     if (!isHomePage) return;
-
     const handleSectionChange = () => {
-      // Trigger fade out animation
       setIsAnimating(true);
-      // Wait for scroll animation to complete (1.5s = 1500ms) before showing elements again
-      setTimeout(() => {
-        setIsAnimating(false);
-      }, 1500); // Match scroll transition duration
+      setTimeout(() => setIsAnimating(false), 1500);
     };
-
     window.addEventListener('section-change', handleSectionChange);
     return () => window.removeEventListener('section-change', handleSectionChange);
   }, [isHomePage]);
 
-  // Handle click outside to close dropdown
   const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-      setToolsOpen(false);
-    }
-  }, []);
-
-  const toggleTools = useCallback(() => {
-    setToolsOpen(prev => !prev);
-  }, []);
-
-  const closeTools = useCallback(() => {
+    if (menuRef.current?.contains(event.target as Node)) return;
     setToolsOpen(false);
   }, []);
 
@@ -107,12 +54,6 @@ const MainNav: React.FC = React.memo(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
-
-  // Animation variants for nav items
-  const navItemVariants = {
-    visible: { opacity: 1, x: 0 },
-    hidden: { opacity: 0, x: -30 }
-  };
 
   const navTransition = isAnimating
     ? { duration: 0.35, ease: "easeIn" as const }
@@ -127,21 +68,15 @@ const MainNav: React.FC = React.memo(() => {
               className="flex items-center"
               initial="visible"
               animate={isAnimating ? "hidden" : "visible"}
-              variants={navItemVariants}
+              variants={NAV_ITEM_VARIANTS}
               transition={{ ...navTransition, delay: 0 }}
             >
               <img
                 src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
                 alt="sLixTOOLS Logo"
-                className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
-                style={{
-                  display: 'block',
-                  maxHeight: '40px'
-                }}
+                className="h-10 w-auto max-h-[40px] object-contain transition-transform group-hover:scale-105"
                 onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
+                  (e.target as HTMLImageElement).src = FALLBACK_LOGO;
                 }}
               />
               <span className="ml-2 font-bold text-xl shiny-text">sLixTOOLS</span>
@@ -155,23 +90,22 @@ const MainNav: React.FC = React.memo(() => {
             ref={menuRef}
             initial="visible"
             animate={isAnimating ? "hidden" : "visible"}
-            variants={navItemVariants}
+            variants={NAV_ITEM_VARIANTS}
             transition={{ ...navTransition, delay: 0.05 }}
           >
             <button
-              onClick={toggleTools}
+              onClick={() => setToolsOpen(prev => !prev)}
               className="flex items-center text-sm font-medium text-white hover:text-white transition-all bg-gray-800/80 hover:bg-gray-700/90 px-4 py-2.5 rounded-lg border border-gray-600/40 hover:border-gray-500/60"
             >
               <span>Tools</span>
-              <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transform transition-transform ${toolsOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={cn("ml-1.5 h-3.5 w-3.5 transform transition-transform", toolsOpen && 'rotate-180')} />
             </button>
 
             <div
-              className={`absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[320px] max-w-[380px] bg-black/40 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl overflow-hidden transition-all duration-200 ${toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-                }`}
-              style={{
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-              }}
+              className={cn(
+                "absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-full min-w-[320px] max-w-[380px] bg-black/40 backdrop-blur-md border border-white/10 rounded-lg shadow-2xl overflow-hidden transition-all duration-200 nav-dropdown-shadow",
+                toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+              )}
             >
               <div className="py-2">
                 {/* Available Tools */}
@@ -181,20 +115,23 @@ const MainNav: React.FC = React.memo(() => {
                     <h3 className="text-5xl font-bold text-white uppercase tracking-wide">Tools</h3>
                   </div>
                   <div className="space-y-0">
-                    {availableTools.map((tool, index) => (
-                      <Link
-                        key={index}
-                        to={tool.path}
-                        className="group flex items-center space-x-3 px-3 py-2 text-lg hover:bg-white/10 transition-colors duration-150 rounded-md"
-                        onClick={closeTools}
-                        onMouseEnter={() => handleRouteHover(tool.path)}
-                      >
-                        <span className="text-gray-300 group-hover:text-blue-400 transition-colors duration-150 flex-shrink-0">
-                          {tool.icon}
-                        </span>
-                        <span className="font-bold text-lg truncate shiny-text-red">{tool.name}</span>
-                      </Link>
-                    ))}
+                    {AVAILABLE_TOOLS.map((tool) => {
+                      const Icon = tool.icon;
+                      return (
+                        <Link
+                          key={tool.path}
+                          to={tool.path}
+                          className="group flex items-center space-x-3 px-3 py-2 text-lg hover:bg-white/10 transition-colors duration-150 rounded-md"
+                          onClick={() => setToolsOpen(false)}
+                          onMouseEnter={() => handleRouteHover(tool.path)}
+                        >
+                          <span className="text-gray-300 group-hover:text-blue-400 transition-colors duration-150 flex-shrink-0">
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          <span className="font-bold text-lg truncate shiny-text-red">{tool.name}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -203,7 +140,7 @@ const MainNav: React.FC = React.memo(() => {
                   <Link
                     to="/tools"
                     className="flex items-center justify-between px-5 py-3 text-base text-white hover:bg-white/10 hover:text-blue-400 transition-colors duration-150"
-                    onClick={closeTools}
+                    onClick={() => setToolsOpen(false)}
                     onMouseEnter={() => handleRouteHover('/tools')}
                   >
                     <span className="font-semibold">View All Tools</span>
@@ -216,7 +153,7 @@ const MainNav: React.FC = React.memo(() => {
           <motion.div
             initial="visible"
             animate={isAnimating ? "hidden" : "visible"}
-            variants={navItemVariants}
+            variants={NAV_ITEM_VARIANTS}
             transition={{ ...navTransition, delay: 0.1 }}
           >
             <Link
@@ -233,7 +170,7 @@ const MainNav: React.FC = React.memo(() => {
           className="flex items-center space-x-3"
           initial="visible"
           animate={isAnimating ? "hidden" : "visible"}
-          variants={navItemVariants}
+          variants={NAV_ITEM_VARIANTS}
           transition={{ ...navTransition, delay: 0.15 }}
         >
           <Button
@@ -251,9 +188,7 @@ const MainNav: React.FC = React.memo(() => {
       </div>
     </nav>
   );
-});
-
-MainNav.displayName = 'MainNav';
+};
 
 export default MainNav;
 

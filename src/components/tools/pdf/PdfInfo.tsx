@@ -1,7 +1,7 @@
 import React from 'react';
 import { FileText, FileImage, Merge, Split, X, Move, Palette, Pencil } from 'lucide-react';
 
-const PdfInfo: React.FC = () => {
+const PdfInfo = () => {
     return (
         <div className="mt-6 bg-gradient-to-br from-slate-800/40 to-slate-900/30 border border-slate-600/30 rounded-xl p-6 backdrop-blur-sm">
             <div className="flex items-start gap-4">

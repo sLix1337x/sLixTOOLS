@@ -61,7 +61,7 @@ interface PdfActionPanelProps {
     };
 }
 
-const PdfActionPanel: React.FC<PdfActionPanelProps> = ({
+const PdfActionPanel = ({
     activeModal,
     setActiveModal,
     uploadedFile,
@@ -104,7 +104,7 @@ const PdfActionPanel: React.FC<PdfActionPanelProps> = ({
     onMerge,
 
     processingState
-}) => {
+}: PdfActionPanelProps) => {
     return (
         <>
             {activeModal && (

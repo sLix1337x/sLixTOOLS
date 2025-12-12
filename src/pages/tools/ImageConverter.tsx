@@ -21,7 +21,7 @@ interface ConversionOptions {
   maintainAspectRatio: boolean;
 }
 
-const ImageConverter: React.FC = () => {
+const ImageConverter = () => {
   const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);

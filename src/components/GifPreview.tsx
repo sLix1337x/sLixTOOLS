@@ -10,7 +10,7 @@ interface GifPreviewProps {
   onCopyLink: (url: string) => void;
 }
 
-const GifPreview: React.FC<GifPreviewProps> = ({ gifBlob, onDownload, onCopyLink }) => {
+const GifPreview = ({ gifBlob, onDownload, onCopyLink }: GifPreviewProps) => {
   const [copied, setCopied] = useState(false);
   const gifUrl = React.useMemo(() => {
     return URL.createObjectURL(gifBlob);

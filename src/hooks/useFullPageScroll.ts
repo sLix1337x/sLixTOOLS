@@ -4,6 +4,7 @@ import { homeAnimations } from '@/styles/constants';
 interface UseFullPageScrollOptions {
     totalSections: number;
     scrollTimeout?: number;
+    enabled?: boolean;
 }
 
 interface UseFullPageScrollResult {
@@ -14,58 +15,51 @@ interface UseFullPageScrollResult {
 
 export const useFullPageScroll = ({
     totalSections,
-    scrollTimeout = homeAnimations.SCROLL_TIMEOUT_MS
+    scrollTimeout = homeAnimations.SCROLL_TIMEOUT_MS,
+    enabled = true
 }: UseFullPageScrollOptions): UseFullPageScrollResult => {
     const [currentSection, setCurrentSection] = useState(0);
     const isScrollingRef = useRef(false);
+    const currentSectionRef = useRef(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        currentSectionRef.current = currentSection;
+    }, [currentSection]);
+
+    useEffect(() => {
+        if (!enabled) return;
         const container = containerRef.current;
         if (!container) return;
 
         const handleWheel = (e: WheelEvent) => {
-            // Prevent scrolling if already transitioning
             if (isScrollingRef.current) {
                 e.preventDefault();
                 return;
             }
 
+            const delta = e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0;
+            if (!delta) return;
+
+            const section = currentSectionRef.current;
+            const newSection = section + delta;
+            if (newSection < 0 || newSection >= totalSections) return;
+
             e.preventDefault();
+            isScrollingRef.current = true;
+            setCurrentSection(newSection);
+            
+            window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
+            window.dispatchEvent(new CustomEvent('section-change', { detail: { section: newSection } }));
 
-            if (e.deltaY > 0 && currentSection < totalSections - 1) {
-                // Scroll down
-                isScrollingRef.current = true;
-                const newSection = currentSection + 1;
-                setCurrentSection(newSection);
-                window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
-                window.dispatchEvent(new CustomEvent('section-change', { detail: { section: newSection } }));
-
-                setTimeout(() => {
-                    isScrollingRef.current = false;
-                }, scrollTimeout);
-
-            } else if (e.deltaY < 0 && currentSection > 0) {
-                // Scroll up
-                isScrollingRef.current = true;
-                const newSection = currentSection - 1;
-                setCurrentSection(newSection);
-                window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
-                window.dispatchEvent(new CustomEvent('section-change', { detail: { section: newSection } }));
-
-                setTimeout(() => {
-                    isScrollingRef.current = false;
-                }, scrollTimeout);
-            }
+            setTimeout(() => {
+                isScrollingRef.current = false;
+            }, scrollTimeout);
         };
 
-        // Add event listener with passive: false to allow preventDefault
         container.addEventListener('wheel', handleWheel, { passive: false });
-
-        return () => {
-            container.removeEventListener('wheel', handleWheel);
-        };
-    }, [currentSection, totalSections, scrollTimeout]);
+        return () => container.removeEventListener('wheel', handleWheel);
+    }, [enabled, scrollTimeout, totalSections]);
 
     return {
         currentSection,

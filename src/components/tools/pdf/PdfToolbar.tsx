@@ -1,9 +1,11 @@
 import React from 'react';
-import { Merge, Split, X, Move, Palette, Pencil, FileImage } from 'lucide-react';
+import { Merge, Split, X, Move, Palette, Pencil, FileImage, Type, Square, Circle, Minus, ArrowRight } from 'lucide-react';
 
 interface PdfToolbarProps {
     setActiveModal: (modal: string | null) => void;
     activeModal: string | null;
+    activeTool?: string | null;
+    onToolChange?: (tool: string | null) => void;
     processingState: {
         isMerging: boolean;
         isSplitting: boolean;
@@ -16,12 +18,14 @@ interface PdfToolbarProps {
     onMergeClick: () => void;
 }
 
-const PdfToolbar: React.FC<PdfToolbarProps> = ({
+const PdfToolbar = ({
     setActiveModal,
     activeModal,
+    activeTool = null,
+    onToolChange,
     processingState,
     onMergeClick
-}) => {
+}: PdfToolbarProps) => {
     return (
         <div className="mb-4">
             {/* Icon-only toolbar with category labels */}
@@ -82,6 +86,17 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
                 {/* TEXT category */}
                 <span className="text-xs text-purple-400 font-semibold tracking-wide mr-1">TEXT</span>
                 <button
+                    onClick={() => onToolChange?.('text')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'text'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Add text box"
+                >
+                    <Type className="h-4 w-4" />
+                </button>
+                
+                <button
                     onClick={() => setActiveModal('highlight')}
                     disabled={processingState.isHighlighting}
                     className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${activeModal === 'highlight'
@@ -103,6 +118,65 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
                     title="Add text annotations to PDF"
                 >
                     <Pencil className="h-4 w-4" />
+                </button>
+
+                <div className="w-px h-6 bg-gradient-to-b from-slate-400/50 to-slate-600/30 mx-2"></div>
+
+                {/* DRAW category */}
+                <span className="text-xs text-pink-400 font-semibold tracking-wide mr-1">DRAW</span>
+                <button
+                    onClick={() => onToolChange?.(activeTool === 'draw' ? null : 'draw')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'draw'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Freehand drawing"
+                >
+                    <Pencil className="h-4 w-4" />
+                </button>
+                
+                <button
+                    onClick={() => onToolChange?.(activeTool === 'rectangle' ? null : 'rectangle')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'rectangle'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Draw rectangle"
+                >
+                    <Square className="h-4 w-4" />
+                </button>
+                
+                <button
+                    onClick={() => onToolChange?.(activeTool === 'circle' ? null : 'circle')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'circle'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Draw circle"
+                >
+                    <Circle className="h-4 w-4" />
+                </button>
+                
+                <button
+                    onClick={() => onToolChange?.(activeTool === 'line' ? null : 'line')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'line'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Draw line"
+                >
+                    <Minus className="h-4 w-4" />
+                </button>
+                
+                <button
+                    onClick={() => onToolChange?.(activeTool === 'arrow' ? null : 'arrow')}
+                    className={`flex items-center justify-center p-2 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 ${activeTool === 'arrow'
+                        ? 'text-slate-100 bg-slate-500/40 shadow-md'
+                        : 'text-slate-300 hover:text-slate-100 hover:bg-slate-500/30'
+                        }`}
+                    title="Draw arrow"
+                >
+                    <ArrowRight className="h-4 w-4" />
                 </button>
 
                 <div className="w-px h-6 bg-gradient-to-b from-slate-400/50 to-slate-600/30 mx-2"></div>

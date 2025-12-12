@@ -22,7 +22,7 @@ const estimateGifSize = (width: number, height: number, fps: number, duration: n
   return frames * pixelsPerFrame * bytesPerPixel;
 };
 
-const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onChange, videoFile, videoDuration = 0 }) => {
+const ConversionOptionsForm = ({ options, onChange, videoFile, videoDuration = 0 }: ConversionOptionsProps) => {
   // Calculate estimated file size
   const getEstimatedSize = () => {
     const width = options.width || 480;
@@ -45,9 +45,9 @@ const ConversionOptionsForm: React.FC<ConversionOptionsProps> = ({ options, onCh
     const newOptions = { ...options };
 
     if (!isNaN(numValue)) {
-      (newOptions as Record<string, unknown>)[name] = numValue;
+      (newOptions as Record<string, number | boolean>)[name] = numValue;
     } else if (value === '') {
-      delete (newOptions as Record<string, unknown>)[name];
+      delete (newOptions as Record<string, number | boolean>)[name];
     }
 
     onChange(newOptions);

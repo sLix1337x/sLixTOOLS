@@ -11,14 +11,14 @@ import { formatFileSize } from '@/utils/formatters';
 interface PostConversionOptionsProps {
   gifResult: GifResult;
   onDownload: () => void;
-  onEdit: (editType: string, params?: Record<string, unknown> | undefined) => void;
+  onEdit: (editType: string, params?: import('@/types/common').EditParams) => void;
 }
 
-const PostConversionOptions: React.FC<PostConversionOptionsProps> = ({ 
+const PostConversionOptions = ({ 
   gifResult, 
   onDownload, 
   onEdit 
-}) => {
+}: PostConversionOptionsProps) => {
   const [showEditOptions, setShowEditOptions] = useState(false);
   const [cropParams, setCropParams] = useState({ x: 0, y: 0, width: 100, height: 100 });
   const [resizeParams, setResizeParams] = useState({ width: 480, height: 360 });

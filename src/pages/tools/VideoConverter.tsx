@@ -8,14 +8,14 @@ import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { validateVideoFile } from '@/utils/fileValidation';
 import { compressVideo, VideoCompressionOptions } from '@/utils/videoProcessor';
-import { useFileHandler } from '@/hooks/useFileHandler';
+import { useToolFile } from '@/hooks';
 import { formatFileSizeMB } from '@/utils/formatters';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import { toast } from 'sonner';
 import { downloadBlobWithGeneratedName } from '@/utils/download';
 
-const VideoConverter: React.FC = () => {
+const VideoConverter = () => {
   const [convertedVideo, setConvertedVideo] = useState<Blob | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -35,7 +35,7 @@ const VideoConverter: React.FC = () => {
     file: videoFile,
     fileUrl: videoUrl,
     handleFileSelect
-  } = useFileHandler({
+  } = useToolFile({
     validateFunction: validateVideoFile,
     onFileLoad: () => {
       // Reset conversion state
@@ -43,7 +43,7 @@ const VideoConverter: React.FC = () => {
       setConvertedUrl('');
     },
     onFileError: (error) => {
-      toast.error('File validation error: ' + error);
+      toast.error('File validation error: ' + error.message);
     }
   });
 
