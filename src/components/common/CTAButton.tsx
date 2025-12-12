@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 
 export interface CTAButtonProps {
@@ -11,6 +12,8 @@ export interface CTAButtonProps {
     icon?: LucideIcon;
     iconPosition?: 'left' | 'right';
     className?: string;
+    bounce?: boolean;
+    blinkText?: boolean;
 }
 
 /**
@@ -25,6 +28,8 @@ export const CTAButton: React.FC<CTAButtonProps> = ({
     icon: Icon = ArrowRight,
     iconPosition = 'right',
     className = '',
+    bounce = false,
+    blinkText = false,
 }) => {
     const baseStyles = 'font-bold inline-flex items-center rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2';
 
@@ -47,13 +52,42 @@ export const CTAButton: React.FC<CTAButtonProps> = ({
 
     const combinedClassName = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`.trim();
 
-    return (
+    // Bounce animation variants
+    const bounceVariants = {
+        animate: {
+            y: [0, -4, 0],
+            transition: {
+                duration: 1.2,
+                repeat: Infinity,
+                ease: "easeInOut" as const
+            }
+        }
+    };
+
+    const buttonContent = (
         <Link to={to} className={combinedClassName}>
             {iconPosition === 'left' && Icon && <Icon className={iconSizeMap[size]} />}
-            <span>{children}</span>
+            <span className={blinkText ? 'animate-blink' : ''}>
+                {children}
+            </span>
             {iconPosition === 'right' && Icon && <Icon className={iconSizeMap[size]} />}
         </Link>
     );
+
+    if (bounce) {
+        return (
+            <motion.div
+                variants={bounceVariants}
+                animate="animate"
+                className="inline-block"
+            >
+                {buttonContent}
+            </motion.div>
+        );
+    }
+
+    return buttonContent;
 };
 
 export default CTAButton;
+

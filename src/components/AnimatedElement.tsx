@@ -38,7 +38,7 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
       slideIn: {
         initial: { opacity: 0, x: -50 },
         animate: { opacity: 1, x: 0 },
-        transition: { duration: 0.5, delay }
+        transition: { duration: 0.8, delay, ease: "easeOut" }
       },
       scale: {
         initial: { opacity: 0, scale: 0.8 },
@@ -59,12 +59,23 @@ const AnimatedElement: React.FC<AnimatedElementProps> = React.memo(({
     return animations[type];
   }, [type, delay]);
 
+  // Use faster transition for exit (when isVisible becomes false)
+  const exitTransition: Transition = useMemo(() => ({
+    duration: 0.35,
+    ease: "easeIn" as const
+  }), []);
+
+  // Exit state - only fade out, don't move position (cleaner exit)
+  const exitState = useMemo(() => ({
+    opacity: 0
+  }), []);
+
   return (
     <motion.div
       className={className}
       initial={selectedAnimation.initial}
-      animate={isVisible ? selectedAnimation.animate : selectedAnimation.initial}
-      transition={selectedAnimation.transition}
+      animate={isVisible ? selectedAnimation.animate : exitState}
+      transition={isVisible ? selectedAnimation.transition : exitTransition}
       {...props}
     >
       {children}

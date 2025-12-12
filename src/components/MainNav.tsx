@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronRight, FileImage, FileVideo, Image as ImageIcon, Type, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { preloadRoute } from '@/utils/preloader';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
 
@@ -12,7 +13,10 @@ import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 const MainNav: React.FC = React.memo(() => {
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
 
 
 
@@ -67,7 +71,22 @@ const MainNav: React.FC = React.memo(() => {
     }
   ], []);
 
+  // Listen for section changes on home page to trigger animations
+  useEffect(() => {
+    if (!isHomePage) return;
 
+    const handleSectionChange = () => {
+      // Trigger fade out animation
+      setIsAnimating(true);
+      // Wait for scroll animation to complete (1.5s = 1500ms) before showing elements again
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 1500); // Match scroll transition duration
+    };
+
+    window.addEventListener('section-change', handleSectionChange);
+    return () => window.removeEventListener('section-change', handleSectionChange);
+  }, [isHomePage]);
 
   // Handle click outside to close dropdown
   const handleClickOutside = useCallback((event: MouseEvent) => {
@@ -89,31 +108,56 @@ const MainNav: React.FC = React.memo(() => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
+  // Animation variants for nav items
+  const navItemVariants = {
+    visible: { opacity: 1, x: 0 },
+    hidden: { opacity: 0, x: -30 }
+  };
+
+  const navTransition = isAnimating
+    ? { duration: 0.35, ease: "easeIn" as const }
+    : { duration: 0.5, ease: "easeOut" as const };
+
   return (
     <nav className="w-full">
       <div className="flex items-center justify-between h-16 w-full">
         <div className="flex items-center space-x-3">
           <Link to="/" className="flex items-center group">
-            <img
-              src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
-              alt="sLixTOOLS Logo"
-              className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
-              style={{
-                display: 'block',
-                maxHeight: '40px'
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.onerror = null;
-                target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
-              }}
-            />
-            <span className="ml-2 font-bold text-xl shiny-text">sLixTOOLS</span>
+            <motion.div
+              className="flex items-center"
+              initial="visible"
+              animate={isAnimating ? "hidden" : "visible"}
+              variants={navItemVariants}
+              transition={{ ...navTransition, delay: 0 }}
+            >
+              <img
+                src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
+                alt="sLixTOOLS Logo"
+                className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
+                style={{
+                  display: 'block',
+                  maxHeight: '40px'
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgNDggNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMDA3YmZjIi8+PHRleHQgeD0iMjQiIHk9IjI4IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+U1Q8L3RleHQ+PC9zdmc+';
+                }}
+              />
+              <span className="ml-2 font-bold text-xl shiny-text">sLixTOOLS</span>
+            </motion.div>
           </Link>
         </div>
 
         <nav className="hidden md:flex items-center space-x-4">
-          <div className="relative" ref={menuRef}>
+          <motion.div
+            className="relative"
+            ref={menuRef}
+            initial="visible"
+            animate={isAnimating ? "hidden" : "visible"}
+            variants={navItemVariants}
+            transition={{ ...navTransition, delay: 0.05 }}
+          >
             <button
               onClick={toggleTools}
               className="flex items-center text-sm font-medium text-white hover:text-white transition-all bg-gray-800/80 hover:bg-gray-700/90 px-4 py-2.5 rounded-lg border border-gray-600/40 hover:border-gray-500/60"
@@ -168,17 +212,30 @@ const MainNav: React.FC = React.memo(() => {
                 </div>
               </div>
             </div>
-          </div>
-          <Link
-            to="/features"
-            className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50"
-            onMouseEnter={() => handleRouteHover('/features')}
+          </motion.div>
+          <motion.div
+            initial="visible"
+            animate={isAnimating ? "hidden" : "visible"}
+            variants={navItemVariants}
+            transition={{ ...navTransition, delay: 0.1 }}
           >
-            Features
-          </Link>
+            <Link
+              to="/features"
+              className="text-sm font-medium text-gray-200 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-gray-800/50"
+              onMouseEnter={() => handleRouteHover('/features')}
+            >
+              Features
+            </Link>
+          </motion.div>
         </nav>
 
-        <div className="flex items-center space-x-3">
+        <motion.div
+          className="flex items-center space-x-3"
+          initial="visible"
+          animate={isAnimating ? "hidden" : "visible"}
+          variants={navItemVariants}
+          transition={{ ...navTransition, delay: 0.15 }}
+        >
           <Button
             className="bg-primary-action text-white font-medium rainbow-hover shadow-[0_0_15px_rgba(42,213,135,0.5)] hover:shadow-[0_0_25px_rgba(42,213,135,0.7)] transition-shadow duration-300"
             asChild
@@ -190,7 +247,7 @@ const MainNav: React.FC = React.memo(() => {
               All Tools
             </Link>
           </Button>
-        </div>
+        </motion.div>
       </div>
     </nav>
   );
@@ -199,3 +256,4 @@ const MainNav: React.FC = React.memo(() => {
 MainNav.displayName = 'MainNav';
 
 export default MainNav;
+

@@ -36,8 +36,10 @@ export const useFullPageScroll = ({
             if (e.deltaY > 0 && currentSection < totalSections - 1) {
                 // Scroll down
                 isScrollingRef.current = true;
-                setCurrentSection(currentSection + 1);
+                const newSection = currentSection + 1;
+                setCurrentSection(newSection);
                 window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
+                window.dispatchEvent(new CustomEvent('section-change', { detail: { section: newSection } }));
 
                 setTimeout(() => {
                     isScrollingRef.current = false;
@@ -46,8 +48,10 @@ export const useFullPageScroll = ({
             } else if (e.deltaY < 0 && currentSection > 0) {
                 // Scroll up
                 isScrollingRef.current = true;
-                setCurrentSection(currentSection - 1);
+                const newSection = currentSection - 1;
+                setCurrentSection(newSection);
                 window.dispatchEvent(new CustomEvent('header-animation-trigger', { detail: 'reset' }));
+                window.dispatchEvent(new CustomEvent('section-change', { detail: { section: newSection } }));
 
                 setTimeout(() => {
                     isScrollingRef.current = false;

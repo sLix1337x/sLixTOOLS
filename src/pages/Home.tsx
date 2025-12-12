@@ -40,7 +40,7 @@ const Home: React.FC = () => {
             <Container>
               {/* Animated Title Section */}
               <div className="text-center mb-6">
-                <AnimatedElement type="fadeIn" delay={0.2} isVisible={currentSection === 0}>
+                <AnimatedElement type="slideIn" delay={0.2} isVisible={currentSection === 0}>
                   <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-0">
                     <span className="bg-brand-text bg-clip-text text-transparent">
                       sLixTOOLS.
@@ -88,9 +88,9 @@ const Home: React.FC = () => {
               </div>
 
               {/* CTA Section */}
-              <div className="text-center">
+              <div className="text-center mt-4">
                 <AnimatedElement type="slideUp" delay={0.6} isVisible={currentSection === 0}>
-                  <CTAButton to="/tools">
+                  <CTAButton to="/tools" size="md" bounce blinkText>
                     Explore Tools
                   </CTAButton>
                 </AnimatedElement>
@@ -107,7 +107,7 @@ const Home: React.FC = () => {
             <div className="hero-content flex flex-col lg:flex-row items-center justify-between py-20">
               {/* Text Content - Left Column */}
               <div className="flex-1 lg:pr-12 text-center lg:text-left">
-                <AnimatedElement type="fadeIn" delay={0.2} isVisible={currentSection === 1}>
+                <AnimatedElement type="slideIn" delay={0.2} isVisible={currentSection === 1}>
                   <div className="hero-text flex flex-col mt-0 gap-0">
                     {/* Problem-focused headline */}
                     <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight mb-0">
@@ -126,8 +126,8 @@ const Home: React.FC = () => {
                     <SocialProof />
 
                     {/* CTA Button */}
-                    <div className="mt-1">
-                      <CTAButton to="/tools">
+                    <div className="mt-6">
+                      <CTAButton to="/tools" size="md" bounce blinkText>
                         View All Tools
                       </CTAButton>
                     </div>
@@ -148,11 +148,15 @@ const Home: React.FC = () => {
         {/* Section 3: All Tools */}
         <section className="fullpage-section-last">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <AnimatedElement type="fadeIn" delay={0.2} isVisible={currentSection === 2}>
+            <AnimatedElement type="slideIn" delay={0.2} isVisible={currentSection === 2}>
               <div className="max-w-3xl mx-auto text-center mb-8">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 bg-brand-text bg-clip-text text-transparent">
                   All Tools
                 </h1>
+              </div>
+            </AnimatedElement>
+            <AnimatedElement type="slideIn" delay={0.3} isVisible={currentSection === 2}>
+              <div className="max-w-3xl mx-auto text-center mb-8">
                 <p className="text-gray-300 mb-6">
                   Explore our collection of free online tools to help with all your file conversion and optimization needs.
                   <br />
@@ -161,21 +165,27 @@ const Home: React.FC = () => {
               </div>
 
               <div className="max-w-2xl mx-auto w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {getFeaturedTools().map((tool) => (
-                    <ToolListItem
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 justify-items-center">
+                  {getFeaturedTools().map((tool, index) => (
+                    <AnimatedElement
                       key={tool.path || tool.title}
-                      tool={tool}
-                      variant="simple"
-                    />
+                      type="slideIn"
+                      delay={0.3 + index * 0.1}
+                      isVisible={currentSection === 2}
+                    >
+                      <ToolListItem
+                        tool={tool}
+                        variant="simple"
+                      />
+                    </AnimatedElement>
                   ))}
                 </div>
               </div>
             </AnimatedElement>
 
             <AnimatedElement type="fadeIn" delay={0.4} isVisible={currentSection === 2}>
-              <div className="flex justify-center mt-8">
-                <CTAButton to="/tools" size="md">
+              <div className="flex justify-center mt-12">
+                <CTAButton to="/tools" size="sm" bounce blinkText>
                   View All Tools
                 </CTAButton>
               </div>

@@ -160,3 +160,17 @@ body {
   -webkit-text-fill-color: transparent;
   animation: shine 25s ease-in-out infinite;
 }
+
+/* Retro game menu blinking text animation */
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
