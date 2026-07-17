@@ -74,6 +74,20 @@ const Home = () => {
         title="sLixTOOLS - No Ads, No Privacy Risks - Free File Conversion Tools"
         description="Convert files instantly without ads, tracking, or uploads. 150+ clients trust our browser-based tools for video, image, and document conversion. Start converting now!"
         canonical="https://slixtools.io"
+        structuredData={{
+          '@context': 'https://schema.org',
+          '@type': 'WebApplication',
+          name: 'sLixTOOLS',
+          description: 'Free online tools for file conversion: video, image, GIF, PDF, and text tools. No ads, no uploads required.',
+          url: 'https://sLix1337x.github.io/sLixTOOLS/',
+          applicationCategory: 'UtilitiesApplication',
+          operatingSystem: 'Any',
+          offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'USD'
+          }
+        }}
       />
 
       <FullPageSectionsWrapper currentSection={currentSection} isMobile={isMobile}>
