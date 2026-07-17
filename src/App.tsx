@@ -28,6 +28,30 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const Impressum = lazy(() => import('./pages/Impressum'));
 
+interface LazyRouteConfig {
+  path: string;
+  Component: React.LazyExoticComponent<() => JSX.Element>;
+  fallbackText?: string;
+}
+
+const lazyRoutes: LazyRouteConfig[] = [
+  { path: '/tools/video-to-gif', Component: VideoToGif, fallbackText: 'Loading Video to GIF converter...' },
+  { path: '/tools/gif-compressor', Component: GifCompressor, fallbackText: 'Loading GIF compressor...' },
+  { path: '/tools/image-compressor', Component: ImageCompressor, fallbackText: 'Loading Image compressor...' },
+  { path: '/tools/image-resizer', Component: ImageResizer, fallbackText: 'Loading Image resizer...' },
+  { path: '/tools/video-converter', Component: VideoConverter, fallbackText: 'Loading Video converter...' },
+  { path: '/tools/image-converter', Component: ImageConverter, fallbackText: 'Loading Image converter...' },
+  { path: '/tools/convert-case', Component: ConvertCaseTool, fallbackText: 'Loading Convert Case Tool...' },
+  { path: '/tools/xml-editor', Component: XmlEditor, fallbackText: 'Loading XML Editor...' },
+  { path: '/tools/pdf-editor', Component: PdfEditor, fallbackText: 'Loading PDF Editor...' },
+  { path: '/about', Component: About },
+  { path: '/contact', Component: Contact },
+  { path: '/features', Component: Features },
+  { path: '/privacy-policy', Component: PrivacyPolicy },
+  { path: '/terms-of-service', Component: TermsOfService },
+  { path: '/impressum', Component: Impressum },
+];
+
 // Styles
 import './styles/indie-theme.css';
 import './App.css';
@@ -107,127 +131,17 @@ const AppContent = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/tools" element={<Tools />} />
-          <Route
-            path="/tools/video-to-gif"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Video to GIF converter..." />}>
-                <VideoToGif />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/gif-compressor"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading GIF compressor..." />}>
-                <GifCompressor />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/image-compressor"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Image compressor..." />}>
-                <ImageCompressor />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/image-resizer"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Image resizer..." />}>
-                <ImageResizer />
-              </Suspense>
-            }
-          />
-
-          <Route
-            path="/tools/video-converter"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Video converter..." />}>
-                <VideoConverter />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/image-converter"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Image converter..." />}>
-                <ImageConverter />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/convert-case"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading Convert Case Tool..." />}>
-                <ConvertCaseTool />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/xml-editor"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading XML Editor..." />}>
-                <XmlEditor />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/tools/pdf-editor"
-            element={
-              <Suspense fallback={<LoadingSpinner text="Loading PDF Editor..." />}>
-                <PdfEditor />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/about"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <About />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/contact"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <Contact />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/features"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <Features />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/privacy-policy"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <PrivacyPolicy />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/terms-of-service"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <TermsOfService />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/impressum"
-            element={
-              <Suspense fallback={<LoadingSpinner />}>
-                <Impressum />
-              </Suspense>
-            }
-          />
+          {lazyRoutes.map(({ path, Component, fallbackText }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <Suspense fallback={<LoadingSpinner {...(fallbackText ? { text: fallbackText } : {})} />}>
+                  <Component />
+                </Suspense>
+              }
+            />
+          ))}
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
