@@ -22,33 +22,39 @@ import { cn } from '@/lib/utils';
 const HERO_FEATURES = [
   {
     icon: Zap,
-    title: "Fast Processing",
-    description: "All tools run in your browser — quick, private, local processing.",
-    gradientFrom: "from-green-400",
-    gradientTo: "to-green-600",
-    delay: 0.3
+    title: 'Fast Processing',
+    description: 'All tools run in your browser — quick, private, local processing.',
+    gradientFrom: 'from-green-400',
+    gradientTo: 'to-green-600',
+    delay: 0.3,
   },
   {
     icon: CircleDollarSign,
-    title: "Free to Use",
-    description: "All tools are completely free with no hidden fees or subscription required.",
-    gradientFrom: "from-blue-400",
-    gradientTo: "to-blue-600",
-    delay: 0.4
+    title: 'Free to Use',
+    description: 'All tools are completely free with no hidden fees or subscription required.',
+    gradientFrom: 'from-blue-400',
+    gradientTo: 'to-blue-600',
+    delay: 0.4,
   },
   {
     icon: Lock,
-    title: "Privacy First",
-    description: "Your files never leave your device - everything is processed locally.",
-    gradientFrom: "from-purple-400",
-    gradientTo: "to-purple-600",
+    title: 'Privacy First',
+    description: 'Your files never leave your device - everything is processed locally.',
+    gradientFrom: 'from-purple-400',
+    gradientTo: 'to-purple-600',
     delay: 0.5,
     decorativeImage: EXTERNAL_URLS.DEMO_IMAGES.FUNKY_KONG,
-    decorativeImageAlt: "Funky Kong"
-  }
+    decorativeImageAlt: 'Funky Kong',
+  },
 ] as const;
 
-const ToolsCTA = ({ size = "md", label = "View All Tools" }: { size?: "sm" | "md" | "lg"; label?: string }) => (
+const ToolsCTA = ({
+  size = 'md',
+  label = 'View All Tools',
+}: {
+  size?: 'sm' | 'md' | 'lg';
+  label?: string;
+}) => (
   <CTAButton to="/tools" size={size} bounce blinkText>
     {label}
   </CTAButton>
@@ -56,20 +62,23 @@ const ToolsCTA = ({ size = "md", label = "View All Tools" }: { size?: "sm" | "md
 
 const Home = () => {
   const isMobile = useIsMobile();
-  const { currentSection, containerRef } = useFullPageScroll({ 
+  const { currentSection, containerRef } = useFullPageScroll({
     totalSections: 3,
-    enabled: !isMobile
+    enabled: !isMobile,
   });
 
   useEffect(() => {
     if (isMobile) return;
     const elements = [document.body, document.documentElement];
-    elements.forEach(el => el.classList.add('no-scrollbar'));
-    return () => elements.forEach(el => el.classList.remove('no-scrollbar'));
+    elements.forEach((el) => el.classList.add('no-scrollbar'));
+    return () => elements.forEach((el) => el.classList.remove('no-scrollbar'));
   }, [isMobile]);
 
   return (
-    <div className={cn("fullpage-container", isMobile && 'h-auto overflow-auto')} ref={containerRef}>
+    <div
+      className={cn('fullpage-container', isMobile && 'h-auto overflow-auto')}
+      ref={containerRef}
+    >
       <SEO
         title="sLixTOOLS - No Ads, No Privacy Risks - Free File Conversion Tools"
         description="Convert files instantly without ads, tracking, or uploads. 150+ clients trust our browser-based tools for video, image, and document conversion. Start converting now!"
@@ -78,15 +87,16 @@ const Home = () => {
           '@context': 'https://schema.org',
           '@type': 'WebApplication',
           name: 'sLixTOOLS',
-          description: 'Free online tools for file conversion: video, image, GIF, PDF, and text tools. No ads, no uploads required.',
+          description:
+            'Free online tools for file conversion: video, image, GIF, PDF, and text tools. No ads, no uploads required.',
           url: 'https://sLix1337x.github.io/sLixTOOLS/',
           applicationCategory: 'UtilitiesApplication',
           operatingSystem: 'Any',
           offers: {
             '@type': 'Offer',
             price: '0',
-            priceCurrency: 'USD'
-          }
+            priceCurrency: 'USD',
+          },
         }}
       />
 
@@ -98,9 +108,7 @@ const Home = () => {
               <div className="text-center mb-6">
                 <AnimatedElement type="slideIn" delay={0.2} isVisible={currentSection === 0}>
                   <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-0">
-                    <span className="bg-brand-text bg-clip-text text-transparent">
-                      sLixTOOLS.
-                    </span>
+                    <span className="bg-brand-text bg-clip-text text-transparent">sLixTOOLS.</span>
                   </h1>
                   <p className="text-lg md:text-xl text-gray-300 mb-2 -mt-1">
                     Free online tools for all your file conversion needs
@@ -110,11 +118,7 @@ const Home = () => {
 
               <div className="grid md:grid-cols-3 gap-6 mb-8 max-w-4xl mx-auto items-stretch">
                 {HERO_FEATURES.map((feature) => (
-                  <FeatureCard
-                    key={feature.title}
-                    {...feature}
-                    isVisible={currentSection === 0}
-                  />
+                  <FeatureCard key={feature.title} {...feature} isVisible={currentSection === 0} />
                 ))}
               </div>
 
@@ -146,15 +150,14 @@ const Home = () => {
                           <span className="text-green-400">No Privacy Risks</span>
                           <span className="text-pink-400">.</span>
                         </h2>
-
                       </div>
 
                       {/* Subheadline and Floating Icon */}
                       <div className="flex flex-col mb-6 -mt-2">
                         <div className="relative w-full max-w-2xl mx-auto">
                           <p className="text-base md:text-lg text-gray-300 leading-relaxed relative z-10">
-                            Convert files instantly in your browser. No uploads, no tracking, no hidden fees.
-                            Your files stay private and secure on your device.
+                            Convert files instantly in your browser. No uploads, no tracking, no
+                            hidden fees. Your files stay private and secure on your device.
                           </p>
                           <div className="absolute -top-16 -left-12 z-20">
                             <div className="bg-blue-500 rounded-full p-3 shadow-lg floating-delayed">
@@ -188,10 +191,12 @@ const Home = () => {
           <div className="absolute bottom-24 left-0 right-0 z-50 flex flex-col items-center pointer-events-none">
             <SectionSeparator isVisible={currentSection === 1} />
             <div className="mt-4 flex justify-center">
-              <ChevronDown className={cn(
-                "text-3xl text-gray-400 animate-bounce transition-opacity duration-500",
-                currentSection === 1 ? 'opacity-100' : 'opacity-0'
-              )} />
+              <ChevronDown
+                className={cn(
+                  'text-3xl text-gray-400 animate-bounce transition-opacity duration-500',
+                  currentSection === 1 ? 'opacity-100' : 'opacity-0'
+                )}
+              />
             </div>
           </div>
         </section>
