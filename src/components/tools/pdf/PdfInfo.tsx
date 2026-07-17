@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileText, FileImage, Merge, Split, X, Move, Palette, Pencil } from 'lucide-react';
+
+import { FileText } from 'lucide-react';
 
 const PdfInfo = () => {
     return (

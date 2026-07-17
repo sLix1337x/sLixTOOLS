@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { RotateCw, Trash2, Copy, Download, Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 
 interface PdfContextMenuProps {
   x: number;
@@ -50,7 +50,7 @@ const PdfContextMenu = ({
   }, [onClose]);
 
   // Adjust position if menu would go off screen
-  const [adjustedX, adjustedY] = React.useMemo(() => {
+  const [adjustedX, adjustedY] = useMemo(() => {
     if (!menuRef.current) return [x, y];
     const rect = menuRef.current.getBoundingClientRect();
     const windowWidth = window.innerWidth;

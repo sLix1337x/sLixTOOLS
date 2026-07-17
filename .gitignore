@@ -117,3 +117,4 @@ stats.html
 
 # Generated Workers
 public/workers/
+public/coi-serviceworker.js

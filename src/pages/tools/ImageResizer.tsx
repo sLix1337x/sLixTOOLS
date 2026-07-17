@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Image, Download, Loader2, SlidersHorizontal, X } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Image, Download, SlidersHorizontal, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';

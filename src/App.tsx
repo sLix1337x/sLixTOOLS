@@ -1,53 +1,44 @@
-
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
-import { HelmetProvider } from "react-helmet-async";
-import { Suspense, lazy, useState, useEffect, useRef } from "react";
-import ErrorBoundary from "./components/ErrorBoundary";
-
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
+import { Suspense, lazy, useState, useEffect, useRef } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Immediate load components (critical path)
-import Home from "./pages/Home";
-import Tools from "./pages/Tools";
-import NotFound from "./pages/NotFound";
+import Home from './pages/Home';
+import Tools from './pages/Tools';
+import NotFound from './pages/NotFound';
 
 // Lazy load heavy tool components
-const VideoToGif = lazy(() => import("./pages/tools/VideoToGif"));
-const GifCompressor = lazy(() => import("./pages/tools/GifCompressor"));
-const ImageCompressor = lazy(() => import("./pages/tools/ImageCompressor"));
-const ImageResizer = lazy(() => import("./pages/tools/ImageResizer"));
-const VideoConverter = lazy(() => import("./pages/tools/VideoConverter"));
-const ImageConverter = lazy(() => import("./pages/tools/ImageConverter"));
-const ConvertCaseTool = lazy(() => import("./pages/tools/ConvertCaseTool"));
-const XmlEditor = lazy(() => import("./pages/tools/XmlEditor"));
-const PdfEditor = lazy(() => import("./pages/tools/PdfEditor"));
+const VideoToGif = lazy(() => import('./pages/tools/VideoToGif'));
+const GifCompressor = lazy(() => import('./pages/tools/GifCompressor'));
+const ImageCompressor = lazy(() => import('./pages/tools/ImageCompressor'));
+const ImageResizer = lazy(() => import('./pages/tools/ImageResizer'));
+const VideoConverter = lazy(() => import('./pages/tools/VideoConverter'));
+const ImageConverter = lazy(() => import('./pages/tools/ImageConverter'));
+const ConvertCaseTool = lazy(() => import('./pages/tools/ConvertCaseTool'));
+const XmlEditor = lazy(() => import('./pages/tools/XmlEditor'));
+const PdfEditor = lazy(() => import('./pages/tools/PdfEditor'));
 
 // Lazy load info pages
-const About = lazy(() => import("./pages/About"));
-const Contact = lazy(() => import("./pages/Contact"));
-const Features = lazy(() => import("./pages/Features"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const TermsOfService = lazy(() => import("./pages/TermsOfService"));
-const Impressum = lazy(() => import("./pages/Impressum"));
+const About = lazy(() => import('./pages/About'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Features = lazy(() => import('./pages/Features'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const Impressum = lazy(() => import('./pages/Impressum'));
 
 // Styles
-import "./styles/indie-theme.css";
-import "./App.css";
+import './styles/indie-theme.css';
+import './App.css';
 
 // Components
-import MainNav from "@/components/MainNav";
-const SmoothScroll = lazy(() => import("@/components/SmoothScroll"));
-import CookieConsent from "@/components/common/CookieConsent";
-import LoadingSpinner from "@/components/common/LoadingSpinner";
-import AppBackground from "@/components/AppBackground";
-import FooterLinks, { CURRENT_YEAR } from "@/components/common/FooterLinks";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { staleTime: 60 * 1000, refetchOnWindowFocus: false }
-  }
-});
+import MainNav from '@/components/MainNav';
+const SmoothScroll = lazy(() => import('@/components/SmoothScroll'));
+import CookieConsent from '@/components/common/CookieConsent';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import AppBackground from '@/components/AppBackground';
+import FooterLinks, { CURRENT_YEAR } from '@/components/common/FooterLinks';
 
 const AnimatedHeaderLine = () => {
   const [visible, setVisible] = useState(false);
@@ -72,7 +63,7 @@ const AnimatedHeaderLine = () => {
     window.addEventListener('header-animation-trigger', handleReset);
     return () => {
       window.removeEventListener('header-animation-trigger', handleReset);
-      timeoutRef.current && clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -106,102 +97,154 @@ const AppContent = () => {
         </header>
       )}
 
-      <main className={!isHomePage && location.pathname !== '/contact' && !isPdfEditor
-        ? 'container mx-auto px-4 py-6' 
-        : 'flex flex-col min-h-0'}>
+      <main
+        className={
+          !isHomePage && location.pathname !== '/contact' && !isPdfEditor
+            ? 'container mx-auto px-4 py-6'
+            : 'flex flex-col min-h-0'
+        }
+      >
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/tools" element={<Tools />} />
-          <Route path="/tools/video-to-gif" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Video to GIF converter..." />}>
-              <VideoToGif />
-            </Suspense>
-          } />
-          <Route path="/tools/gif-compressor" element={
-            <Suspense fallback={<LoadingSpinner text="Loading GIF compressor..." />}>
-              <GifCompressor />
-            </Suspense>
-          } />
-          <Route path="/tools/image-compressor" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Image compressor..." />}>
-              <ImageCompressor />
-            </Suspense>
-          } />
-          <Route path="/tools/image-resizer" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Image resizer..." />}>
-              <ImageResizer />
-            </Suspense>
-          } />
+          <Route
+            path="/tools/video-to-gif"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Video to GIF converter..." />}>
+                <VideoToGif />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/gif-compressor"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading GIF compressor..." />}>
+                <GifCompressor />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/image-compressor"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Image compressor..." />}>
+                <ImageCompressor />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/image-resizer"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Image resizer..." />}>
+                <ImageResizer />
+              </Suspense>
+            }
+          />
 
-
-          <Route path="/tools/video-converter" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Video converter..." />}>
-              <VideoConverter />
-            </Suspense>
-          } />
-          <Route path="/tools/image-converter" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Image converter..." />}>
-              <ImageConverter />
-            </Suspense>
-          } />
-          <Route path="/tools/convert-case" element={
-            <Suspense fallback={<LoadingSpinner text="Loading Convert Case Tool..." />}>
-              <ConvertCaseTool />
-            </Suspense>
-          } />
-          <Route path="/tools/xml-editor" element={
-            <Suspense fallback={<LoadingSpinner text="Loading XML Editor..." />}>
-              <XmlEditor />
-            </Suspense>
-          } />
-          <Route path="/tools/pdf-editor" element={
-            <Suspense fallback={<LoadingSpinner text="Loading PDF Editor..." />}>
-              <PdfEditor />
-            </Suspense>
-          } />
-          <Route path="/about" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <About />
-            </Suspense>
-          } />
-          <Route path="/contact" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Contact />
-            </Suspense>
-          } />
-          <Route path="/features" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Features />
-            </Suspense>
-          } />
-          <Route path="/privacy-policy" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <PrivacyPolicy />
-            </Suspense>
-          } />
-          <Route path="/terms-of-service" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <TermsOfService />
-            </Suspense>
-          } />
-          <Route path="/impressum" element={
-            <Suspense fallback={<LoadingSpinner />}>
-              <Impressum />
-            </Suspense>
-          } />
+          <Route
+            path="/tools/video-converter"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Video converter..." />}>
+                <VideoConverter />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/image-converter"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Image converter..." />}>
+                <ImageConverter />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/convert-case"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading Convert Case Tool..." />}>
+                <ConvertCaseTool />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/xml-editor"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading XML Editor..." />}>
+                <XmlEditor />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/tools/pdf-editor"
+            element={
+              <Suspense fallback={<LoadingSpinner text="Loading PDF Editor..." />}>
+                <PdfEditor />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <About />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Contact />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/features"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Features />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/privacy-policy"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <PrivacyPolicy />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/terms-of-service"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <TermsOfService />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/impressum"
+            element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <Impressum />
+              </Suspense>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
 
-      {!isHomePage && location.pathname !== '/tools' && !location.pathname.startsWith('/tools/') && (
-        <footer className={`border-t border-dashed border-green-400 py-4 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}>
-          <div className="container mx-auto px-4 text-sm text-center">
-            <p>© {CURRENT_YEAR} sLixTOOLS. All rights reserved.</p>
-            <FooterLinks className="mt-2" />
-          </div>
-        </footer>
-      )}
+      {!isHomePage &&
+        location.pathname !== '/tools' &&
+        !location.pathname.startsWith('/tools/') && (
+          <footer
+            className={`border-t border-dashed border-green-400 py-4 ${location.pathname === '/contact' ? 'mt-0' : 'mt-8'}`}
+          >
+            <div className="container mx-auto px-4 text-sm text-center">
+              <p>© {CURRENT_YEAR} sLixTOOLS. All rights reserved.</p>
+              <FooterLinks className="mt-2" />
+            </div>
+          </footer>
+        )}
     </ErrorBoundary>
   );
 };
@@ -209,21 +252,19 @@ const AppContent = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <HelmetProvider>
-          <HashRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true
-            }}
-          >
-            <AppBackground />
-            <AppWrapper />
-          </HashRouter>
+      <HelmetProvider>
+        <HashRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <AppBackground />
+          <AppWrapper />
+        </HashRouter>
 
-          <Sonner className="toaster" position="bottom-right" />
-        </HelmetProvider>
-      </QueryClientProvider>
+        <Sonner className="toaster" position="bottom-right" />
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };

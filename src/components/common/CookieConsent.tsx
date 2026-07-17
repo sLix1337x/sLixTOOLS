@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-
 const CookieConsent = () => {
   const [show, setShow] = useState(false);
-
 
   useEffect(() => {
     try {
@@ -15,6 +13,7 @@ const CookieConsent = () => {
     } catch {
       // localStorage not available
     }
+    return undefined;
   }, []);
 
   const acceptAll = () => {
@@ -46,7 +45,8 @@ const CookieConsent = () => {
               We use cookies to enhance your experience.{' '}
               <Link to="/privacy-policy" className="text-blue-400 hover:text-blue-300">
                 Privacy Policy
-              </Link>.
+              </Link>
+              .
             </p>
           </div>
           <div className="flex gap-3">

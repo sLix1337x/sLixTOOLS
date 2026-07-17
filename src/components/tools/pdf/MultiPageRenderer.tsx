@@ -45,8 +45,6 @@ const MultiPageRenderer = ({
   pdfDoc,
   canvasRef,
   overlayRef,
-  clickCoord,
-  annotationText,
   onCanvasClick,
   onPageClick,
   textBoxes,
@@ -64,17 +62,25 @@ const MultiPageRenderer = ({
   drawingWidth,
   textClickState,
   editingTextBoxId,
-  onTextBoxEdit
+  onTextBoxEdit,
 }: MultiPageRendererProps) => {
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
   const [loadingPages, setLoadingPages] = useState<Set<number>>(new Set());
   const renderCancellations = useRef<Map<number, AbortController>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageNum: number } | null>(null);
-  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageNum: number } | null>(
+    null
+  );
+  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+
   // Update overlay size when canvas size changes to ensure it covers the full canvas
   useEffect(() => {
     if (canvasRef.current && overlayRef.current && viewMode === 'single') {
@@ -88,127 +94,140 @@ const MultiPageRenderer = ({
           overlayRef.current.style.left = '0px';
         }
       };
-      
+
       // Update immediately
       updateOverlaySize();
-      
+
       // Also update when canvas size state changes
       const timeoutId = setTimeout(updateOverlaySize, 100);
-      
+
       return () => {
         clearTimeout(timeoutId);
       };
     }
+    return undefined;
   }, [canvasSize, zoom, viewMode]);
 
   // Get pages to render based on view mode
   const getPagesToRender = (): number[] => {
     if (!pdfDoc) return [];
-    
+
     switch (viewMode) {
       case 'single':
         return [previewPage];
-      case 'continuous':
+      case 'continuous': {
         // Virtual scrolling: render visible pages + buffer based on scroll position
         // For now, render pages around current page with buffer
         // TODO: Implement intersection observer for true virtual scrolling
         const start = Math.max(1, previewPage - 3);
         const end = Math.min(previewTotalPages, previewPage + 8);
         return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-      case 'two-up':
+      }
+      case 'two-up': {
         // Render current page and next page
         const current = previewPage;
         const next = Math.min(previewTotalPages, current + 1);
         return current === next ? [current] : [current, next];
-      case 'four-up':
+      }
+      case 'four-up': {
         // Render 4 pages starting from current
         const startPage = Math.max(1, Math.floor((previewPage - 1) / 4) * 4 + 1);
-        return Array.from({ length: Math.min(4, previewTotalPages - startPage + 1) }, (_, i) => startPage + i);
+        return Array.from(
+          { length: Math.min(4, previewTotalPages - startPage + 1) },
+          (_, i) => startPage + i
+        );
+      }
       default:
         return [previewPage];
     }
   };
 
   // Render a single page to a canvas element with cancellation support
-  const renderPage = useCallback(async (pageNum: number, targetCanvas: HTMLCanvasElement) => {
-    if (!pdfDoc) return;
+  const renderPage = useCallback(
+    async (pageNum: number, targetCanvas: HTMLCanvasElement) => {
+      if (!pdfDoc) return;
 
-    // Cancel any existing render for this page
-    const existingCancel = renderCancellations.current.get(pageNum);
-    if (existingCancel) {
-      existingCancel.abort();
-    }
-
-    const abortController = new AbortController();
-    renderCancellations.current.set(pageNum, abortController);
-    setLoadingPages((prev) => new Set(prev).add(pageNum));
-
-    try {
-      const page = await pdfDoc.getPage(pageNum);
-      if (abortController.signal.aborted) return;
-
-      const viewport = page.getViewport({ scale: zoom });
-      
-      // Store page size for annotations
-      const baseViewport = page.getViewport({ scale: 1 });
-      if (pageNum === previewPage) {
-        setPageSize({ width: baseViewport.width, height: baseViewport.height });
+      // Cancel any existing render for this page
+      const existingCancel = renderCancellations.current.get(pageNum);
+      if (existingCancel) {
+        existingCancel.abort();
       }
-      
-      const ctx = targetCanvas.getContext('2d');
-      if (!ctx || abortController.signal.aborted) return;
 
-      targetCanvas.width = viewport.width;
-      targetCanvas.height = viewport.height;
+      const abortController = new AbortController();
+      renderCancellations.current.set(pageNum, abortController);
+      setLoadingPages((prev) => new Set(prev).add(pageNum));
 
-      const renderContext = { canvasContext: ctx, viewport, canvas: targetCanvas };
-      await page.render(renderContext).promise;
-      
-      if (abortController.signal.aborted) return;
-      
-      // Update canvas size for overlay positioning
-      if (pageNum === previewPage && canvasRef.current) {
-        setCanvasSize({ width: canvasRef.current.width, height: canvasRef.current.height });
-      }
-      
-      setRenderedPages((prev) => new Set(prev).add(pageNum));
-      setLoadingPages((prev) => {
-        const next = new Set(prev);
-        next.delete(pageNum);
-        return next;
-      });
-      renderCancellations.current.delete(pageNum);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return; // Render was cancelled, ignore
-      }
-      console.error(`Failed to render page ${pageNum}:`, error);
-      setLoadingPages((prev) => {
-        const next = new Set(prev);
-        next.delete(pageNum);
-        return next;
-      });
-      renderCancellations.current.delete(pageNum);
-    }
-  }, [pdfDoc, zoom, previewPage]);
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        if (abortController.signal.aborted) return;
 
-  // Set canvas ref callback
-  const setCanvasRef = useCallback((pageNum: number) => (el: HTMLCanvasElement | null) => {
-    if (el) {
-      canvasRefs.current.set(pageNum, el);
-      if (!renderedPages.has(pageNum) && !loadingPages.has(pageNum) && pdfDoc) {
-        renderPage(pageNum, el);
-      }
-    } else {
-      // Cancel rendering if element is removed
-      const cancel = renderCancellations.current.get(pageNum);
-      if (cancel) {
-        cancel.abort();
+        const viewport = page.getViewport({ scale: zoom });
+
+        // Store page size for annotations
+        const baseViewport = page.getViewport({ scale: 1 });
+        if (pageNum === previewPage) {
+          setPageSize({ width: baseViewport.width, height: baseViewport.height });
+        }
+
+        const ctx = targetCanvas.getContext('2d');
+        if (!ctx || abortController.signal.aborted) return;
+
+        targetCanvas.width = viewport.width;
+        targetCanvas.height = viewport.height;
+
+        const renderContext = { canvasContext: ctx, viewport, canvas: targetCanvas };
+        await page.render(renderContext).promise;
+
+        if (abortController.signal.aborted) return;
+
+        // Update canvas size for overlay positioning
+        if (pageNum === previewPage && canvasRef.current) {
+          setCanvasSize({ width: canvasRef.current.width, height: canvasRef.current.height });
+        }
+
+        setRenderedPages((prev) => new Set(prev).add(pageNum));
+        setLoadingPages((prev) => {
+          const next = new Set(prev);
+          next.delete(pageNum);
+          return next;
+        });
+        renderCancellations.current.delete(pageNum);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return; // Render was cancelled, ignore
+        }
+        console.error(`Failed to render page ${pageNum}:`, error);
+        setLoadingPages((prev) => {
+          const next = new Set(prev);
+          next.delete(pageNum);
+          return next;
+        });
         renderCancellations.current.delete(pageNum);
       }
-      canvasRefs.current.delete(pageNum);
-    }
-  }, [renderedPages, loadingPages, pdfDoc, renderPage]);
+    },
+    [pdfDoc, zoom, previewPage]
+  );
+
+  // Set canvas ref callback
+  const setCanvasRef = useCallback(
+    (pageNum: number) => (el: HTMLCanvasElement | null) => {
+      if (el) {
+        canvasRefs.current.set(pageNum, el);
+        if (!renderedPages.has(pageNum) && !loadingPages.has(pageNum) && pdfDoc) {
+          renderPage(pageNum, el);
+        }
+      } else {
+        // Cancel rendering if element is removed
+        const cancel = renderCancellations.current.get(pageNum);
+        if (cancel) {
+          cancel.abort();
+          renderCancellations.current.delete(pageNum);
+        }
+        canvasRefs.current.delete(pageNum);
+      }
+    },
+    [renderedPages, loadingPages, pdfDoc, renderPage]
+  );
 
   // Clear rendered pages when zoom changes
   useEffect(() => {
@@ -229,9 +248,9 @@ const MultiPageRenderer = ({
 
   if (viewMode === 'single') {
     // Get current page text boxes and drawings
-    const currentPageTextBoxes = textBoxes.filter(tb => tb.page === previewPage);
-    const currentPageDrawings = drawings.filter(d => d.page === previewPage);
-    
+    const currentPageTextBoxes = textBoxes.filter((tb) => tb.page === previewPage);
+    const currentPageDrawings = drawings.filter((d) => d.page === previewPage);
+
     // Get page size from canvasSize if available, otherwise use stored pageSize
     // canvasSize is set when the page renders (line 139)
     const effectivePageSize = (() => {
@@ -239,60 +258,103 @@ const MultiPageRenderer = ({
         // Calculate base page size from canvas dimensions and zoom
         return {
           width: canvasSize.width / zoom,
-          height: canvasSize.height / zoom
+          height: canvasSize.height / zoom,
         };
       }
       // Fallback: try to get from canvas ref directly
       if (canvasRef.current && canvasRef.current.width > 0 && canvasRef.current.height > 0) {
         return {
           width: canvasRef.current.width / zoom,
-          height: canvasRef.current.height / zoom
+          height: canvasRef.current.height / zoom,
         };
       }
       return pageSize;
     })();
-    
+
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="relative" style={{ display: 'inline-block' }}>
           <canvas ref={canvasRef} className="block shadow-lg" />
-          
+
           {/* Drawing Canvas Overlay - Must be positioned exactly over the PDF canvas */}
-          {activeTool && (activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow') && effectivePageSize.width > 0 && effectivePageSize.height > 0 && (
-            <PdfDrawingCanvas
-              drawings={currentPageDrawings}
-              currentPage={previewPage}
-              activeTool={activeTool}
-              onDrawingComplete={onDrawingComplete}
-              onDrawingUpdate={onDrawingUpdate}
-              onDrawingDelete={onDrawingDelete}
-              pageSize={effectivePageSize}
-              viewportScale={zoom}
-              strokeColor={drawingColor}
-              strokeWidth={drawingWidth}
-            />
-          )}
-          
+          {activeTool &&
+            (activeTool === 'draw' ||
+              activeTool === 'rectangle' ||
+              activeTool === 'circle' ||
+              activeTool === 'line' ||
+              activeTool === 'arrow') &&
+            effectivePageSize.width > 0 &&
+            effectivePageSize.height > 0 && (
+              <PdfDrawingCanvas
+                drawings={currentPageDrawings}
+                currentPage={previewPage}
+                activeTool={activeTool}
+                onDrawingComplete={onDrawingComplete}
+                onDrawingUpdate={onDrawingUpdate}
+                onDrawingDelete={onDrawingDelete}
+                pageSize={effectivePageSize}
+                viewportScale={zoom}
+                strokeColor={drawingColor}
+                strokeWidth={drawingWidth}
+              />
+            )}
+
           {/* Text Boxes Overlay */}
           <div
             ref={overlayRef}
             className={cn(
-              "absolute top-0 left-0",
-              activeTool === 'text' ? "cursor-text" : activeTool === 'select' ? "cursor-default" : activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow' ? "cursor-crosshair" : "cursor-default",
+              'absolute top-0 left-0',
+              activeTool === 'text'
+                ? 'cursor-text'
+                : activeTool === 'select'
+                  ? 'cursor-default'
+                  : activeTool === 'draw' ||
+                      activeTool === 'rectangle' ||
+                      activeTool === 'circle' ||
+                      activeTool === 'line' ||
+                      activeTool === 'arrow'
+                    ? 'cursor-crosshair'
+                    : 'cursor-default',
               // Disable pointer events when drawing tools are active so drawing canvas can receive events
-              (activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow') && "pointer-events-none"
+              (activeTool === 'draw' ||
+                activeTool === 'rectangle' ||
+                activeTool === 'circle' ||
+                activeTool === 'line' ||
+                activeTool === 'arrow') &&
+                'pointer-events-none'
             )}
             style={{
-              width: canvasRef.current?.width ? `${canvasRef.current.width}px` : (canvasSize.width > 0 ? `${canvasSize.width}px` : '100%'),
-              height: canvasRef.current?.height ? `${canvasRef.current.height}px` : (canvasSize.height > 0 ? `${canvasSize.height}px` : '100%'),
-              pointerEvents: (activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow') ? 'none' : 'auto',
+              width: canvasRef.current?.width
+                ? `${canvasRef.current.width}px`
+                : canvasSize.width > 0
+                  ? `${canvasSize.width}px`
+                  : '100%',
+              height: canvasRef.current?.height
+                ? `${canvasRef.current.height}px`
+                : canvasSize.height > 0
+                  ? `${canvasSize.height}px`
+                  : '100%',
+              pointerEvents:
+                activeTool === 'draw' ||
+                activeTool === 'rectangle' ||
+                activeTool === 'circle' ||
+                activeTool === 'line' ||
+                activeTool === 'arrow'
+                  ? 'none'
+                  : 'auto',
             }}
             onMouseDown={(e) => {
               // Don't handle clicks when drawing tools are active - let drawing canvas handle them
-              if (activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow') {
+              if (
+                activeTool === 'draw' ||
+                activeTool === 'rectangle' ||
+                activeTool === 'circle' ||
+                activeTool === 'line' ||
+                activeTool === 'arrow'
+              ) {
                 return;
               }
-              
+
               // For text tool, pass event to onCanvasClick which is handleTextToolClick
               // But only if we're not clicking on an existing text box
               if (activeTool === 'text') {
@@ -322,10 +384,16 @@ const MultiPageRenderer = ({
             }}
             onClick={(e) => {
               // Also handle click events for compatibility
-              if (activeTool === 'draw' || activeTool === 'rectangle' || activeTool === 'circle' || activeTool === 'line' || activeTool === 'arrow') {
+              if (
+                activeTool === 'draw' ||
+                activeTool === 'rectangle' ||
+                activeTool === 'circle' ||
+                activeTool === 'line' ||
+                activeTool === 'arrow'
+              ) {
                 return;
               }
-              
+
               if (activeTool === 'text') {
                 e.stopPropagation();
                 onCanvasClick(e);
@@ -354,7 +422,7 @@ const MultiPageRenderer = ({
                 onEdit={onTextBoxEdit}
               />
             ))}
-            
+
             {/* Double-click preview indicator */}
             {textClickState?.pending && activeTool === 'text' && (
               <div
@@ -392,14 +460,20 @@ const MultiPageRenderer = ({
           const isLoading = loadingPages.has(pageNum);
           if (!isRendered && !isLoading) {
             return (
-              <div key={pageNum} className="w-full max-w-4xl bg-[#2d2d30] rounded p-8 text-center text-[#858585]">
+              <div
+                key={pageNum}
+                className="w-full max-w-4xl bg-[#2d2d30] rounded p-8 text-center text-[#858585]"
+              >
                 Loading page {pageNum}...
               </div>
             );
           }
           if (isLoading) {
             return (
-              <div key={pageNum} className="w-full max-w-4xl bg-[#2d2d30] rounded p-8 text-center text-[#858585]">
+              <div
+                key={pageNum}
+                className="w-full max-w-4xl bg-[#2d2d30] rounded p-8 text-center text-[#858585]"
+              >
                 Rendering page {pageNum}...
               </div>
             );
@@ -408,8 +482,8 @@ const MultiPageRenderer = ({
             <div
               key={pageNum}
               className={cn(
-                "relative cursor-pointer transition-all",
-                pageNum === previewPage && "ring-2 ring-[#007acc]"
+                'relative cursor-pointer transition-all',
+                pageNum === previewPage && 'ring-2 ring-[#007acc]'
               )}
               onClick={() => onPageClick(pageNum)}
               onContextMenu={(e) => {
@@ -417,10 +491,7 @@ const MultiPageRenderer = ({
                 setContextMenu({ x: e.clientX, y: e.clientY, pageNum });
               }}
             >
-              <canvas
-                ref={setCanvasRef(pageNum)}
-                className="block shadow-lg"
-              />
+              <canvas ref={setCanvasRef(pageNum)} className="block shadow-lg" />
               <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
                 Page {pageNum}
               </div>
@@ -448,14 +519,20 @@ const MultiPageRenderer = ({
           const isLoading = loadingPages.has(pageNum);
           if (!isRendered && !isLoading) {
             return (
-              <div key={pageNum} className="w-[48%] bg-[#2d2d30] rounded p-8 text-center text-[#858585]">
+              <div
+                key={pageNum}
+                className="w-[48%] bg-[#2d2d30] rounded p-8 text-center text-[#858585]"
+              >
                 Loading page {pageNum}...
               </div>
             );
           }
           if (isLoading) {
             return (
-              <div key={pageNum} className="w-[48%] bg-[#2d2d30] rounded p-8 text-center text-[#858585]">
+              <div
+                key={pageNum}
+                className="w-[48%] bg-[#2d2d30] rounded p-8 text-center text-[#858585]"
+              >
                 Rendering page {pageNum}...
               </div>
             );
@@ -464,8 +541,8 @@ const MultiPageRenderer = ({
             <div
               key={pageNum}
               className={cn(
-                "relative cursor-pointer transition-all",
-                pageNum === previewPage && "ring-2 ring-[#007acc]"
+                'relative cursor-pointer transition-all',
+                pageNum === previewPage && 'ring-2 ring-[#007acc]'
               )}
               onClick={() => onPageClick(pageNum)}
               onContextMenu={(e) => {
@@ -473,10 +550,7 @@ const MultiPageRenderer = ({
                 setContextMenu({ x: e.clientX, y: e.clientY, pageNum });
               }}
             >
-              <canvas
-                ref={setCanvasRef(pageNum)}
-                className="block shadow-lg max-w-full"
-              />
+              <canvas ref={setCanvasRef(pageNum)} className="block shadow-lg max-w-full" />
               <div className="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs">
                 Page {pageNum}
               </div>
@@ -504,14 +578,20 @@ const MultiPageRenderer = ({
           const isLoading = loadingPages.has(pageNum);
           if (!isRendered && !isLoading) {
             return (
-              <div key={pageNum} className="w-[48%] bg-[#2d2d30] rounded p-4 text-center text-[#858585] text-xs">
+              <div
+                key={pageNum}
+                className="w-[48%] bg-[#2d2d30] rounded p-4 text-center text-[#858585] text-xs"
+              >
                 Loading {pageNum}...
               </div>
             );
           }
           if (isLoading) {
             return (
-              <div key={pageNum} className="w-[48%] bg-[#2d2d30] rounded p-4 text-center text-[#858585] text-xs">
+              <div
+                key={pageNum}
+                className="w-[48%] bg-[#2d2d30] rounded p-4 text-center text-[#858585] text-xs"
+              >
                 Rendering {pageNum}...
               </div>
             );
@@ -520,8 +600,8 @@ const MultiPageRenderer = ({
             <div
               key={pageNum}
               className={cn(
-                "relative cursor-pointer transition-all w-[48%]",
-                pageNum === previewPage && "ring-2 ring-[#007acc]"
+                'relative cursor-pointer transition-all w-[48%]',
+                pageNum === previewPage && 'ring-2 ring-[#007acc]'
               )}
               onClick={() => onPageClick(pageNum)}
               onContextMenu={(e) => {
@@ -529,10 +609,7 @@ const MultiPageRenderer = ({
                 setContextMenu({ x: e.clientX, y: e.clientY, pageNum });
               }}
             >
-              <canvas
-                ref={setCanvasRef(pageNum)}
-                className="block shadow-lg w-full h-auto"
-              />
+              <canvas ref={setCanvasRef(pageNum)} className="block shadow-lg w-full h-auto" />
               <div className="absolute bottom-1 left-1 bg-black/60 text-white px-1.5 py-0.5 rounded text-[10px]">
                 {pageNum}
               </div>
@@ -556,4 +633,3 @@ const MultiPageRenderer = ({
 };
 
 export default MultiPageRenderer;
-

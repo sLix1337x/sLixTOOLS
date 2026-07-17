@@ -6,7 +6,9 @@ import PdfActionPanel from '@/components/tools/pdf/PdfActionPanel';
 import PdfMenuBar from '@/components/tools/pdf/PdfMenuBar';
 import PdfRibbon, { type RibbonTab } from '@/components/tools/pdf/PdfRibbon';
 import PdfSidebar from '@/components/tools/pdf/PdfSidebar';
-import PdfDocumentView, { type ViewMode as DocumentViewMode } from '@/components/tools/pdf/PdfDocumentView';
+import PdfDocumentView, {
+  type ViewMode as DocumentViewMode,
+} from '@/components/tools/pdf/PdfDocumentView';
 import PdfStatusBar from '@/components/tools/pdf/PdfStatusBar';
 import PdfProgressIndicator from '@/components/tools/pdf/PdfProgressIndicator';
 import PdfConfirmDialog from '@/components/tools/pdf/PdfConfirmDialog';
@@ -30,19 +32,12 @@ if (isGitHubPages) {
 
 // Set worker source immediately
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-console.log('PDF.js worker configured:', workerPath);
+if (import.meta.env.DEV) console.log('PDF.js worker configured:', workerPath);
 
 // Dynamically import pdf-lib when needed to keep initial bundle small
 const loadPdfLib = async () => {
   const pdfLib = await import('pdf-lib');
   return pdfLib;
-};
-
-// Helper to create Rotation object for pdf-lib
-// pdf-lib's Rotation type requires 'type' and 'angle' properties
-// Use type assertion since RotationTypes enum may not be easily accessible
-const createRotation = (degrees: number): any => {
-  return { type: 'degrees', angle: degrees };
 };
 
 // Utility function to convert preview coordinates to PDF coordinates
@@ -92,21 +87,21 @@ const PdfEditor = () => {
 
   // Modal state for compact toolbar
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  
+
   // Enhanced tool state
   const [activeTool, setActiveTool] = useState<ToolType>('select');
-  const [viewMode, setViewMode] = useState<ViewMode>('single');
+  const [, setViewMode] = useState<ViewMode>('single');
   const [documentViewMode, setDocumentViewMode] = useState<DocumentViewMode>('single');
   const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
-  const [pageRotations, setPageRotations] = useState<Map<number, PageRotation>>(new Map());
-  const [searchText, setSearchText] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<Array<{ page: number; index: number }>>([]);
-  
+  const [, setPageRotations] = useState<Map<number, PageRotation>>(new Map());
+  const [, setSearchText] = useState<string>('');
+  const [, setSearchResults] = useState<Array<{ page: number; index: number }>>([]);
+
   // Text tool options
   const [textFontSize, setTextFontSize] = useState<number>(12);
   const [textColor, setTextColor] = useState<string>('#ffffff');
-  
+
   // Double-click detection for text tool
   const [textClickState, setTextClickState] = useState<{
     pending: boolean;
@@ -118,20 +113,22 @@ const PdfEditor = () => {
   // New UI state
   const [ribbonTab, setRibbonTab] = useState<RibbonTab>('file');
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(true);
-  const [sidebarTab, setSidebarTab] = useState<'thumbnails' | 'search' | 'properties'>('thumbnails');
+  const [sidebarTab, setSidebarTab] = useState<'thumbnails' | 'search' | 'properties'>(
+    'thumbnails'
+  );
   const [sidebarWidth, setSidebarWidth] = useState<number>(250);
-  
+
   // Undo/Redo system
   const [history, setHistory] = useState<ArrayBuffer[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [canUndo, setCanUndo] = useState<boolean>(false);
   const [canRedo, setCanRedo] = useState<boolean>(false);
-  
+
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState<boolean>(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  
+
   // Progress tracking
   const [progressMessage, setProgressMessage] = useState<string>('');
   const [progressValue, setProgressValue] = useState<number | undefined>(undefined);
@@ -153,7 +150,10 @@ const PdfEditor = () => {
   const [zoom, setZoom] = useState<number>(1);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
-  const [baseViewportDims, setBaseViewportDims] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [baseViewportDims, setBaseViewportDims] = useState<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
   const [usePrecisePlacement, setUsePrecisePlacement] = useState<boolean>(true);
   const [clickCoord, setClickCoord] = useState<{ x: number; y: number } | null>(null);
 
@@ -213,7 +213,7 @@ const PdfEditor = () => {
     setIsConverting(false);
     setIsReordering(false);
   }, [hasUnsavedChanges, pdfjsDoc]);
-  
+
   const handleConfirmClose = useCallback(() => {
     setShowCloseConfirm(false);
     setUploadedFile(null);
@@ -281,10 +281,9 @@ const PdfEditor = () => {
         newWorkerPath = `${basePath}workers/pdf.worker.min.mjs`.replace(/\/\//g, '/');
       }
       pdfjsLib.GlobalWorkerOptions.workerSrc = newWorkerPath;
-      console.log('PDF.js worker reconfigured on mount:', newWorkerPath);
+      if (import.meta.env.DEV) console.log('PDF.js worker reconfigured on mount:', newWorkerPath);
     }
   }, []);
-
 
   // Cleanup on component unmount
   useEffect(() => {
@@ -295,64 +294,67 @@ const PdfEditor = () => {
     };
   }, [pdfjsDoc]);
 
-  const onUpload = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const onUpload = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
 
-    const file = files[0];
-    if (file.type !== 'application/pdf') {
-      toast.error('Please upload a PDF file');
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      const ab = await file.arrayBuffer();
-      const loaded = { file, name: file.name, arrayBuffer: ab };
-      setUploadedFile(loaded);
-
-      // Load with PDF.js for preview
-      const loadingTask = pdfjsLib.getDocument({ data: ab });
-      const doc = await loadingTask.promise;
-
-      // Dispose of previous document if exists
-      if (pdfjsDoc) {
-        pdfjsDoc.destroy();
+      const file = files[0];
+      if (file.type !== 'application/pdf') {
+        toast.error('Please upload a PDF file');
+        return;
       }
 
-      setPdfjsDoc(doc);
-      setPreviewTotalPages(doc.numPages);
-      setPreviewPage(1);
-      setClickCoord(null);
-      // Initialize page order for reordering
-      setPageOrder(Array.from({ length: doc.numPages }, (_, i) => i + 1));
-      // Reset enhanced features
-      setTextBoxes([]);
-      setDrawings([]);
-      setPageRotations(new Map());
-      setSearchText('');
-      setSearchResults([]);
-      toast.success('PDF loaded for preview');
-    } catch (error) {
-      console.error('PDF upload error:', error);
-      toast.error('Failed to load PDF preview. Please check if the file is valid.');
+      setIsUploading(true);
 
-      // Reset state on error
-      setUploadedFile(null);
-      if (pdfjsDoc) {
-        pdfjsDoc.destroy();
+      try {
+        const ab = await file.arrayBuffer();
+        const loaded = { file, name: file.name, arrayBuffer: ab };
+        setUploadedFile(loaded);
+
+        // Load with PDF.js for preview
+        const loadingTask = pdfjsLib.getDocument({ data: ab });
+        const doc = await loadingTask.promise;
+
+        // Dispose of previous document if exists
+        if (pdfjsDoc) {
+          pdfjsDoc.destroy();
+        }
+
+        setPdfjsDoc(doc);
+        setPreviewTotalPages(doc.numPages);
+        setPreviewPage(1);
+        setClickCoord(null);
+        // Initialize page order for reordering
+        setPageOrder(Array.from({ length: doc.numPages }, (_, i) => i + 1));
+        // Reset enhanced features
+        setTextBoxes([]);
+        setDrawings([]);
+        setPageRotations(new Map());
+        setSearchText('');
+        setSearchResults([]);
+        toast.success('PDF loaded for preview');
+      } catch (error) {
+        console.error('PDF upload error:', error);
+        toast.error('Failed to load PDF preview. Please check if the file is valid.');
+
+        // Reset state on error
+        setUploadedFile(null);
+        if (pdfjsDoc) {
+          pdfjsDoc.destroy();
+        }
+        setPdfjsDoc(null);
+        setPreviewTotalPages(0);
+        setPreviewPage(1);
+        setHistory([]);
+        setHistoryIndex(-1);
+        setCanUndo(false);
+        setCanRedo(false);
+      } finally {
+        setIsUploading(false);
       }
-      setPdfjsDoc(null);
-      setPreviewTotalPages(0);
-      setPreviewPage(1);
-      setHistory([]);
-      setHistoryIndex(-1);
-      setCanUndo(false);
-      setCanRedo(false);
-    } finally {
-      setIsUploading(false);
-    }
-  }, [pdfjsDoc]);
+    },
+    [pdfjsDoc]
+  );
 
   // Using downloadBlob from @/utils/download
 
@@ -361,7 +363,10 @@ const PdfEditor = () => {
   const parseRanges = useCallback((input: string, maxPages: number): number[] => {
     // e.g., "1-3,5,7-8" -> [1,2,3,5,7,8]
     const pages = new Set<number>();
-    const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
+    const parts = input
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const part of parts) {
       if (part.includes('-')) {
         const [startStr, endStr] = part.split('-');
@@ -394,7 +399,7 @@ const PdfEditor = () => {
         }
         return newHistory;
       });
-      
+
       const newIndex = Math.min(prevIndex + 1, 49);
       setCanUndo(newIndex > 0);
       setCanRedo(false);
@@ -420,7 +425,9 @@ const PdfEditor = () => {
       const { PDFDocument } = await loadPdfLib();
       const srcDoc = await PDFDocument.load(uploadedFile.arrayBuffer);
       const maxPages = srcDoc.getPageCount();
-      const selectedPages = splitRange ? parseRanges(splitRange, maxPages) : srcDoc.getPageIndices().map((i) => i + 1);
+      const selectedPages = splitRange
+        ? parseRanges(splitRange, maxPages)
+        : srcDoc.getPageIndices().map((i) => i + 1);
       if (selectedPages.length === 0) {
         toast.error('No valid pages selected');
         return;
@@ -436,7 +443,10 @@ const PdfEditor = () => {
       setProgressValue(80);
       const bytes = await outDoc.save();
       setProgressValue(100);
-      downloadBlob(new Blob([bytes as BlobPart], { type: 'application/pdf' }), `split_${selectedPages.join('-')}.pdf`);
+      downloadBlob(
+        new Blob([bytes as BlobPart], { type: 'application/pdf' }),
+        `split_${selectedPages.join('-')}.pdf`
+      );
       toast.success('Split PDF generated successfully');
     } catch (err) {
       console.error('Split PDF error:', err);
@@ -489,22 +499,22 @@ const PdfEditor = () => {
       const bytes = await doc.save();
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       const arrayBuffer = await blob.arrayBuffer();
-      
+
       // Update uploaded file
       const newFile = { ...uploadedFile, arrayBuffer };
       setUploadedFile(newFile);
       saveToHistory(arrayBuffer);
       setHasUnsavedChanges(true);
-      
+
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
       setPdfjsDoc(newDoc);
-      
+
       toast.success('Annotation added');
     } catch (err) {
       console.error('Annotation error:', err);
@@ -512,7 +522,17 @@ const PdfEditor = () => {
     } finally {
       setIsAnnotating(false);
     }
-  }, [uploadedFile, annotationText, annotationPage, annotationX, annotationY, clickCoord, baseViewportDims, pdfjsDoc, saveToHistory]);
+  }, [
+    uploadedFile,
+    annotationText,
+    annotationPage,
+    annotationX,
+    annotationY,
+    clickCoord,
+    baseViewportDims,
+    pdfjsDoc,
+    saveToHistory,
+  ]);
 
   // New function for multiple file upload (for merging)
   const onMultipleUpload = useCallback(async (files: FileList | null) => {
@@ -563,7 +583,7 @@ const PdfEditor = () => {
         const progress = Math.round((i / uploadedFiles.length) * 80);
         setProgressValue(progress);
         setProgressMessage(`Merging PDF ${i + 1} of ${uploadedFiles.length}...`);
-        
+
         const doc = await PDFDocument.load(pdfFile.arrayBuffer);
         const pageIndices = doc.getPageIndices();
         const pages = await mergedDoc.copyPages(doc, pageIndices);
@@ -590,13 +610,13 @@ const PdfEditor = () => {
   const deletePages = useCallback(async () => {
     if (!uploadedFile) {
       toast.error('Please upload a PDF first', {
-        description: 'Click "Open" in the File menu or drag and drop a PDF file to get started.'
+        description: 'Click "Open" in the File menu or drag and drop a PDF file to get started.',
       });
       return;
     }
     if (!pagesToDelete.trim()) {
       toast.error('Please specify pages to delete', {
-        description: 'Enter page numbers like "1-3,5,7-9" to select which pages to remove.'
+        description: 'Enter page numbers like "1-3,5,7-9" to select which pages to remove.',
       });
       return;
     }
@@ -604,7 +624,7 @@ const PdfEditor = () => {
     // Show confirmation dialog
     setShowDeleteConfirm(true);
   }, [uploadedFile, pagesToDelete]);
-  
+
   const handleConfirmDelete = useCallback(async () => {
     setShowDeleteConfirm(false);
     setIsDeleting(true);
@@ -619,14 +639,14 @@ const PdfEditor = () => {
 
       if (pagesToRemove.length === 0) {
         toast.error('No valid pages specified', {
-          description: `The document has ${maxPages} page${maxPages > 1 ? 's' : ''}. Please enter valid page numbers (e.g., "1-3,5" or "1,2,3").`
+          description: `The document has ${maxPages} page${maxPages > 1 ? 's' : ''}. Please enter valid page numbers (e.g., "1-3,5" or "1,2,3").`,
         });
         return;
       }
 
       if (pagesToRemove.length >= maxPages) {
         toast.error('Cannot delete all pages', {
-          description: `You tried to delete ${pagesToRemove.length} page${pagesToRemove.length > 1 ? 's' : ''}, but the document only has ${maxPages} page${maxPages > 1 ? 's' : ''}. At least one page must remain.`
+          description: `You tried to delete ${pagesToRemove.length} page${pagesToRemove.length > 1 ? 's' : ''}, but the document only has ${maxPages} page${maxPages > 1 ? 's' : ''}. At least one page must remain.`,
         });
         return;
       }
@@ -634,10 +654,10 @@ const PdfEditor = () => {
       setProgressValue(30);
       const outDoc = await PDFDocument.create();
       const allPages = Array.from({ length: maxPages }, (_, i) => i + 1);
-      const pagesToKeep = allPages.filter(page => !pagesToRemove.includes(page));
+      const pagesToKeep = allPages.filter((page) => !pagesToRemove.includes(page));
 
       setProgressValue(60);
-      const pagesToCopy = pagesToKeep.map(p => p - 1);
+      const pagesToCopy = pagesToKeep.map((p) => p - 1);
       const copied = await outDoc.copyPages(srcDoc, pagesToCopy);
       copied.forEach((p) => outDoc.addPage(p));
 
@@ -645,33 +665,34 @@ const PdfEditor = () => {
       const bytes = await outDoc.save();
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       const arrayBuffer = await blob.arrayBuffer();
-      
+
       setProgressValue(90);
       // Update uploaded file
       const newFile = { ...uploadedFile!, arrayBuffer };
       setUploadedFile(newFile);
       saveToHistory(arrayBuffer);
       setHasUnsavedChanges(true);
-      
+
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
       setPdfjsDoc(newDoc);
       setPreviewTotalPages(newDoc.numPages);
       setPreviewPage(Math.min(previewPage, newDoc.numPages));
-      
+
       setProgressValue(100);
       toast.success(`Deleted ${pagesToRemove.length} page${pagesToRemove.length > 1 ? 's' : ''}`, {
-        description: `Removed pages: ${pagesToRemove.join(', ')}. The document now has ${newDoc.numPages} page${newDoc.numPages > 1 ? 's' : ''}.`
+        description: `Removed pages: ${pagesToRemove.join(', ')}. The document now has ${newDoc.numPages} page${newDoc.numPages > 1 ? 's' : ''}.`,
       });
     } catch (err) {
       console.error('Delete pages error:', err);
       toast.error('Failed to delete pages', {
-        description: 'The PDF file may be corrupted or password-protected. Please try a different file.'
+        description:
+          'The PDF file may be corrupted or password-protected. Please try a different file.',
       });
     } finally {
       setIsDeleting(false);
@@ -730,22 +751,22 @@ const PdfEditor = () => {
       const bytes = await doc.save();
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       const arrayBuffer = await blob.arrayBuffer();
-      
+
       // Update uploaded file
       const newFile = { ...uploadedFile, arrayBuffer };
       setUploadedFile(newFile);
       saveToHistory(arrayBuffer);
       setHasUnsavedChanges(true);
-      
+
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
       setPdfjsDoc(newDoc);
-      
+
       toast.success('Text highlighted');
     } catch (err) {
       console.error('Highlight error:', err);
@@ -753,7 +774,18 @@ const PdfEditor = () => {
     } finally {
       setIsHighlighting(false);
     }
-  }, [uploadedFile, highlightText, highlightPage, highlightX, highlightY, highlightColor, clickCoord, baseViewportDims, pdfjsDoc, saveToHistory]);
+  }, [
+    uploadedFile,
+    highlightText,
+    highlightPage,
+    highlightX,
+    highlightY,
+    highlightColor,
+    clickCoord,
+    baseViewportDims,
+    pdfjsDoc,
+    saveToHistory,
+  ]);
 
   // Page reordering function
   const reorderPages = useCallback(async () => {
@@ -774,14 +806,14 @@ const PdfEditor = () => {
       const maxPages = srcDoc.getPageCount();
 
       // Validate page order
-      const validPages = pageOrder.filter(p => p >= 1 && p <= maxPages);
+      const validPages = pageOrder.filter((p) => p >= 1 && p <= maxPages);
       if (validPages.length === 0) {
         toast.error('No valid pages in order');
         return;
       }
 
       const outDoc = await PDFDocument.create();
-      const pagesToCopy = validPages.map(p => p - 1);
+      const pagesToCopy = validPages.map((p) => p - 1);
       const copied = await outDoc.copyPages(srcDoc, pagesToCopy);
       copied.forEach((p) => outDoc.addPage(p));
 
@@ -789,22 +821,22 @@ const PdfEditor = () => {
       downloadBlob(new Blob([bytes as BlobPart], { type: 'application/pdf' }), 'reordered.pdf');
       const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
       const arrayBuffer = await blob.arrayBuffer();
-      
+
       // Update uploaded file
       const newFile = { ...uploadedFile, arrayBuffer };
       setUploadedFile(newFile);
       saveToHistory(arrayBuffer);
       setHasUnsavedChanges(true);
-      
+
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
       setPdfjsDoc(newDoc);
-      
+
       toast.success('Pages reordered successfully');
     } catch (err) {
       console.error('Reorder pages error:', err);
@@ -841,7 +873,7 @@ const PdfEditor = () => {
         jpeg: { mimeType: 'image/jpeg', extension: 'jpg', quality: 0.9 },
         webp: { mimeType: 'image/webp', extension: 'webp', quality: 0.9 },
         bmp: { mimeType: 'image/bmp', extension: 'bmp', quality: undefined },
-        tiff: { mimeType: 'image/tiff', extension: 'tiff', quality: undefined }
+        tiff: { mimeType: 'image/tiff', extension: 'tiff', quality: undefined },
       };
 
       const config = formatConfig[imageFormat as keyof typeof formatConfig] || formatConfig.png;
@@ -936,85 +968,34 @@ const PdfEditor = () => {
   }, [pdfjsDoc, previewPage, zoom]);
 
   // Old annotation system - only works when usePrecisePlacement is enabled
-  const onCanvasClick = useCallback((e: React.MouseEvent) => {
-    // This is only for the old annotation/highlight system with manual coordinates
-    // The new tools (draw, text) have their own handlers
-    if (!usePrecisePlacement || !overlayRef.current || !canvasRef.current) return;
-    
-    const rect = overlayRef.current.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    // Store click coordinates for annotation/highlight tools
-    // These will be converted to PDF coordinates when the annotation is applied
-    setClickCoord({ x: canvasX, y: canvasY });
-    setAnnotationPage(previewPage);
-    setHighlightPage(previewPage);
-    
-    // Also update baseViewportDims for coordinate conversion
-    if (canvasRef.current.width > 0 && canvasRef.current.height > 0) {
-      setBaseViewportDims({
-        width: canvasRef.current.width,
-        height: canvasRef.current.height
-      });
-    }
-    
-    toast.success('Position captured - fill in the form and click Annotate/Highlight');
-  }, [usePrecisePlacement, previewPage]);
+  const onCanvasClick = useCallback(
+    (e: React.MouseEvent) => {
+      // This is only for the old annotation/highlight system with manual coordinates
+      // The new tools (draw, text) have their own handlers
+      if (!usePrecisePlacement || !overlayRef.current || !canvasRef.current) return;
 
-  // Page rotation function
-  const rotatePage = useCallback(async (pageNum: number, rotation: 90 | 180 | 270) => {
-    if (!uploadedFile) {
-      toast.error('Please upload a PDF first');
-      return;
-    }
+      const rect = overlayRef.current.getBoundingClientRect();
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
 
-    try {
-      const { PDFDocument } = await loadPdfLib();
-      const doc = await PDFDocument.load(uploadedFile.arrayBuffer);
-      const pageIndex = pageNum - 1;
-      
-      if (pageIndex < 0 || pageIndex >= doc.getPageCount()) {
-        toast.error('Invalid page number');
-        return;
+      // Store click coordinates for annotation/highlight tools
+      // These will be converted to PDF coordinates when the annotation is applied
+      setClickCoord({ x: canvasX, y: canvasY });
+      setAnnotationPage(previewPage);
+      setHighlightPage(previewPage);
+
+      // Also update baseViewportDims for coordinate conversion
+      if (canvasRef.current.width > 0 && canvasRef.current.height > 0) {
+        setBaseViewportDims({
+          width: canvasRef.current.width,
+          height: canvasRef.current.height,
+        });
       }
 
-      const page = doc.getPage(pageIndex);
-      const currentRotation = page.getRotation().angle;
-      const newRotation = (currentRotation + rotation) % 360;
-      // pdf-lib setRotation expects a Rotation object with angle property
-      const validRotation = (newRotation % 360) as 0 | 90 | 180 | 270;
-      page.setRotation(createRotation(validRotation));
-
-      const bytes = await doc.save();
-      const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
-      
-      // Update uploaded file with rotated version
-      const arrayBuffer = await blob.arrayBuffer();
-      const newFile = { ...uploadedFile, arrayBuffer };
-      setUploadedFile(newFile);
-      saveToHistory(arrayBuffer);
-      
-      // Reload PDF.js document
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const newDoc = await loadingTask.promise;
-      
-      if (pdfjsDoc) {
-        pdfjsDoc.destroy();
-      }
-      setPdfjsDoc(newDoc);
-      
-      // Update rotation map
-      const newRotations = new Map(pageRotations);
-      newRotations.set(pageNum, { pageIndex: pageIndex, rotation: newRotation as 0 | 90 | 180 | 270 });
-      setPageRotations(newRotations);
-      
-      toast.success(`Page ${pageNum} rotated ${rotation}°`);
-    } catch (err) {
-      console.error('Rotate page error:', err);
-      toast.error('Failed to rotate page');
-    }
-  }, [uploadedFile, pdfjsDoc, pageRotations, saveToHistory]);
+      toast.success('Position captured - fill in the form and click Annotate/Highlight');
+    },
+    [usePrecisePlacement, previewPage]
+  );
 
   // Handle page reorder from thumbnails
   const handlePageReorder = useCallback((newOrder: number[]) => {
@@ -1025,12 +1006,12 @@ const PdfEditor = () => {
   // Annotation selection state
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [editingTextBoxId, setEditingTextBoxId] = useState<string | null>(null);
-  
+
   // Handler for text box edit
   const handleTextBoxEdit = useCallback((id: string | null) => {
     setEditingTextBoxId(id);
   }, []);
-  
+
   // Drawing tool state
   const [drawingColor, setDrawingColor] = useState<string>('#ff0000');
   const [drawingWidth, setDrawingWidth] = useState<number>(2);
@@ -1040,13 +1021,16 @@ const PdfEditor = () => {
     setTextBoxes((prev) => prev.map((tb) => (tb.id === id ? { ...tb, ...updates } : tb)));
   }, []);
 
-  const handleTextBoxDelete = useCallback((id: string) => {
-    setTextBoxes((prev) => prev.filter((tb) => tb.id !== id));
-    if (selectedAnnotation === id) {
-      setSelectedAnnotation(null);
-    }
-    toast.success('Text box deleted');
-  }, [selectedAnnotation]);
+  const handleTextBoxDelete = useCallback(
+    (id: string) => {
+      setTextBoxes((prev) => prev.filter((tb) => tb.id !== id));
+      if (selectedAnnotation === id) {
+        setSelectedAnnotation(null);
+      }
+      toast.success('Text box deleted');
+    },
+    [selectedAnnotation]
+  );
 
   const handleTextBoxSave = useCallback(() => {
     // Text box is already updated via handleTextBoxUpdate
@@ -1064,107 +1048,128 @@ const PdfEditor = () => {
     setDrawings((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
   }, []);
 
-  const handleDrawingDelete = useCallback((id: string) => {
-    setDrawings((prev) => prev.filter((d) => d.id !== id));
-    if (selectedAnnotation === id) {
-      setSelectedAnnotation(null);
-    }
-    toast.success('Drawing deleted');
-  }, [selectedAnnotation]);
+  const handleDrawingDelete = useCallback(
+    (id: string) => {
+      setDrawings((prev) => prev.filter((d) => d.id !== id));
+      if (selectedAnnotation === id) {
+        setSelectedAnnotation(null);
+      }
+      toast.success('Drawing deleted');
+    },
+    [selectedAnnotation]
+  );
 
   // Handle text tool click - require double-click to create new text box
-  const handleTextToolClick = useCallback((e: React.MouseEvent) => {
-    if (activeTool !== 'text') {
-      onCanvasClick(e);
-      return;
-    }
-    
-    if (!overlayRef.current || !pdfjsDoc || !canvasRef.current) {
-      return;
-    }
-
-    // Stop all event propagation immediately to prevent the click from reaching any text boxes
-    e.stopPropagation();
-    e.preventDefault();
-    e.nativeEvent.stopImmediatePropagation();
-    
-    const rect = overlayRef.current.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    // Get canvas dimensions
-    const pdfCanvas = canvasRef.current;
-    const canvasWidth = pdfCanvas.width;
-    const canvasHeight = pdfCanvas.height;
-    
-    if (canvasWidth === 0 || canvasHeight === 0) {
-      return;
-    }
-    
-    const now = Date.now();
-    const DOUBLE_CLICK_DELAY = 300; // milliseconds
-    const CLICK_DISTANCE_THRESHOLD = 10; // pixels
-    
-    // Check if this is a double-click
-    if (textClickState?.pending) {
-      const timeDiff = now - textClickState.timestamp;
-      const distance = Math.sqrt(
-        Math.pow(canvasX - textClickState.x, 2) + Math.pow(canvasY - textClickState.y, 2)
-      );
-      
-      // If within time and distance threshold, create text box
-      if (timeDiff < DOUBLE_CLICK_DELAY && distance < CLICK_DISTANCE_THRESHOLD) {
-        // Convert canvas coordinates to PDF coordinates
-        pdfjsDoc.getPage(previewPage).then((page) => {
-          const pageSize = page.getViewport({ scale: 1 });
-          
-          // Convert click coordinates to PDF coordinates
-          // PDF coordinate system: origin at bottom-left, Y increases upward
-          // Canvas coordinate system: origin at top-left, Y increases downward
-          const pdfX = (canvasX / canvasWidth) * pageSize.width;
-          const pdfY = pageSize.height - ((canvasY / canvasHeight) * pageSize.height);
-          
-          const newTextBox: TextBox = {
-            id: `textbox-${Date.now()}`,
-            page: previewPage,
-            x: pdfX,
-            y: pdfY,
-            text: annotationText || 'New Text',
-            fontSize: textFontSize,
-            fontFamily: 'Helvetica',
-            color: textColor,
-          };
-          
-          setTextBoxes((prev) => [...prev, newTextBox]);
-          setTextClickState(null);
-          toast.success('Text box created');
-        }).catch((err) => {
-          console.error('Failed to create text box:', err);
-          toast.error('Failed to create text box');
-          setTextClickState(null);
-        });
+  const handleTextToolClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (activeTool !== 'text') {
+        onCanvasClick(e);
         return;
       }
-    }
-    
-    // First click - set pending state and show preview
-    setTextClickState({
-      pending: true,
-      x: canvasX,
-      y: canvasY,
-      timestamp: now,
-    });
-    
-    // Clear pending state after delay if no second click
-    setTimeout(() => {
-      setTextClickState((prev) => {
-        if (prev && now === prev.timestamp) {
-          return null;
+
+      if (!overlayRef.current || !pdfjsDoc || !canvasRef.current) {
+        return;
+      }
+
+      // Stop all event propagation immediately to prevent the click from reaching any text boxes
+      e.stopPropagation();
+      e.preventDefault();
+      e.nativeEvent.stopImmediatePropagation();
+
+      const rect = overlayRef.current.getBoundingClientRect();
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+
+      // Get canvas dimensions
+      const pdfCanvas = canvasRef.current;
+      const canvasWidth = pdfCanvas.width;
+      const canvasHeight = pdfCanvas.height;
+
+      if (canvasWidth === 0 || canvasHeight === 0) {
+        return;
+      }
+
+      const now = Date.now();
+      const DOUBLE_CLICK_DELAY = 300; // milliseconds
+      const CLICK_DISTANCE_THRESHOLD = 10; // pixels
+
+      // Check if this is a double-click
+      if (textClickState?.pending) {
+        const timeDiff = now - textClickState.timestamp;
+        const distance = Math.sqrt(
+          Math.pow(canvasX - textClickState.x, 2) + Math.pow(canvasY - textClickState.y, 2)
+        );
+
+        // If within time and distance threshold, create text box
+        if (timeDiff < DOUBLE_CLICK_DELAY && distance < CLICK_DISTANCE_THRESHOLD) {
+          // Convert canvas coordinates to PDF coordinates
+          pdfjsDoc
+            .getPage(previewPage)
+            .then((page) => {
+              const pageSize = page.getViewport({ scale: 1 });
+
+              // Convert click coordinates to PDF coordinates
+              // PDF coordinate system: origin at bottom-left, Y increases upward
+              // Canvas coordinate system: origin at top-left, Y increases downward
+              const pdfX = (canvasX / canvasWidth) * pageSize.width;
+              const pdfY = pageSize.height - (canvasY / canvasHeight) * pageSize.height;
+
+              const newTextBox: TextBox = {
+                id: `textbox-${Date.now()}`,
+                page: previewPage,
+                x: pdfX,
+                y: pdfY,
+                text: annotationText || 'New Text',
+                fontSize: textFontSize,
+                fontFamily: 'Helvetica',
+                color: textColor,
+              };
+
+              setTextBoxes((prev) => [...prev, newTextBox]);
+              setTextClickState(null);
+              toast.success('Text box created');
+            })
+            .catch((err) => {
+              console.error('Failed to create text box:', err);
+              toast.error('Failed to create text box');
+              setTextClickState(null);
+            });
+          return;
         }
-        return prev;
+      }
+
+      // First click - set pending state and show preview
+      setTextClickState({
+        pending: true,
+        x: canvasX,
+        y: canvasY,
+        timestamp: now,
       });
-    }, DOUBLE_CLICK_DELAY);
-  }, [activeTool, overlayRef, canvasRef, zoom, pdfjsDoc, previewPage, annotationText, textFontSize, textColor, onCanvasClick, textClickState]);
+
+      // Clear pending state after delay if no second click
+      setTimeout(() => {
+        setTextClickState((prev) => {
+          if (prev && now === prev.timestamp) {
+            return null;
+          }
+          return prev;
+        });
+      }, DOUBLE_CLICK_DELAY);
+    },
+    [
+      activeTool,
+      overlayRef,
+      canvasRef,
+      zoom,
+      pdfjsDoc,
+      previewPage,
+      annotationText,
+      textFontSize,
+      textColor,
+      onCanvasClick,
+      textClickState,
+    ]
+  );
 
   // Menu bar handlers
   const handleOpenFile = useCallback(() => {
@@ -1173,7 +1178,10 @@ const PdfEditor = () => {
 
   const handleSave = useCallback(() => {
     if (uploadedFile) {
-      downloadBlob(new Blob([uploadedFile.arrayBuffer], { type: 'application/pdf' }), uploadedFile.name);
+      downloadBlob(
+        new Blob([uploadedFile.arrayBuffer], { type: 'application/pdf' }),
+        uploadedFile.name
+      );
       setHasUnsavedChanges(false);
       toast.success('PDF saved successfully');
     } else {
@@ -1199,34 +1207,34 @@ const PdfEditor = () => {
 
   const handleFitToPage = useCallback(() => {
     if (!pdfjsDoc || !canvasRef.current) return;
-    
+
     pdfjsDoc.getPage(previewPage).then((page) => {
       const viewport = page.getViewport({ scale: 1 });
       const container = canvasRef.current?.parentElement;
       if (!container) return;
-      
+
       const containerWidth = container.clientWidth - 32; // Account for padding
       const containerHeight = container.clientHeight - 32;
-      
+
       const scaleX = containerWidth / viewport.width;
       const scaleY = containerHeight / viewport.height;
       const scale = Math.min(scaleX, scaleY, 4); // Max zoom 400%
-      
+
       setZoom(scale);
     });
   }, [pdfjsDoc, previewPage]);
 
   const handleFitToWidth = useCallback(() => {
     if (!pdfjsDoc || !canvasRef.current) return;
-    
+
     pdfjsDoc.getPage(previewPage).then((page) => {
       const viewport = page.getViewport({ scale: 1 });
       const container = canvasRef.current?.parentElement;
       if (!container) return;
-      
+
       const containerWidth = container.clientWidth - 32; // Account for padding
       const scale = Math.min(containerWidth / viewport.width, 4); // Max zoom 400%
-      
+
       setZoom(scale);
     });
   }, [pdfjsDoc, previewPage]);
@@ -1254,7 +1262,7 @@ const PdfEditor = () => {
 
     const newIndex = historyIndex - 1;
     const previousState = history[newIndex];
-    
+
     try {
       const newArrayBuffer = previousState.slice(0);
       const newFile = { ...uploadedFile, arrayBuffer: newArrayBuffer };
@@ -1263,7 +1271,7 @@ const PdfEditor = () => {
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: newArrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
@@ -1286,7 +1294,7 @@ const PdfEditor = () => {
 
     const newIndex = historyIndex + 1;
     const nextState = history[newIndex];
-    
+
     try {
       const newArrayBuffer = nextState.slice(0);
       const newFile = { ...uploadedFile, arrayBuffer: newArrayBuffer };
@@ -1295,7 +1303,7 @@ const PdfEditor = () => {
       // Reload PDF.js document
       const loadingTask = pdfjsLib.getDocument({ data: newArrayBuffer });
       const newDoc = await loadingTask.promise;
-      
+
       if (pdfjsDoc) {
         pdfjsDoc.destroy();
       }
@@ -1393,8 +1401,14 @@ const PdfEditor = () => {
     <div className="h-screen flex flex-col bg-[#1e1e1e] text-[#cccccc] overflow-hidden">
       <Helmet>
         <title>PDF Editor - sLixTOOLS</title>
-        <meta name="description" content="Upload a PDF, preview pages, and annotate precisely in your browser. All processing happens locally for maximum privacy." />
-        <meta name="keywords" content="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor" />
+        <meta
+          name="description"
+          content="Upload a PDF, preview pages, and annotate precisely in your browser. All processing happens locally for maximum privacy."
+        />
+        <meta
+          name="keywords"
+          content="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor"
+        />
         <link rel="canonical" href="https://slixtools.io/tools/pdf-editor" />
       </Helmet>
 
@@ -1439,7 +1453,7 @@ const PdfEditor = () => {
             isReordering,
             isHighlighting,
             isAnnotating,
-            isConverting
+            isConverting,
           }}
           hasDocument={!!uploadedFile}
           onUndo={handleUndo}
@@ -1579,64 +1593,65 @@ const PdfEditor = () => {
       {/* Action Panel (Modals) - Only show non-highlight/annotate modals */}
       {activeModal && activeModal !== 'highlight' && activeModal !== 'annotate' && (
         <PdfActionPanel
-        activeModal={activeModal}
-        setActiveModal={setActiveModal}
-        uploadedFile={uploadedFile ? uploadedFile.file : null}
-        uploadedFiles={uploadedFiles}
-        splitRange={splitRange}
-        pagesToDelete={pagesToDelete}
-        pageOrder={pageOrder}
-        highlightText={highlightText}
-        highlightPage={highlightPage}
-        highlightX={highlightX}
-        highlightY={highlightY}
-        highlightColor={highlightColor}
-        annotationText={annotationText}
-        annotationPage={annotationPage}
-        annotationX={annotationX}
-        annotationY={annotationY}
-        imageFormat={imageFormat}
-        setSplitRange={setSplitRange}
-        setPagesToDelete={setPagesToDelete}
-        setPageOrder={setPageOrder}
-        setHighlightText={setHighlightText}
-        setHighlightPage={setHighlightPage}
-        setHighlightX={setHighlightX}
-        setHighlightY={setHighlightY}
-        setHighlightColor={setHighlightColor}
-        setAnnotationText={setAnnotationText}
-        setAnnotationPage={setAnnotationPage}
-        setAnnotationX={setAnnotationX}
-        setAnnotationY={setAnnotationY}
-        setImageFormat={setImageFormat}
-        onSplit={splitPdf}
-        onDelete={deletePages}
-        onReorder={reorderPages}
-        onHighlight={highlightTextFunc}
-        onAnnotate={annotatePdf}
-        onConvert={convertToImages}
-        onMerge={mergePdfs}
-        processingState={{
-          isSplitting,
-          isDeleting,
-          isReordering,
-          isHighlighting,
-          isAnnotating,
-          isConverting,
-          isMerging
-        }}
-      />
-      )}
-      
-      {/* Progress Indicator */}
-      {(isMerging || isSplitting || isDeleting || isConverting || isReordering) && progressMessage && (
-        <PdfProgressIndicator
-          message={progressMessage}
-          progress={progressValue}
-          showCancel={false}
+          activeModal={activeModal}
+          setActiveModal={setActiveModal}
+          uploadedFile={uploadedFile ? uploadedFile.file : null}
+          uploadedFiles={uploadedFiles}
+          splitRange={splitRange}
+          pagesToDelete={pagesToDelete}
+          pageOrder={pageOrder}
+          highlightText={highlightText}
+          highlightPage={highlightPage}
+          highlightX={highlightX}
+          highlightY={highlightY}
+          highlightColor={highlightColor}
+          annotationText={annotationText}
+          annotationPage={annotationPage}
+          annotationX={annotationX}
+          annotationY={annotationY}
+          imageFormat={imageFormat}
+          setSplitRange={setSplitRange}
+          setPagesToDelete={setPagesToDelete}
+          setPageOrder={setPageOrder}
+          setHighlightText={setHighlightText}
+          setHighlightPage={setHighlightPage}
+          setHighlightX={setHighlightX}
+          setHighlightY={setHighlightY}
+          setHighlightColor={setHighlightColor}
+          setAnnotationText={setAnnotationText}
+          setAnnotationPage={setAnnotationPage}
+          setAnnotationX={setAnnotationX}
+          setAnnotationY={setAnnotationY}
+          setImageFormat={setImageFormat}
+          onSplit={splitPdf}
+          onDelete={deletePages}
+          onReorder={reorderPages}
+          onHighlight={highlightTextFunc}
+          onAnnotate={annotatePdf}
+          onConvert={convertToImages}
+          onMerge={mergePdfs}
+          processingState={{
+            isSplitting,
+            isDeleting,
+            isReordering,
+            isHighlighting,
+            isAnnotating,
+            isConverting,
+            isMerging,
+          }}
         />
       )}
-      
+
+      {/* Progress Indicator */}
+      {(isMerging || isSplitting || isDeleting || isConverting || isReordering) &&
+        progressMessage && (
+          <PdfProgressIndicator
+            message={progressMessage}
+            progress={progressValue}
+            showCancel={false}
+          />
+        )}
+
       {/* Confirmation Dialogs */}
       <PdfConfirmDialog
         isOpen={showCloseConfirm}
@@ -1648,7 +1663,7 @@ const PdfEditor = () => {
         onConfirm={handleConfirmClose}
         onCancel={() => setShowCloseConfirm(false)}
       />
-      
+
       <PdfConfirmDialog
         isOpen={showDeleteConfirm}
         title="Delete Pages"

@@ -16,7 +16,7 @@ sLixTOOLS is a high-performance web application offering a suite of file manipul
 *   **Core**: React 18, TypeScript, Vite
 *   **Styling**: Tailwind CSS, shadcn/ui, Custom "Indie" Theme
 *   **Animation**: Framer Motion, CSS `clip-path` (GPU Optimized)
-*   **Processing**: `ffmpeg.wasm` (Video), `gif.js` (GIF), `pdf-lib` (PDF)
+*   **Processing**: `ffmpeg.wasm` (Video), `gif.js` (GIF), `pdf-lib` + `pdfjs-dist` (PDF), `jszip` (Archives)
 *   **State**: React Hooks (no global store bloat)
 
 ## ✨ Key Features
@@ -25,7 +25,7 @@ sLixTOOLS is a high-performance web application offering a suite of file manipul
 *   **High Performance**: GPU-accelerated layout transitions (`clip-path`) and smart animation scoping (`isVisible`) for 60fps scrolling.
 *   **Lazy Loading**: Tools and libraries (like `lenis` and `ffmpeg`) are loaded on-demand to keep the initial bundle size small.
 *   **Modern UI**: Glassmorphism aesthetic with custom "glitch" interactions and smooth full-page scrolling.
-*   **PWA Ready**: installable as a Progressive Web App (Service Workers included).
+*   **Installable**: ships a web app manifest so it can be added to your home screen / installed as an app.
 
 ## 🚀 How to Run
 
@@ -55,7 +55,7 @@ To generate the optimized static site in the `dist/` folder:
 ```bash
 npm run build
 ```
-The build process includes chunk splitting (separating vendor libs like `framer-motion` and `react`) and automatically generates a `404.html` for SPA routing on GitHub Pages.
+The build process includes chunk splitting (separating vendor libs like `framer-motion` and `react`). `public/404.html` is a static redirect page (copied as-is like any other public asset) that sends GitHub Pages' deep-link 404s into the app's hash router.
 
 ## 🤝 Contributing
 1.  Fork the repository.

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Upload, Trash2 } from 'lucide-react';
 

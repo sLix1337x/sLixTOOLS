@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Search, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,8 @@ const PdfSearch = ({ pdfDoc, onResultSelect, className }: PdfSearchProps) => {
         const page = await pdfDoc.getPage(pageNum);
         const textContent = await page.getTextContent();
         
-        textContent.items.forEach((item: any, index: number) => {
+        textContent.items.forEach((item, index: number) => {
+          if (!('str' in item)) return;
           if (item.str && item.str.toLowerCase().includes(text.toLowerCase())) {
             searchResults.push({
               page: pageNum,

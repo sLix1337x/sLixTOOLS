@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Download, X, Split, Move, Palette, Pencil, FileImage } from 'lucide-react';

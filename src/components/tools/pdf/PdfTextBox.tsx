@@ -20,7 +20,6 @@ const PdfTextBox = ({
   textBox,
   onUpdate,
   onDelete,
-  onSave,
   pageSize,
   viewportScale,
   isSelected = false,

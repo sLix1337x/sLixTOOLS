@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import backgroundOverlay from '../assets/ColorBackgroundOverlay.webp';
 
 interface ParticleBackgroundProps {
@@ -12,7 +12,7 @@ interface ParticleBackgroundProps {
 // Now focuses on the Background Overlay and base styles
 const ParticleBackground = memo(({
   className = ''
-}) => {
+}: Pick<ParticleBackgroundProps, 'className'>) => {
   return (
     <div
       className={`particle-bg-container ${className}`}

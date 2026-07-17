@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import Lenis from 'lenis';
 

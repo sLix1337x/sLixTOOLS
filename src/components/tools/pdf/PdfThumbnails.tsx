@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +19,6 @@ const PdfThumbnails = ({
 }: PdfThumbnailsProps) => {
   const [thumbnails, setThumbnails] = useState<Array<{ pageNum: number; url: string }>>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const thumbnailRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
 
   useEffect(() => {
     if (!pdfDoc) {
@@ -42,7 +41,7 @@ const PdfThumbnails = ({
           canvas.width = viewport.width;
           canvas.height = viewport.height;
           
-          await page.render({ canvasContext: context, viewport }).promise;
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
           
           newThumbnails.push({
             pageNum: i,
@@ -63,7 +62,7 @@ const PdfThumbnails = ({
     setDraggedIndex(index);
   };
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
@@ -93,7 +92,7 @@ const PdfThumbnails = ({
             key={thumbnail.pageNum}
             draggable={!!onPageReorder}
             onDragStart={() => handleDragStart(index)}
-            onDragOver={(e) => handleDragOver(e, index)}
+            onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, index)}
             onClick={() => onPageSelect(thumbnail.pageNum)}
             className={cn(

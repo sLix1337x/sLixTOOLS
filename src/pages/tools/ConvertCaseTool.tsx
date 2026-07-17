@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Type, Copy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Merge, Split, X, Move, Palette, Pencil, FileImage, Type, Square, Circle, Minus, ArrowRight } from 'lucide-react';
 
 interface PdfToolbarProps {

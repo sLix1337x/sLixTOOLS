@@ -20,13 +20,10 @@ const PdfDrawingCanvas = ({
   currentPage,
   activeTool,
   onDrawingComplete,
-  onDrawingUpdate,
-  onDrawingDelete,
   pageSize,
   viewportScale,
   strokeColor,
   strokeWidth,
-  className,
 }: PdfDrawingCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);

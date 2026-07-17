@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react';
+import type { ReactNode } from 'react';
 import { homeAnimations } from '@/styles/constants';
 import { cn } from '@/lib/utils';
 

@@ -53,12 +53,6 @@ const fileToUint8Array = async (file: File | Blob): Promise<Uint8Array> => {
   return new Uint8Array(await file.arrayBuffer());
 };
 
-// Helper function to get public file URL
-const getPublicFileURL = (path: string): string => {
-  const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
-  return `${basePath}${path}`;
-};
-
 // FFmpeg WASM loader with enhanced error handling
 const loadFFmpeg = async () => {
   try {
@@ -423,7 +417,7 @@ const compressVideoWithFFmpeg = async (
   options: VideoCompressionOptions,
   onProgress?: (progress: { ratio: number }) => void
 ): Promise<Blob> => {
-  const { FFmpeg, fetchFile, toBlobURL } = await loadFFmpeg();
+  const { FFmpeg } = await loadFFmpeg();
   const ffmpeg = new FFmpeg();
   
   try {
@@ -438,14 +432,14 @@ const compressVideoWithFFmpeg = async (
     // Load FFmpeg with core and wasm files from local public directory
     // Use fetchFile and toBlobURL from @ffmpeg/util for proper loading
     ffmpeg.on('log', ({ message }) => {
-      console.log('FFmpeg log:', message);
+      if (import.meta.env.DEV) console.log('FFmpeg log:', message);
     });
     
     const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
     const coreJsURL = `${basePath}workers/ffmpeg-core.js`;
     const coreWasmURL = `${basePath}workers/ffmpeg-core.wasm`;
     
-    console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
+    if (import.meta.env.DEV) console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
     
     // Use absolute URLs with window.location.origin for proper resolution
     const fullCoreJsURL = new URL(coreJsURL, window.location.origin).href;
@@ -455,20 +449,20 @@ const compressVideoWithFFmpeg = async (
     const cleanCoreJsURL = fullCoreJsURL.split('?')[0];
     const cleanCoreWasmURL = fullCoreWasmURL.split('?')[0];
     
-    console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
+    if (import.meta.env.DEV) console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
     
     try {
       // FFmpeg WASM 0.12.x - The "failed to import" error suggests the core.js file
       // is trying to do a dynamic import internally. This might be a version issue.
       // Try loading without specifying URLs first (uses default CDN), then fallback to local
-      console.log('Loading FFmpeg with local core files...');
+      if (import.meta.env.DEV) console.log('Loading FFmpeg with local core files...');
       
       await ffmpeg.load({
         coreURL: cleanCoreJsURL,
         wasmURL: cleanCoreWasmURL,
       });
       
-      console.log('FFmpeg loaded successfully');
+      if (import.meta.env.DEV) console.log('FFmpeg loaded successfully');
     } catch (loadError) {
       console.error('FFmpeg load error:', loadError);
       
@@ -643,7 +637,7 @@ const compressVideoWithFFmpeg = async (
     });
     
     // Run FFmpeg
-    console.log('FFmpeg command:', args.join(' '));
+    if (import.meta.env.DEV) console.log('FFmpeg command:', args.join(' '));
     try {
       await ffmpeg.exec(args);
     } catch (execError) {
@@ -651,7 +645,7 @@ const compressVideoWithFFmpeg = async (
       // List files to debug
       try {
         const files = await ffmpeg.listDir('/');
-        console.log('Files in FFmpeg FS:', files);
+        if (import.meta.env.DEV) console.log('Files in FFmpeg FS:', files);
       } catch (listError) {
         console.error('Failed to list files:', listError);
       }
@@ -666,13 +660,13 @@ const compressVideoWithFFmpeg = async (
     let data: Uint8Array | string;
     try {
       data = await ffmpeg.readFile(outputName);
-      console.log('Output file read successfully, type:', typeof data, 'size:', data instanceof Uint8Array ? data.length : data.length);
+      if (import.meta.env.DEV) console.log('Output file read successfully, type:', typeof data, 'size:', data instanceof Uint8Array ? data.length : data.length);
     } catch (readError) {
       console.error('FFmpeg readFile error:', readError);
       // List files to debug
       try {
         const files = await ffmpeg.listDir('/');
-        console.log('Files in FFmpeg FS after exec:', files);
+        if (import.meta.env.DEV) console.log('Files in FFmpeg FS after exec:', files);
       } catch (listError) {
         console.error('Failed to list files:', listError);
       }
@@ -745,7 +739,7 @@ const editVideoWithFFmpeg = async (
   options: VideoEditOptions,
   onProgress?: (progress: number) => void
 ): Promise<Blob> => {
-  const { FFmpeg, fetchFile, toBlobURL } = await loadFFmpeg();
+  const { FFmpeg } = await loadFFmpeg();
   const ffmpeg = new FFmpeg();
   
   try {
@@ -760,14 +754,14 @@ const editVideoWithFFmpeg = async (
     // Load FFmpeg with core and wasm files from local public directory
     // Use fetchFile and toBlobURL from @ffmpeg/util for proper loading
     ffmpeg.on('log', ({ message }) => {
-      console.log('FFmpeg log:', message);
+      if (import.meta.env.DEV) console.log('FFmpeg log:', message);
     });
     
     const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
     const coreJsURL = `${basePath}workers/ffmpeg-core.js`;
     const coreWasmURL = `${basePath}workers/ffmpeg-core.wasm`;
     
-    console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
+    if (import.meta.env.DEV) console.log('Loading FFmpeg core files from:', { coreJsURL, coreWasmURL });
     
     // Use absolute URLs with window.location.origin for proper resolution
     const fullCoreJsURL = new URL(coreJsURL, window.location.origin).href;
@@ -777,20 +771,20 @@ const editVideoWithFFmpeg = async (
     const cleanCoreJsURL = fullCoreJsURL.split('?')[0];
     const cleanCoreWasmURL = fullCoreWasmURL.split('?')[0];
     
-    console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
+    if (import.meta.env.DEV) console.log('Using clean URLs for FFmpeg load:', { cleanCoreJsURL, cleanCoreWasmURL });
     
     try {
       // FFmpeg WASM 0.12.x - The "failed to import" error suggests the core.js file
       // is trying to do a dynamic import internally. This might be a version issue.
       // Try loading without specifying URLs first (uses default CDN), then fallback to local
-      console.log('Loading FFmpeg with local core files...');
+      if (import.meta.env.DEV) console.log('Loading FFmpeg with local core files...');
       
       await ffmpeg.load({
         coreURL: cleanCoreJsURL,
         wasmURL: cleanCoreWasmURL,
       });
       
-      console.log('FFmpeg loaded successfully');
+      if (import.meta.env.DEV) console.log('FFmpeg loaded successfully');
     } catch (loadError) {
       console.error('FFmpeg load error:', loadError);
       
