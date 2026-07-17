@@ -33,13 +33,21 @@ export default defineConfig({
     rollupOptions: {
       external: ['@ffmpeg/ffmpeg'],
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          'ui-libs': ['framer-motion', 'lucide-react'],
-          'gif-libs': ['gif.js'],
-          animation: ['lenis'],
-          utils: ['clsx', 'tailwind-merge', 'class-variance-authority'],
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/'))
+            return 'react-vendor';
+          if (id.includes('/react-router')) return 'router';
+          if (id.includes('/framer-motion/') || id.includes('/lucide-react/')) return 'ui-libs';
+          if (id.includes('/gif.js/')) return 'gif-libs';
+          if (id.includes('/lenis/')) return 'animation';
+          if (
+            id.includes('/clsx/') ||
+            id.includes('/tailwind-merge/') ||
+            id.includes('/class-variance-authority/')
+          )
+            return 'utils';
+          return undefined;
         },
         assetFileNames: (assetInfo) => {
           const info = assetInfo.name?.split('.') || [];
