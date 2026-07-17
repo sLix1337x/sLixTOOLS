@@ -35,13 +35,41 @@ interface LazyRouteConfig {
 }
 
 const lazyRoutes: LazyRouteConfig[] = [
-  { path: '/tools/video-to-gif', Component: VideoToGif, fallbackText: 'Loading Video to GIF converter...' },
-  { path: '/tools/gif-compressor', Component: GifCompressor, fallbackText: 'Loading GIF compressor...' },
-  { path: '/tools/image-compressor', Component: ImageCompressor, fallbackText: 'Loading Image compressor...' },
-  { path: '/tools/image-resizer', Component: ImageResizer, fallbackText: 'Loading Image resizer...' },
-  { path: '/tools/video-converter', Component: VideoConverter, fallbackText: 'Loading Video converter...' },
-  { path: '/tools/image-converter', Component: ImageConverter, fallbackText: 'Loading Image converter...' },
-  { path: '/tools/convert-case', Component: ConvertCaseTool, fallbackText: 'Loading Convert Case Tool...' },
+  {
+    path: '/tools/video-to-gif',
+    Component: VideoToGif,
+    fallbackText: 'Loading Video to GIF converter...',
+  },
+  {
+    path: '/tools/gif-compressor',
+    Component: GifCompressor,
+    fallbackText: 'Loading GIF compressor...',
+  },
+  {
+    path: '/tools/image-compressor',
+    Component: ImageCompressor,
+    fallbackText: 'Loading Image compressor...',
+  },
+  {
+    path: '/tools/image-resizer',
+    Component: ImageResizer,
+    fallbackText: 'Loading Image resizer...',
+  },
+  {
+    path: '/tools/video-converter',
+    Component: VideoConverter,
+    fallbackText: 'Loading Video converter...',
+  },
+  {
+    path: '/tools/image-converter',
+    Component: ImageConverter,
+    fallbackText: 'Loading Image converter...',
+  },
+  {
+    path: '/tools/convert-case',
+    Component: ConvertCaseTool,
+    fallbackText: 'Loading Convert Case Tool...',
+  },
   { path: '/tools/xml-editor', Component: XmlEditor, fallbackText: 'Loading XML Editor...' },
   { path: '/tools/pdf-editor', Component: PdfEditor, fallbackText: 'Loading PDF Editor...' },
   { path: '/about', Component: About },
@@ -136,7 +164,9 @@ const AppContent = () => {
               key={path}
               path={path}
               element={
-                <Suspense fallback={<LoadingSpinner {...(fallbackText ? { text: fallbackText } : {})} />}>
+                <Suspense
+                  fallback={<LoadingSpinner {...(fallbackText ? { text: fallbackText } : {})} />}
+                >
                   <Component />
                 </Suspense>
               }

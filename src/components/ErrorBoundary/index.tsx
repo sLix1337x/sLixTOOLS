@@ -7,7 +7,7 @@ import {
   storeErrorReport,
   getStoredErrorReports,
   getPerformanceMetrics,
-  buildGithubIssueUrl
+  buildGithubIssueUrl,
 } from '@/utils/errorReporting';
 import { StandardErrorFallback } from './StandardErrorFallback';
 import { FileProcessingErrorFallback } from './FileProcessingErrorFallback';
@@ -38,7 +38,7 @@ const RETRY_BASE_DELAY_MS = 1000;
 const RETRY_MAX_DELAY_MS = 10000;
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  static displayName = "ErrorBoundary";
+  static displayName = 'ErrorBoundary';
   private retryTimeouts: NodeJS.Timeout[] = [];
 
   constructor(props: ErrorBoundaryProps) {
@@ -50,7 +50,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       errorInfo: null,
       errorId: '',
       retryCount: 0,
-      isRecovering: false
+      isRecovering: false,
     };
   }
 
@@ -58,7 +58,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return {
       hasError: true,
       error,
-      errorId: generateErrorId()
+      errorId: generateErrorId(),
     };
   }
 
@@ -75,7 +75,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
     if (isFileProcessing) {
       toast.error('File processing error occurred', {
-        description: 'Please try again or contact support if the issue persists.'
+        description: 'Please try again or contact support if the issue persists.',
       });
     }
 
@@ -85,7 +85,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentWillUnmount() {
-    this.retryTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.retryTimeouts.forEach((timeout) => clearTimeout(timeout));
   }
 
   private logError(error: Error, errorInfo: ErrorInfo) {
@@ -94,17 +94,20 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   private scheduleRetry() {
-    const delay = Math.min(RETRY_BASE_DELAY_MS * Math.pow(2, this.state.retryCount), RETRY_MAX_DELAY_MS);
+    const delay = Math.min(
+      RETRY_BASE_DELAY_MS * Math.pow(2, this.state.retryCount),
+      RETRY_MAX_DELAY_MS
+    );
 
     this.setState({ isRecovering: true });
 
     const timeout = setTimeout(() => {
-      this.setState(prevState => ({
+      this.setState((prevState) => ({
         hasError: false,
         error: null,
         errorInfo: null,
         retryCount: prevState.retryCount + 1,
-        isRecovering: false
+        isRecovering: false,
       }));
     }, delay);
 
@@ -112,12 +115,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   private handleManualRetry = () => {
-    this.setState(prevState => ({
+    this.setState((prevState) => ({
       hasError: false,
       error: null,
       errorInfo: null,
       retryCount: prevState.retryCount + 1,
-      isRecovering: false
+      isRecovering: false,
     }));
   };
 
@@ -131,7 +134,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   private handleReportError = () => {
     const errorReport = getStoredErrorReports().find(
-      report => report.errorId === this.state.errorId
+      (report) => report.errorId === this.state.errorId
     );
 
     if (errorReport) {
@@ -147,10 +150,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       componentStack: this.state.errorInfo?.componentStack,
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
-      url: window.location.href
+      url: window.location.href,
     };
 
-    navigator.clipboard.writeText(JSON.stringify(errorDetails, null, 2))
+    navigator.clipboard
+      .writeText(JSON.stringify(errorDetails, null, 2))
       .then(() => {
         toast.success('Error details copied to clipboard');
       })
@@ -166,16 +170,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       error: {
         message: this.state.error?.message,
         stack: this.state.error?.stack,
-        name: this.state.error?.name
+        name: this.state.error?.name,
       },
       componentStack: this.state.errorInfo?.componentStack,
       userAgent: navigator.userAgent,
       url: window.location.href,
-      performanceMetrics: getPerformanceMetrics()
+      performanceMetrics: getPerformanceMetrics(),
     };
 
     const blob = new Blob([JSON.stringify(errorDetails, null, 2)], {
-      type: 'application/json'
+      type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -189,7 +193,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     const { hasError, error, isRecovering, retryCount, errorId } = this.state;
-    const { children, fallback, maxRetries = 3, showErrorDetails = false, isFileProcessing, showDetailedError } = this.props;
+    const {
+      children,
+      fallback,
+      maxRetries = 3,
+      showErrorDetails = false,
+      isFileProcessing,
+      showDetailedError,
+    } = this.props;
 
     if (!hasError || !error) {
       return children;

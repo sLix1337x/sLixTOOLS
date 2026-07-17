@@ -1,16 +1,20 @@
 import type { ErrorInfo } from 'react';
 
 export interface PerformanceMetrics {
-  memory?: {
-    usedJSHeapSize?: number | undefined;
-    totalJSHeapSize?: number | undefined;
-    jsHeapSizeLimit?: number | undefined;
-  } | undefined;
-  timing?: {
-    navigationStart?: number | undefined;
-    loadEventEnd?: number | undefined;
-    domContentLoadedEventEnd?: number | undefined;
-  } | undefined;
+  memory?:
+    | {
+        usedJSHeapSize?: number | undefined;
+        totalJSHeapSize?: number | undefined;
+        jsHeapSizeLimit?: number | undefined;
+      }
+    | undefined;
+  timing?:
+    | {
+        navigationStart?: number | undefined;
+        loadEventEnd?: number | undefined;
+        domContentLoadedEventEnd?: number | undefined;
+      }
+    | undefined;
   [key: string]: unknown;
 }
 
@@ -41,15 +45,13 @@ export function buildErrorReport(errorId: string, error: Error, errorInfo: Error
     stack: error.stack || undefined,
     componentStack: errorInfo.componentStack || undefined,
     userAgent: navigator.userAgent,
-    url: window.location.href
+    url: window.location.href,
   };
 }
 
 export function storeErrorReport(report: ErrorReport): void {
   try {
-    const existingReports = JSON.parse(
-      localStorage.getItem(ERROR_REPORTS_STORAGE_KEY) || '[]'
-    );
+    const existingReports = JSON.parse(localStorage.getItem(ERROR_REPORTS_STORAGE_KEY) || '[]');
 
     existingReports.push(report);
 
@@ -121,11 +123,15 @@ export function getPerformanceMetrics(): PerformanceMetrics {
   const metrics: PerformanceMetrics = {};
 
   if ('memory' in performance) {
-    const memoryInfo = (performance as unknown as { memory: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number; } }).memory;
+    const memoryInfo = (
+      performance as unknown as {
+        memory: { usedJSHeapSize?: number; totalJSHeapSize?: number; jsHeapSizeLimit?: number };
+      }
+    ).memory;
     metrics.memory = {
       usedJSHeapSize: memoryInfo.usedJSHeapSize,
       totalJSHeapSize: memoryInfo.totalJSHeapSize,
-      jsHeapSizeLimit: memoryInfo.jsHeapSizeLimit
+      jsHeapSizeLimit: memoryInfo.jsHeapSizeLimit,
     };
   }
 
@@ -136,7 +142,7 @@ export function getPerformanceMetrics(): PerformanceMetrics {
       metrics.timing = {
         navigationStart: navTiming.startTime,
         loadEventEnd: navTiming.loadEventEnd,
-        domContentLoadedEventEnd: navTiming.domContentLoadedEventEnd
+        domContentLoadedEventEnd: navTiming.domContentLoadedEventEnd,
       };
     }
   } catch {

@@ -28,7 +28,7 @@ export function FileProcessingErrorFallback({
   onGoHome,
   onReportError,
   onCopyError,
-  onDownloadErrorLog
+  onDownloadErrorLog,
 }: FileProcessingErrorFallbackProps) {
   const errorCategory = getErrorCategory(error);
   const suggestedActions = getSuggestedActions(error);
@@ -76,27 +76,19 @@ export function FileProcessingErrorFallback({
           )}
 
           <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-              Suggested Actions
-            </h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Suggested Actions</h3>
             <ul className="space-y-2">
               {suggestedActions.map((action, index) => (
                 <li key={index} className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    {action}
-                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{action}</span>
                 </li>
               ))}
             </ul>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-6">
-            <Button
-              onClick={onRetry}
-              disabled={isRecovering}
-              className="flex items-center gap-2"
-            >
+            <Button onClick={onRetry} disabled={isRecovering} className="flex items-center gap-2">
               {isRecovering ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -110,11 +102,7 @@ export function FileProcessingErrorFallback({
               )}
             </Button>
 
-            <Button
-              onClick={onCopyError}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={onCopyError} variant="outline" className="flex items-center gap-2">
               <Copy className="w-4 h-4" />
               Copy Error
             </Button>
@@ -128,11 +116,7 @@ export function FileProcessingErrorFallback({
               Download Log
             </Button>
 
-            <Button
-              onClick={onReportError}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={onReportError} variant="outline" className="flex items-center gap-2">
               <ExternalLink className="w-4 h-4" />
               Report Issue
             </Button>

@@ -20,16 +20,14 @@ export function StandardErrorFallback({
   onRetry,
   onReload,
   onGoHome,
-  onReportError
+  onReportError,
 }: StandardErrorFallbackProps) {
   return (
     <div className="flex items-center justify-center min-h-[400px] p-8">
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-          <h2 className="text-2xl font-bold text-foreground">
-            Something went wrong
-          </h2>
+          <h2 className="text-2xl font-bold text-foreground">Something went wrong</h2>
           <p className="text-muted-foreground">
             We encountered an unexpected error. Don't worry, we're working to fix it.
           </p>
@@ -38,17 +36,11 @@ export function StandardErrorFallback({
         {showErrorDetails && (
           <div className="bg-muted p-4 rounded-lg text-left">
             <h3 className="font-medium mb-2">Error Details:</h3>
-            <p className="text-sm font-mono text-red-600 break-all">
-              {error.message}
-            </p>
+            <p className="text-sm font-mono text-red-600 break-all">{error.message}</p>
             {process.env.NODE_ENV === 'development' && (
               <details className="mt-2">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Stack Trace
-                </summary>
-                <pre className="text-xs mt-2 overflow-auto max-h-32">
-                  {error.stack}
-                </pre>
+                <summary className="cursor-pointer text-sm font-medium">Stack Trace</summary>
+                <pre className="text-xs mt-2 overflow-auto max-h-32">{error.stack}</pre>
               </details>
             )}
           </div>
