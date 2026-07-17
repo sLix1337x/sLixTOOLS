@@ -21,7 +21,7 @@ Source: IMPROVEMENTS.md. Scope decided with user:
 
 **Phases 1-5 are complete and verified.** Phase 6 has NOT been started — scoping was decided (see above) but zero code changes made for it yet. Phases 7-8 not started.
 
-**IMPORTANT — nothing is committed to git yet.** All Phase 1-5 changes exist only in the working tree (`git status` shows ~40 modified/deleted/renamed files, plus new untracked files: IMPROVEMENTS.md, PROGRESS.md, vitest.config.ts, and 5 new *.test.ts files). This project has no prior git history in this location (freshly cloned). Before starting Phase 6, either commit Phase 1-5 first (recommended, gives a clean rollback point) or continue in the same dirty working tree — your call, but don't lose track of which changes belong to which phase if something needs reverting.
+**Phases 1-5 are committed** as `4ca6cc8` ("Fix production ffmpeg breakage, type/lint errors, dead code, PWA metadata, add tests"). Working tree is clean as of this commit — that's your rollback point if Phase 6 needs to be reverted independently.
 
 **Verification commands** (all currently passing, re-run after any change):
 ```bash
