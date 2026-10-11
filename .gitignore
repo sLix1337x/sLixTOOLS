@@ -1,0 +1,120 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Build outputs
+/dist/
+/dist-ssr/
+/build/
+/out/
+/.output/
+/storybook-static/
+
+# Testing
+/coverage/
+/.nyc_output/
+*.lcov
+/cypress/videos/
+/cypress/screenshots/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dev-debug.log
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+!.vscode/launch.json.example
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-*
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.code-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Cache and temp files
+.cache/
+.temp/
+.tmp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ESLint
+.eslintcache
+
+# Vite
+.vite/
+
+# Local files
+*.local
+
+# Package manager lock files (keep package-lock.json but ignore others)
+yarn.lock
+pnpm-lock.yaml
+
+# Task and tooling directories
+tasks.json
+tasks/
+.trae/
+.taskmaster/
+
+# Docs, notes and assistant files stay local; only README.md is published
+/*.md
+!/README.md
+/docs/
+.claude/
+
+# Misc
+.vercel
+.netlify
+.turbo
+.history/
+.parcel-cache/
+.rollup.cache/
+stats.html
+
+# Generated Workers
+public/workers/
+public/coi-serviceworker.js

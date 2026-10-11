@@ -1,0 +1,198 @@
+/* Indie Website Theme with Dotted Borders */
+/* Note: CSS custom properties are defined in src/index.css within the :root selector */
+/* Note: Particle and scroll-section styles are defined in src/index.css */
+
+/* Base styles */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+/* Container styles */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  position: relative;
+}
+
+/* Card styles */
+.card {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  /* Slightly more rounded for modern feel */
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card:hover {
+  box-shadow: 0 0 15px var(--accent-color);
+  border-color: var(--hover-color);
+}
+
+/* Navigation buttons */
+header button {
+  border: none !important;
+  outline: none !important;
+}
+
+header button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Button styles */
+button,
+.btn {
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  /* Remove green dashed outlines */
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+button:hover,
+.btn:hover {
+  background-color: var(--accent-color);
+  color: #000;
+}
+
+/* Input styles */
+input,
+select,
+textarea {
+  background-color: rgba(0, 0, 0, 0.5);
+  border: none;
+  /* Remove green dashed outlines */
+  color: var(--text-color);
+  padding: 0.5rem;
+  font-family: var(--font-mono);
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* Remove focus outlines from form controls globally */
+button:focus,
+.btn:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Navigation */
+.nav-container {
+  /* Removed dotted divider for cleaner look on content pages */
+  border-bottom: none;
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+/* Custom scrollbar - Dark Theme */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3e3e42;
+  border-radius: 6px;
+  border: 2px solid #1e1e1e;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4e4e52;
+}
+
+::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3e3e42 #1e1e1e;
+}
+
+/* Glitch effect for headings - optimized */
+@keyframes glitch {
+
+  0%,
+  100% {
+    text-shadow: 0.05em 0 0 #7dd3fc, -0.05em 0 0 #818cf8, 0 0.05em 0 #38BDF8;
+  }
+
+  15% {
+    text-shadow: 0.05em 0 0 #7dd3fc, -0.05em 0 0 #818cf8, 0 0.05em 0 #38BDF8;
+  }
+
+  16% {
+    text-shadow: -0.05em 0 0 #818cf8, 0.05em 0 0 #7dd3fc, 0 -0.05em 0 #38BDF8;
+  }
+
+  49% {
+    text-shadow: -0.05em 0 0 #818cf8, 0.05em 0 0 #7dd3fc, 0 -0.05em 0 #38BDF8;
+  }
+
+  50% {
+    text-shadow: 0.05em 0 0 #7dd3fc, -0.05em 0 0 #818cf8, 0 0.05em 0 #38BDF8;
+  }
+
+  99% {
+    text-shadow: 0.05em 0 0 #7dd3fc, -0.05em 0 0 #818cf8, 0 0.05em 0 #38BDF8;
+  }
+}
+
+h1,
+h2 {
+  text-shadow: 0.05em 0 0 #7dd3fc, -0.05em 0 0 #818cf8, 0 0.05em 0 #38BDF8;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Animated glitch only on the home page; static shadow elsewhere (perf) */
+.home-page h1,
+.home-page h2 {
+  animation: glitch 3s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .home-page h1,
+  .home-page h2 {
+    animation: none;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+}

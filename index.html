@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlRoot">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Site is dark-only: native controls render dark, and Dark Reader must not re-theme it -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="darkreader-lock" />
+    <title>sLixTOOLS - Free Online File Conversion Tools</title>
+    <meta name="description" content="Free online tools for all your file conversion needs. Convert videos, images, documents and more with our easy-to-use tools." />
+    <meta name="author" content="sLixTOOLS" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./formen.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.json" />
+    <meta name="theme-color" content="#38BDF8" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link id="gfonts-link" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="sLixTOOLS - Free Online File Conversion Tools" />
+    <meta property="og:description" content="Free online tools for all your file conversion needs." />
+    <meta property="og:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="sLixTOOLS" />
+    <meta name="twitter:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
+    
+    <link rel="apple-touch-icon" href="/sLixTOOLS/formen.png" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+
+    <!-- Enables cross-origin isolation (SharedArrayBuffer) on GitHub Pages, which cannot
+         send custom COOP/COEP headers. Must load before the app so ffmpeg WASM works. -->
+    <script src="%BASE_URL%coi-serviceworker.js"></script>
+
+    <!-- Module entry point will be injected by Vite during build -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

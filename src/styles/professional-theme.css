@@ -1,0 +1,246 @@
+/*
+ * Professional theme — applied to every page except the home page.
+ * Activated by the `pro-mode` class on <body> plus the `app-pro` wrapper
+ * class (both set in AppWrapper). The home page keeps the full indie theme.
+ *
+ * Design language: "graphite + azure"
+ *   - Near-black neutral base (#0a0b0e) with layered white-alpha surfaces
+ *   - Hairline borders (white/8), generous radii
+ *   - Sky-400 accent for links, focus and highlights; indigo for gradients
+ *   - White primary buttons (Vercel/Linear convention)
+ *   - Space Grotesk typography, JetBrains Mono reserved for code
+ */
+
+body.pro-mode {
+  --bg-color: #0a0b0e;
+  --text-color: #a6b0c0;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-style: 1px solid var(--border-color);
+  --border-radius: 12px;
+  --accent-color: #38bdf8;
+  --hover-color: #7dd3fc;
+
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: normal;
+}
+
+::selection {
+  background-color: rgba(56, 189, 248, 0.28);
+  color: #f8fafc;
+}
+
+/* ---------------------------------------------------------------- Typography */
+
+body.pro-mode h1,
+body.pro-mode h2,
+body.pro-mode h3,
+body.pro-mode h4,
+body.pro-mode h5,
+body.pro-mode h6 {
+  text-transform: none;
+  letter-spacing: -0.025em;
+  text-shadow: none;
+  animation: none;
+  color: #f4f6f8;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+body.pro-mode code,
+body.pro-mode pre,
+body.pro-mode kbd {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ------------------------------------------------------------------- Buttons */
+
+body.pro-mode button,
+body.pro-mode .btn {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: inherit;
+  border-radius: 8px;
+}
+
+body.pro-mode button:hover,
+body.pro-mode .btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+/* --------------------------------------------------------------------- Forms */
+
+body.pro-mode input,
+body.pro-mode select,
+body.pro-mode textarea {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #e6eaf0;
+  font-family: inherit;
+  letter-spacing: normal;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+body.pro-mode input:focus,
+body.pro-mode select:focus,
+body.pro-mode textarea:focus {
+  border-color: rgba(56, 189, 248, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+body.pro-mode input::placeholder,
+body.pro-mode textarea::placeholder {
+  color: #566072;
+}
+
+/* --------------------------------------------------------------------- Cards */
+
+body.pro-mode .card {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+body.pro-mode .card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 16px 40px -16px rgba(0, 0, 0, 0.7);
+}
+
+/* ------------------------------------------------------------ Header and nav */
+
+/* Sticky glass header for professional pages — transparent, hides on scroll */
+body.pro-mode .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0s linear 0s;
+}
+
+/* Hidden while the page is scrolled: slides up and fades out of the way */
+body.pro-mode .site-header.header-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.3s ease, opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+body.pro-mode .header-divider {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.pro-mode header h3 {
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0.08em;
+  color: #8b95a7;
+}
+
+body.pro-mode .rainbow-hover:hover {
+  animation: none;
+  background-image: none !important;
+  background-color: rgba(56, 189, 248, 0.14);
+}
+
+/* -------------------------------------------------------------------- Footer */
+
+body.pro-mode footer {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.pro-mode footer a {
+  color: #8b95a7;
+  text-decoration: none;
+}
+
+body.pro-mode footer a:hover {
+  color: #e6eaf0;
+}
+
+/* -------------------------------------------------------------- Backgrounds */
+
+/* The colourful overlay stays vivid on home; quiet it for the professional UI */
+body.pro-mode .app-background {
+  opacity: 0.25;
+}
+
+/* --------------------------------------------------------- Scrollbar (neutral) */
+
+body.pro-mode ::-webkit-scrollbar-track {
+  background: #0a0b0e;
+}
+
+body.pro-mode ::-webkit-scrollbar-thumb {
+  background: #262b33;
+  border-color: #0a0b0e;
+}
+
+body.pro-mode ::-webkit-scrollbar-thumb:hover {
+  background: #333a45;
+}
+
+body.pro-mode * {
+  scrollbar-color: #262b33 #0a0b0e;
+}
+
+/* --------------------------------------------------------------- FAQ blocks */
+
+body.pro-mode details.faq-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+
+body.pro-mode details.faq-item[open] {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+body.pro-mode details.faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.9rem 1.1rem;
+  font-weight: 500;
+  color: #e6eaf0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+body.pro-mode details.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+body.pro-mode details.faq-item summary .faq-chevron {
+  transition: transform 0.2s ease;
+  color: #566072;
+  flex-shrink: 0;
+}
+
+body.pro-mode details.faq-item[open] summary .faq-chevron {
+  transform: rotate(180deg);
+}
+
+body.pro-mode details.faq-item .faq-answer {
+  /* Undo the global p margin-top (40px) — it left a big empty band
+     between the question and the answer inside the open box */
+  margin-top: 0;
+  padding: 0 1.1rem 1rem;
+  color: #8b95a7;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}

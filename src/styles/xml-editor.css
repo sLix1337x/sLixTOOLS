@@ -1,0 +1,17 @@
+/* XML Editor Line Numbers Styling */
+.line-number {
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-family: 'Courier New', monospace;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.line-number:hover {
+  background-color: rgba(75, 85, 99, 0.3);
+}

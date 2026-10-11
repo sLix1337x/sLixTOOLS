@@ -1,0 +1,143 @@
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+body {
+  background-color: #060708;
+  color: white;
+}
+
+/* Custom transparent section */
+.transparent-section {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Tools section styling - removed aggressive transparency overrides */
+#tools-section {
+  position: relative;
+  z-index: 10;
+}
+
+/* Create visual section separators */
+.section-separator {
+  height: 1px;
+  width: 80%;
+  margin: 0 auto;
+  background: linear-gradient(to right, transparent, rgba(56, 189, 248, 0.3), transparent);
+  position: relative;
+  border: none;
+  z-index: 10;
+}
+
+.section-separator::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+/* MainNav Animations */
+@keyframes slidebg {
+  to {
+    background-position: 20vw;
+  }
+}
+
+@keyframes shine {
+  0% {
+    background-position: -200% center;
+  }
+
+  50% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.rainbow-hover {
+  transition: all 0.3s ease;
+}
+
+.rainbow-hover:hover {
+  background-image: linear-gradient(90deg, #00C0FF 0%, #FFCF00 49%, #FC4F4F 80%, #00C0FF 100%) !important;
+  background-size: 20vw auto !important;
+  animation: slidebg 5s linear infinite !important;
+  color: white !important;
+  border-color: transparent !important;
+  transform: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.rainbow-hover:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.shiny-text {
+  background: linear-gradient(90deg,
+      #3b82f6 0%,
+      #38bdf8 16%,
+      #a78bfa 32%,
+      #ffffff 46%,
+      #ef4444 58%,
+      #a78bfa 74%,
+      #38bdf8 90%,
+      #3b82f6 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 25s ease-in-out infinite;
+}
+
+.shiny-text-red {
+  background: linear-gradient(90deg,
+      #ef4444 0%,
+      #ec4899 18%,
+      #38bdf8 36%,
+      #ffffff 52%,
+      #a78bfa 70%,
+      #ef4444 88%,
+      #ec4899 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 25s ease-in-out infinite;
+}
+
+/* Retro game menu blinking text animation */
+@keyframes blink {
+
+  0%,
+  50% {
+    opacity: 1;
+  }
+
+  51%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}

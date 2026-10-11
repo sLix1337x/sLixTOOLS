@@ -1,0 +1,471 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Download, SlidersHorizontal, FileImage, Minimize2, ShieldCheck, X } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
+import { toast } from 'sonner';
+import AnimatedElement from '@/components/AnimatedElement';
+import errorLogger, { ErrorCategory } from '@/utils/errorLogger';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import ToolPageLayout from '@/components/ToolPageLayout';
+import Divider from '@/components/ui/divider';
+import FileUploadArea from '@/components/FileUploadArea';
+import { config } from '@/config';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
+import { useUrlFileLoader } from '@/hooks';
+import { downloadBlob } from '@/utils/download';
+import { dataURItoBlob } from '@/utils/dataConversion';
+import ToolActionButton from '@/components/tools/ToolActionButton';
+
+interface ImagePreviewProps {
+  file: File | null;
+  compressedUrl: string | null;
+  quality: number;
+  onQualityChange: (value: number) => void;
+  onDownload: () => void;
+  isCompressing: boolean;
+}
+
+const ImagePreview = ({
+  file,
+  compressedUrl,
+  quality,
+  onQualityChange,
+  onDownload,
+  isCompressing
+}: ImagePreviewProps) => {
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setOriginalUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  if (!file) return null;
+  const compressedSize = compressedUrl ? dataURItoBlob(compressedUrl).size : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-300 flex items-center gap-1.5">
+            <FileImage className="h-4 w-4 text-sky-400" aria-hidden="true" />
+            Original
+          </h3>
+          <div className="relative aspect-square border-2 border-dashed border-gray-700 rounded-lg overflow-hidden">
+            <img
+              src={originalUrl ?? undefined}
+              alt="Original"
+              className="w-full h-full object-contain p-2"
+            />
+            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              {(file.size / 1024).toFixed(2)} KB
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-medium text-gray-300 flex items-center gap-1.5">
+              <Minimize2 className="h-4 w-4 text-sky-400" aria-hidden="true" />
+              Compressed
+            </h3>
+            {compressedUrl && (
+              <span className="text-xs text-gray-400">
+                {Math.round((1 - compressedSize / file.size) * 100)}% smaller
+              </span>
+            )}
+          </div>
+          <div className="relative aspect-square border-2 border-dashed border-sky-500/30 rounded-lg overflow-hidden">
+            {compressedUrl ? (
+              <>
+                <img
+                  src={compressedUrl}
+                  alt="Compressed"
+                  className="w-full h-full object-contain p-2"
+                />
+                <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                  {`${(compressedSize / 1024).toFixed(2)} KB`}
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-500">
+                {isCompressing ? 'Compressing...' : 'Preview will appear here'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="quality" className="text-sm font-medium text-gray-300">
+            Quality: {quality}%
+          </Label>
+          <span className="text-xs text-gray-400">
+            {quality > 80 ? 'Best' : quality > 50 ? 'Good' : 'Low'} quality
+          </span>
+        </div>
+        <Slider
+          id="quality"
+          aria-label="Quality"
+          min={10}
+          max={90}
+          step={5}
+          value={[quality]}
+          onValueChange={(value) => onQualityChange(value[0])}
+          className="w-full"
+        />
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>Smaller file</span>
+          <span>Better quality</span>
+        </div>
+      </div>
+
+      <div className="flex justify-center w-full">
+        <ToolActionButton
+          icon={Download}
+          onClick={onDownload}
+          disabled={!compressedUrl || isCompressing}
+        >
+          Download Compressed
+        </ToolActionButton>
+      </div>
+    </div>
+  );
+};
+
+const ImageCompressor = () => {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
+  const [quality, setQuality] = useState<number>(70);
+  const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  // Bumped per run and per file change so a stale compression can't overwrite a newer one
+  const runIdRef = useRef(0);
+
+  const resetImage = () => {
+    runIdRef.current++;
+    setImageFile(null);
+    setCompressedUrl(null);
+    setIsCompressing(false);
+  };
+
+  const handleFileSelected = (file: File) => {
+    try {
+      runIdRef.current++;
+      setImageFile(file);
+      setCompressedUrl(null);
+      toast.success('Image loaded successfully!');
+    } catch (error) {
+      errorLogger.logFileProcessingError(
+        error as Error,
+        file,
+        'Failed to process selected file',
+        'handleFileSelected'
+      );
+      toast.error('Failed to load image. Please try again.');
+    }
+  };
+
+  const { loadFromUrl } = useUrlFileLoader({
+    expectedType: 'image',
+    maxFileSize: 50 * 1024 * 1024,
+    onSuccess: (loadedFile) => {
+      runIdRef.current++;
+      setImageFile(loadedFile);
+      setCompressedUrl(null);
+    },
+    onError: (error) => {
+      errorLogger.logFileProcessingError(
+        error,
+        new File([], 'url-load-error'),
+        'Failed to load image from URL',
+        'url_load',
+        { url: 'redacted' }
+      );
+    }
+  });
+
+  const handleUrlSubmit = async (url: string) => {
+    await loadFromUrl(url);
+  };
+
+  const compressImage = useCallback(() => {
+    if (!imageFile) return;
+
+    const runId = ++runIdRef.current;
+    setIsCompressing(true);
+    const startTime = performance.now();
+
+    try {
+      const reader = new FileReader();
+
+      reader.onerror = () => {
+        const error = new Error('Failed to read image file');
+        errorLogger.logFileProcessingError(
+          error,
+          imageFile,
+          'FileReader failed to read image data',
+          'compressImage_fileReader',
+          { stage: 'fileReader' }
+        );
+        toast.error('Failed to read image file. Please try again.');
+        setIsCompressing(false);
+      };
+
+      reader.onload = (event) => {
+        try {
+          const img = new window.Image();
+
+          img.onerror = () => {
+            const error = new Error('Failed to load image data');
+            errorLogger.logFileProcessingError(
+              error,
+              imageFile,
+              'Image element failed to load data',
+              'compressImage_imageLoad',
+              { stage: 'imageLoad' }
+            );
+            toast.error('Failed to process image. The file may be corrupted.');
+            setIsCompressing(false);
+          };
+
+          img.onload = () => {
+            if (runId !== runIdRef.current) return;
+            try {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+
+              if (!ctx) {
+                throw new Error('Failed to get canvas 2D context');
+              }
+
+              // Calculate new dimensions (maintain aspect ratio)
+              const maxDimension = 2000; // Max width/height
+              let width = img.width;
+              let height = img.height;
+
+              // Validate image dimensions
+              if (width <= 0 || height <= 0) {
+                throw new Error('Invalid image dimensions');
+              }
+
+              if (width > height && width > maxDimension) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              } else if (height > maxDimension) {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+
+              // JPEG has no alpha: fill white so transparent pixels don't turn black
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0, 0, width, height);
+              // Draw image with new dimensions
+              ctx.drawImage(img, 0, 0, width, height);
+
+              // Convert to compressed format
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', quality / 100);
+
+              if (!compressedDataUrl || compressedDataUrl === 'data:,') {
+                throw new Error('Failed to generate compressed image data');
+              }
+
+              setCompressedUrl(compressedDataUrl);
+              setIsCompressing(false);
+
+              // Log successful compression
+              const endTime = performance.now();
+              const processingTime = endTime - startTime;
+              const originalSize = imageFile.size;
+              const compressedSize = Math.round(compressedDataUrl.length * 0.75); // Approximate size
+              const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+
+              errorLogger.logError({
+                message: 'Image compression completed successfully',
+                category: ErrorCategory.FILE_PROCESSING,
+                context: {
+                  component: 'ImageCompressor',
+                  action: 'compressImage',
+                  userAgent: navigator.userAgent,
+                  url: window.location.href
+                },
+                metadata: {
+                  processingTime: `${processingTime.toFixed(2)}ms`,
+                  originalSize: `${(originalSize / 1024).toFixed(2)}KB`,
+                  compressedSize: `${(compressedSize / 1024).toFixed(2)}KB`,
+                  compressionRatio: `${compressionRatio}%`,
+                  quality: quality,
+                  dimensions: `${width}x${height}`,
+                  originalDimensions: `${img.width}x${img.height}`
+                }
+              });
+
+            } catch (error) {
+              errorLogger.logFileProcessingError(
+                error as Error,
+                imageFile,
+                'Failed during canvas processing or compression',
+                'compressImage_canvasProcessing',
+                {
+                  stage: 'canvasProcessing',
+                  quality: quality,
+                  imageDimensions: `${img.width}x${img.height}`
+                }
+              );
+              toast.error('Failed to compress image. Please try again.');
+              setIsCompressing(false);
+            }
+          };
+
+          img.src = event.target?.result as string;
+
+        } catch (error) {
+          errorLogger.logFileProcessingError(
+            error as Error,
+            imageFile,
+            'Failed to initialize image processing',
+            'compressImage_imageInit',
+            { stage: 'imageInit' }
+          );
+          toast.error('Failed to process image. Please try again.');
+          setIsCompressing(false);
+        }
+      };
+
+      reader.readAsDataURL(imageFile);
+
+    } catch (error) {
+      errorLogger.logFileProcessingError(
+        error as Error,
+        imageFile,
+        'Failed to start image compression',
+        'compressImage_initialization',
+        { stage: 'initialization' }
+      );
+      toast.error('Failed to start image compression. Please try again.');
+      setIsCompressing(false);
+    }
+  }, [imageFile, quality]);
+
+  const handleDownload = () => {
+    if (!compressedUrl) return;
+
+    downloadBlob(
+      dataURItoBlob(compressedUrl),
+      `compressed-${imageFile?.name.replace(/\.[^.]+$/, '') || 'image'}.jpg`,
+      { showToast: true }
+    );
+  };
+
+
+
+  useEffect(() => {
+    if (imageFile) {
+      const timer = setTimeout(() => {
+        compressImage();
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+    // Return undefined for the case where imageFile is null
+    return undefined;
+  }, [imageFile, quality, compressImage]);
+
+  return (
+    <ToolPageLayout
+      title="Image Compressor"
+      description="Compress your images without losing quality. All processing happens in your browser."
+      keywords="image compressor, compress images, reduce image size, image optimizer, online image compressor"
+      canonicalUrl="https://slixtools.io/tools/image-compressor"
+      pageTitle="Image Compressor | sLixTOOLS"
+      pageDescription="Compress your images online for free. Reduce image file size while maintaining good quality. No upload required, all processing happens in your browser."
+      breadcrumbLabel="Image Compressor"
+      faq={[
+        {
+          question: 'How much smaller will my image get?',
+          answer: 'Typical photos shrink by 50–90% depending on the quality level you choose, with barely visible quality loss.',
+        },
+        {
+          question: 'Which formats can I compress?',
+          answer: 'JPG, PNG, WebP and GIF (first frame) are supported. The result is saved as JPG; transparent areas become white.',
+        },
+        {
+          question: 'Is the compression lossless?',
+          answer: 'Compression is lossy at lower quality levels, but you can preview the result before downloading to find the sweet spot.',
+        },
+      ]}
+    >
+      <div className="max-w-2xl mx-auto w-full">
+        {!imageFile ? (
+          <FileUploadArea
+            onFileSelected={handleFileSelected}
+            fileCategory="image"
+            maxFileSize={config.upload.maxFileSize}
+            acceptedTypes={['jpg', 'jpeg', 'png', 'webp', 'gif']}
+            showUrlInput={true}
+            onUrlSubmit={handleUrlSubmit}
+            urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
+          />
+        ) : (
+          <AnimatedElement type="fadeIn" delay={0.6}>
+            <Card className="p-6 border border-gray-700/50 bg-gray-900/20">
+              <div className="flex justify-between items-center gap-4 mb-4">
+                <p className="font-medium text-gray-200 truncate">{imageFile.name}</p>
+                <button
+                  onClick={resetImage}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  title="Remove image"
+                  aria-label="Remove image"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <ImagePreview
+                file={imageFile}
+                compressedUrl={compressedUrl}
+                quality={quality}
+                onQualityChange={setQuality}
+                onDownload={handleDownload}
+                isCompressing={isCompressing}
+              />
+            </Card>
+          </AnimatedElement>
+        )}
+
+        <Divider className="mt-8 mb-6" />
+        <AnimatedElement type="fadeIn" delay={0.8}>
+          <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-3 text-gray-200 flex items-center">
+              <SlidersHorizontal className="mr-2 h-5 w-5 text-sky-400" />
+              How to use
+            </h3>
+            <ol className="space-y-2 text-sm text-gray-300 list-decimal list-inside">
+              <li>Upload an image by clicking the area above or dragging and dropping</li>
+              <li>Adjust the quality slider to balance between size and quality</li>
+              <li>Download your compressed image with the download button</li>
+            </ol>
+            <p className="mt-4 text-xs text-gray-500 flex items-start gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-sky-400/70" aria-hidden="true" />
+              <span><span className="font-semibold">Note:</span> All processing happens in your browser. Your images are never uploaded to any server.</span>
+            </p>
+          </div>
+        </AnimatedElement>
+      </div>
+    </ToolPageLayout>
+  );
+};
+
+const ImageCompressorWithErrorBoundary = () => {
+  return (
+    <ErrorBoundary isFileProcessing={true} showDetailedError={true}>
+      <ImageCompressor />
+    </ErrorBoundary>
+  );
+};
+
+export default ImageCompressorWithErrorBoundary;

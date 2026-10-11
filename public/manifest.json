@@ -1,0 +1,17 @@
+{
+  "name": "sLixTOOLS",
+  "short_name": "sLixTOOLS",
+  "description": "Free online tools for all your file conversion needs",
+  "start_url": "/sLixTOOLS/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#38BDF8",
+  "icons": [
+    {
+      "src": "/sLixTOOLS/formen.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
