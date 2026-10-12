@@ -20,6 +20,7 @@ const ImageConverter = lazy(() => import('./pages/tools/ImageConverter'));
 const ImageSplitter = lazy(() => import('./pages/tools/ImageSplitter'));
 const ConvertCaseTool = lazy(() => import('./pages/tools/ConvertCaseTool'));
 const XmlEditor = lazy(() => import('./pages/tools/XmlEditor'));
+const JsonValidator = lazy(() => import('./pages/tools/JsonValidator'));
 const PdfEditor = lazy(() => import('./pages/tools/PdfEditor'));
 
 // Lazy load info pages
@@ -78,6 +79,7 @@ const lazyRoutes: LazyRouteConfig[] = [
     fallbackText: 'Loading Convert Case Tool...',
   },
   { path: '/tools/xml-editor', Component: XmlEditor, fallbackText: 'Loading XML Editor...' },
+  { path: '/tools/json-validator', Component: JsonValidator, fallbackText: 'Loading JSON Validator...' },
   { path: '/tools/pdf-editor', Component: PdfEditor, fallbackText: 'Loading PDF Editor...' },
   { path: '/about', Component: About },
   { path: '/contact', Component: Contact },

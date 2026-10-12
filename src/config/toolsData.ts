@@ -1,4 +1,4 @@
-import { FileVideo, FileImage, FileText, Music, Type, Code, Scissors, LayoutGrid } from 'lucide-react';
+import { FileVideo, FileImage, FileText, Music, Type, Code, Scissors, LayoutGrid, Braces } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface ToolConfig {
@@ -107,6 +107,15 @@ export const TOOLS: ToolConfig[] = [
     tooltip: 'Edit, format, validate, and share XML data with syntax highlighting and real-time validation',
     icon: Code,
     path: '/tools/xml-editor',
+    category: 'document',
+    featured: true,
+  },
+  {
+    title: 'JSON Validator',
+    description: 'Validate, format, and minify JSON',
+    tooltip: 'Validate JSON with line and column error locations, pretty-print, minify, sort keys, and inspect stats',
+    icon: Braces,
+    path: '/tools/json-validator',
     category: 'document',
     featured: true,
   },
