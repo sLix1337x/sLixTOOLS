@@ -82,14 +82,13 @@ const Home = () => {
       <SEO
         title="sLixTOOLS - No Ads, No Privacy Risks - Free File Conversion Tools"
         description="Convert files instantly without ads, tracking, or uploads. 150+ clients trust our browser-based tools for video, image, and document conversion. Start converting now!"
-        canonical="https://slixtools.io"
         structuredData={{
           '@context': 'https://schema.org',
           '@type': 'WebApplication',
           name: 'sLixTOOLS',
           description:
             'Free online tools for file conversion: video, image, GIF, PDF, and text tools. No ads, no uploads required.',
-          url: 'https://sLix1337x.github.io/sLixTOOLS/',
+          url: EXTERNAL_URLS.SITE,
           applicationCategory: 'UtilitiesApplication',
           operatingSystem: 'Any',
           offers: {
@@ -150,7 +149,7 @@ const Home = () => {
                     <div className="hero-text flex flex-col mt-0 gap-0">
                       {/* Problem-focused headline */}
                       <div className="flex items-center justify-center gap-4 mb-0">
-                        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight whitespace-nowrap">
+                        <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight sm:whitespace-nowrap">
                           <span className="text-white">No Ads,</span>{' '}
                           <span className="text-violet-400">No Privacy Risks</span>
                           <span className="text-pink-400">.</span>
@@ -164,12 +163,13 @@ const Home = () => {
                             Convert files instantly in your browser. No uploads, no tracking, no
                             hidden fees. Your files stay private and secure on your device.
                           </p>
-                          <div className="absolute -top-16 -left-12 z-20">
+                          {/* Decorative; hidden on small screens where they would overflow the viewport */}
+                          <div className="hidden md:block absolute -top-16 -left-12 z-20" aria-hidden="true">
                             <div className="bg-violet-500 rounded-full p-3 shadow-lg floating-delayed">
                               <Sparkles className="h-6 w-6 text-white" />
                             </div>
                           </div>
-                          <div className="absolute top-14 -right-16 z-20">
+                          <div className="hidden md:block absolute top-14 -right-16 z-20" aria-hidden="true">
                             <div className="bg-sky-500 rounded-full p-3 shadow-lg floating">
                               <Scissors className="h-6 w-6 text-white" />
                             </div>
@@ -207,9 +207,9 @@ const Home = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <AnimatedElement type="slideIn" delay={0.2} isVisible={currentSection === 2}>
               <div className="max-w-3xl mx-auto text-center mb-8">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 bg-brand-text bg-clip-text text-transparent">
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 bg-brand-text bg-clip-text text-transparent">
                   All Tools
-                </h1>
+                </h2>
               </div>
             </AnimatedElement>
             <AnimatedElement type="slideIn" delay={0.3} isVisible={currentSection === 2}>

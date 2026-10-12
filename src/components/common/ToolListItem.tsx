@@ -30,8 +30,8 @@ const CARD_STYLES = {
   iconContainerDisabled: 'bg-white/5 text-slate-500',
   titleAvailable: 'text-white',
   titleDisabled: 'text-slate-400',
-  descAvailable: 'text-slate-500 group-hover:text-slate-400 line-clamp-2',
-  descDisabled: 'text-slate-600 line-clamp-2',
+  descAvailable: 'text-slate-400 group-hover:text-slate-300 line-clamp-2',
+  descDisabled: 'text-slate-500 line-clamp-2',
 } as const;
 
 /**
@@ -51,7 +51,7 @@ const ToolListItem = memo<ToolListItemProps>(({
       <div className={cn("py-0.5 text-base group", comingSoon ? SIMPLE_STYLES.disabled : SIMPLE_STYLES.available)}>
         <div className="flex items-center space-x-2">
           <div className={cn("flex-shrink-0", comingSoon ? SIMPLE_STYLES.iconDisabled : SIMPLE_STYLES.iconAvailable)}>
-            <Icon className="w-5 h-5" />
+            <Icon className="w-5 h-5" aria-hidden="true" />
           </div>
           <span className={cn("transition-colors duration-200", comingSoon ? SIMPLE_STYLES.textDisabled : SIMPLE_STYLES.textAvailable)}>
             {title}
@@ -135,7 +135,7 @@ const ToolListItem = memo<ToolListItemProps>(({
     <AnimatedElement type="fadeIn" className="h-full">
       <Link
         to={path || '#'}
-        className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 rounded-2xl"
+        className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-2xl"
         data-tool-name={title}
       >
         {cardContent}

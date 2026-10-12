@@ -29,21 +29,21 @@ const routeMap: Record<string, {
     loader: () => import('../pages/Features'), 
     priority: 'medium' 
   },
-  '/video-to-gif': { 
+  '/tools/video-to-gif': { 
     loader: () => import('../pages/tools/VideoToGif'), 
     priority: 'medium',
     dependencies: ['ffmpeg-libs']
   },
-  '/gif-compressor': { 
+  '/tools/gif-compressor': { 
     loader: () => import('../pages/tools/GifCompressor'), 
     priority: 'medium',
     dependencies: ['gif-libs']
   },
-  '/image-compressor': { 
+  '/tools/image-compressor': { 
     loader: () => import('../pages/tools/ImageCompressor'), 
     priority: 'high' 
   },
-  '/image-resizer': { 
+  '/tools/image-resizer': { 
     loader: () => import('../pages/tools/ImageResizer'), 
     priority: 'high' 
   },

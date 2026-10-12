@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useNavigationType } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import { ShieldCheck, CloudOff, Infinity as InfinityIcon, ChevronRight, ChevronDown, MessageCircleQuestion, HelpCircle } from 'lucide-react';
 import AnimatedElement from '@/components/AnimatedElement';
 import ToolSwitcher from '@/components/tools/ToolSwitcher';
@@ -16,7 +16,8 @@ interface ToolPageLayoutProps {
   title: string;
   description: string;
   keywords: string;
-  canonicalUrl: string;
+  /** @deprecated Ignored — the canonical URL is derived from the current route (see SEO) */
+  canonicalUrl?: string;
   pageTitle: string;
   pageDescription: string;
   children: React.ReactNode;
@@ -69,7 +70,6 @@ const ToolPageLayout = ({
   title,
   description,
   keywords,
-  canonicalUrl,
   pageTitle,
   pageDescription,
   children,
@@ -124,15 +124,12 @@ const ToolPageLayout = ({
 
   return (
     <div className="text-white relative min-h-0">
-      <Helmet>
-        <title>{title}</title>
-        <meta name="description" content={description} />
-        <meta name="keywords" content={keywords} />
-        <link rel="canonical" href={canonicalUrl} />
-        {faqStructuredData && (
-          <script type="application/ld+json">{JSON.stringify(faqStructuredData)}</script>
-        )}
-      </Helmet>
+      <SEO
+        title={title}
+        description={description}
+        keywords={keywords}
+        structuredData={faqStructuredData}
+      />
 
       <div className="container mx-auto px-4 pt-0 pb-8 flex flex-col min-h-0">
         {/* Tool switcher carousel */}
@@ -140,20 +137,24 @@ const ToolPageLayout = ({
 
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="max-w-3xl mx-auto w-full mt-2">
-          <ol className="flex items-center gap-1.5 text-xs text-slate-500">
+          <ol className="flex items-center gap-1.5 text-xs text-slate-400">
             <li>
-              <Link to="/" className="hover:text-slate-300 transition-colors">
+              <Link to="/" className="hover:text-slate-200 transition-colors">
                 Home
               </Link>
             </li>
-            <ChevronRight className="h-3 w-3" aria-hidden="true" />
+            <li aria-hidden="true">
+              <ChevronRight className="h-3 w-3" />
+            </li>
             <li>
-              <Link to="/tools" className="hover:text-slate-300 transition-colors">
+              <Link to="/tools" className="hover:text-slate-200 transition-colors">
                 Tools
               </Link>
             </li>
-            <ChevronRight className="h-3 w-3" aria-hidden="true" />
-            <li className="text-slate-400" aria-current="page">
+            <li aria-hidden="true">
+              <ChevronRight className="h-3 w-3" />
+            </li>
+            <li className="text-slate-300 truncate" aria-current="page">
               {breadcrumbLabel ?? title}
             </li>
           </ol>

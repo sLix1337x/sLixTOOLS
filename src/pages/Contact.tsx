@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import AnimatedElement from '@/components/AnimatedElement';
 import { ExternalLink, MessagesSquare } from 'lucide-react';
 import Container from '@/components/layout/Container';
@@ -6,11 +6,10 @@ import Container from '@/components/layout/Container';
 const Contact = () => {
   return (
     <div className="text-white relative min-h-0">
-      <Helmet>
-        <title>Support Us | sLixTOOLS</title>
-        <meta name="description" content="Support our work and get in touch with us. We appreciate your feedback and questions." />
-        <link rel="canonical" href="https://slixtools.io/contact" />
-      </Helmet>
+      <SEO
+        title="Support Us"
+        description="Support our work and get in touch with us. We appreciate your feedback and questions."
+      />
 
       <Container className="py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">

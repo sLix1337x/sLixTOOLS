@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import Container from '@/components/layout/Container';
+import { SEO } from '@/components/SEO';
 
 interface SectionProps {
   num: number;
@@ -35,6 +36,10 @@ const List = ({ items }: { items: string[] }) => (
 const PrivacyPolicy = () => {
   return (
     <div className="min-h-screen text-white">
+      <SEO
+        title="Privacy Policy"
+        description="How sLixTOOLS handles your data: all file processing happens locally in your browser and your files are never uploaded."
+      />
       <Container className="py-10">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs font-medium uppercase tracking-widest text-sky-400/80 mb-3">

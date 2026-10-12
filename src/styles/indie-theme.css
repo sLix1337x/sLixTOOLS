@@ -41,10 +41,10 @@ body {
 /* Navigation buttons */
 header button {
   border: none !important;
-  outline: none !important;
 }
 
-header button:focus {
+/* Mouse focus only — keyboard focus keeps its :focus-visible ring (index.css) */
+header button:focus:not(:focus-visible) {
   outline: none !important;
   box-shadow: none !important;
 }
@@ -86,9 +86,14 @@ textarea {
   margin-bottom: 1rem;
 }
 
-/* Remove focus outlines from form controls globally */
-button:focus,
-.btn:focus,
+/* Remove mouse-focus outlines; keyboard focus keeps its :focus-visible ring */
+button:focus:not(:focus-visible),
+.btn:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Form controls draw their own focus state (see professional-theme.css) */
 input:focus,
 select:focus,
 textarea:focus {

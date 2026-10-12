@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import { toast } from 'sonner';
 import PdfUpload from '@/components/tools/pdf/PdfUpload';
 import PdfActionPanel from '@/components/tools/pdf/PdfActionPanel';
@@ -1483,18 +1483,11 @@ const PdfEditor = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#1e1e1e] text-[#cccccc] overflow-hidden">
-      <Helmet>
-        <title>PDF Editor - sLixTOOLS</title>
-        <meta
-          name="description"
-          content="Upload a PDF, preview pages, and annotate precisely in your browser. All processing happens locally for maximum privacy."
-        />
-        <meta
-          name="keywords"
-          content="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor"
-        />
-        <link rel="canonical" href="https://slixtools.io/tools/pdf-editor" />
-      </Helmet>
+      <SEO
+        title="PDF Editor - sLixTOOLS"
+        description="Upload a PDF, preview pages, and annotate precisely in your browser. All processing happens locally for maximum privacy."
+        keywords="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor"
+      />
 
       {/* Menu Bar */}
       <PdfMenuBar

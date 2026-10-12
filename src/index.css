@@ -16,6 +16,28 @@
   animation: shimmer 3s ease-in-out infinite;
 }
 
+/* Visible keyboard focus everywhere; components with their own focus-visible styles override it */
+@layer base {
+  :focus-visible {
+    outline: 2px solid #38bdf8;
+    outline-offset: 2px;
+  }
+}
+
+/* Respect the OS "reduce motion" setting for CSS animations/transitions
+   (framer-motion is covered by <MotionConfig reducedMotion="user"> in App.tsx) */
+@media (prefers-reduced-motion: reduce) {
+  /* spinners keep spinning: a frozen spinner reads as a hang */
+  *:not(.animate-spin, .spinner),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 222 47% 8%;

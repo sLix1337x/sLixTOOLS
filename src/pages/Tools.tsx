@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Search, ShieldCheck, CloudOff, Infinity as InfinityIcon, Lock, RotateCcw,
+  Search, ShieldCheck, CloudOff, Infinity as InfinityIcon, Lock, X,
   Video, FileImage, FileText, Type, Music, FolderOpen, Hourglass, LayoutGrid,
   type LucideIcon,
 } from 'lucide-react';
@@ -12,7 +12,7 @@ import {
   type ToolConfig,
 } from '@/config/toolsData';
 import { SEO } from '@/components/SEO';
-import { EXTERNAL_URLS } from '@/config/externalUrls';
+import { EXTERNAL_URLS, siteUrl } from '@/config/externalUrls';
 import { cn } from '@/lib/utils';
 
 const CATEGORY_ORDER: ToolConfig['category'][] = ['video', 'image', 'document', 'text'];
@@ -82,7 +82,7 @@ const Tools = () => {
       position: index + 1,
       name: tool.title,
       description: tool.description,
-      url: `https://slixtools.io${tool.path ?? ''}`,
+      url: siteUrl(tool.path ?? '/'),
     })),
   };
 
@@ -90,8 +90,7 @@ const Tools = () => {
     <div className="text-white min-h-0 pb-4">
       <SEO
         title="All Tools"
-        description="Explore all the free online tools available at sLixTOOLS for your file conversion needs."
-        canonical="https://slixtools.io/tools"
+        description="Browse every free sLixTOOLS tool: video to GIF, GIF and image compression, image resizing and conversion, PDF and XML editing, and more. Runs entirely in your browser."
         structuredData={structuredData}
       />
 
@@ -129,7 +128,7 @@ const Tools = () => {
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
               aria-label="Clear search"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
 
@@ -177,6 +176,9 @@ const Tools = () => {
 
       {/* Tool catalog */}
       <div className="max-w-6xl mx-auto">
+        <p className="sr-only" role="status" aria-live="polite">
+          {isFiltering ? `${filtered.length} tool${filtered.length === 1 ? '' : 's'} found` : ''}
+        </p>
         {filtered.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-slate-400 mb-2">No tools match your search.</p>

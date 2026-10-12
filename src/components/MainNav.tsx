@@ -1,25 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronRight, FileImage, FileVideo, FileText, Image as ImageIcon, Type } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { preloadRoute } from '@/utils/preloader';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
-import { getToolByPath } from '@/config/toolsData';
+import { getAvailableTools } from '@/config/toolsData';
 import { cn } from '@/lib/utils';
 
-const AVAILABLE_TOOLS = [
-  { name: "Video to GIF", path: "/tools/video-to-gif", icon: FileVideo },
-  { name: "GIF Compressor", path: "/tools/gif-compressor", icon: FileImage },
-  { name: "Image Compressor", path: "/tools/image-compressor", icon: ImageIcon },
-  { name: "Image Resizer", path: "/tools/image-resizer", icon: FileImage },
-  { name: "Image Converter", path: "/tools/image-converter", icon: FileImage },
-  { name: "Image Splitter", path: "/tools/image-splitter", icon: FileImage },
-  { name: "Video Converter", path: "/tools/video-converter", icon: FileVideo },
-  { name: "Convert Case Tool", path: "/tools/convert-case", icon: Type },
-  { name: "XML Editor", path: "/tools/xml-editor", icon: FileText },
-  { name: "PDF Editor", path: "/tools/pdf-editor", icon: FileText },
-] as const;
+// Single source of truth: new tools in toolsData show up in the menu automatically
+const AVAILABLE_TOOLS = getAvailableTools().filter((tool) => tool.path);
 
 const NAV_ITEM_VARIANTS = {
   visible: { opacity: 1, x: 0 },
@@ -32,6 +22,7 @@ const MainNav = () => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const isHomePage = location.pathname === '/';
 
@@ -59,15 +50,27 @@ const MainNav = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
+  // Escape closes the menu and returns focus to its toggle
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setToolsOpen(false);
+      toggleRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [toolsOpen]);
+
   const navTransition = isAnimating
     ? { duration: 0.35, ease: "easeIn" as const }
     : { duration: 0.5, ease: "easeOut" as const };
 
   return (
-    <nav className="w-full">
+    <nav className="w-full" aria-label="Main">
       <div className="flex items-center justify-between h-16 w-full">
         <div className="flex items-center space-x-3">
-          <Link to="/" className="flex items-center group">
+          <Link to="/" className="flex items-center group rounded-md" aria-label="sLixTOOLS home">
             <motion.div
               className="flex items-center"
               initial="visible"
@@ -77,7 +80,7 @@ const MainNav = () => {
             >
               <img
                 src={EXTERNAL_URLS.DEMO_IMAGES.LOGO}
-                alt="sLixTOOLS Logo"
+                alt=""
                 className="h-10 w-auto max-h-[40px] object-contain transition-transform group-hover:scale-105"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = FALLBACK_LOGO;
@@ -88,27 +91,37 @@ const MainNav = () => {
           </Link>
         </div>
 
-        <nav className="hidden md:flex items-center space-x-4">
+        <div className="hidden md:flex items-center space-x-4">
           <motion.div
             className="relative"
             ref={menuRef}
+            onBlur={(e) => {
+              // Tabbing out of the open menu closes it
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setToolsOpen(false);
+            }}
             initial="visible"
             animate={isAnimating ? "hidden" : "visible"}
             variants={NAV_ITEM_VARIANTS}
             transition={{ ...navTransition, delay: 0.05 }}
           >
             <button
+              ref={toggleRef}
+              type="button"
+              aria-expanded={toolsOpen}
+              aria-controls="nav-tools-menu"
               onClick={() => setToolsOpen(prev => !prev)}
               className="flex items-center text-sm font-medium text-white hover:text-white transition-all bg-gray-800/80 hover:bg-gray-700/90 px-4 py-2.5 rounded-lg border border-gray-600/40 hover:border-gray-500/60"
             >
               <span>Tools</span>
-              <ChevronDown className={cn("ml-1.5 h-3.5 w-3.5 transform transition-transform", toolsOpen && 'rotate-180')} />
+              <ChevronDown className={cn("ml-1.5 h-3.5 w-3.5 transform transition-transform", toolsOpen && 'rotate-180')} aria-hidden="true" />
             </button>
 
+            {/* `invisible` when closed keeps the hidden links out of the tab order */}
             <div
+              id="nav-tools-menu"
               className={cn(
                 "absolute z-50 left-1/2 -translate-x-1/2 top-full pt-3 w-[min(560px,90vw)] transition-all duration-200",
-                toolsOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1 pointer-events-none'
+                toolsOpen ? 'visible opacity-100 translate-y-0' : 'invisible opacity-0 -translate-y-1 pointer-events-none'
               )}
             >
               <div className="rounded-xl border border-white/10 bg-[#0d0f13]/95 backdrop-blur-xl shadow-2xl overflow-hidden nav-dropdown-shadow">
@@ -116,50 +129,52 @@ const MainNav = () => {
                   <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">
                     All tools
                   </span>
-                  <span className="text-[11px] text-slate-600">
+                  <span className="text-[11px] text-slate-500">
                     {AVAILABLE_TOOLS.length} tools · free forever
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5 p-2">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-0.5 p-2">
                   {AVAILABLE_TOOLS.map((tool) => {
                     const Icon = tool.icon;
-                    const config = getToolByPath(tool.path);
+                    const path = tool.path as string;
                     return (
+                      <li key={path}>
                       <Link
-                        key={tool.path}
-                        to={tool.path}
-                        className="group flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/[0.06] transition-colors duration-150"
+                        to={path}
+                        className="group flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-white/[0.06] focus-visible:bg-white/[0.06] transition-colors duration-150"
                         onClick={() => setToolsOpen(false)}
-                        onMouseEnter={() => handleRouteHover(tool.path)}
+                        onMouseEnter={() => handleRouteHover(path)}
+                        onFocus={() => handleRouteHover(path)}
                       >
                         <span className="flex-shrink-0 mt-0.5 text-slate-400 group-hover:text-sky-400 transition-colors duration-150">
-                          {config?.iconImage ? (
+                          {tool.iconImage ? (
                             <img
-                              src={config.iconImage}
+                              src={tool.iconImage}
                               alt=""
                               aria-hidden="true"
                               loading="lazy"
+                              width={20}
+                              height={20}
                               className="h-5 w-5 object-contain"
                             />
                           ) : (
-                            <Icon className="h-5 w-5" />
+                            <Icon className="h-5 w-5" aria-hidden="true" />
                           )}
                         </span>
                         <span className="min-w-0">
                           <span className="block text-sm font-medium text-slate-200 group-hover:text-white transition-colors truncate">
-                            {tool.name}
+                            {tool.title}
                           </span>
-                          {config?.description && (
-                            <span className="block text-[11px] text-slate-500 truncate">
-                              {config.description}
-                            </span>
-                          )}
+                          <span className="block text-[11px] text-slate-400 truncate">
+                            {tool.description}
+                          </span>
                         </span>
                       </Link>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
 
                 <Link
                   to="/tools"
@@ -168,7 +183,7 @@ const MainNav = () => {
                   onMouseEnter={() => handleRouteHover('/tools')}
                 >
                   <span className="font-medium">View all tools</span>
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
             </div>
@@ -187,7 +202,7 @@ const MainNav = () => {
               Features
             </Link>
           </motion.div>
-        </nav>
+        </div>
 
         <motion.div
           className="flex items-center space-x-3"
