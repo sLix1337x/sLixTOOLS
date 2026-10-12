@@ -14,6 +14,7 @@ import PdfProgressIndicator from '@/components/tools/pdf/PdfProgressIndicator';
 import PdfConfirmDialog from '@/components/tools/pdf/PdfConfirmDialog';
 import * as pdfjsLib from 'pdfjs-dist';
 import { downloadBlob } from '@/utils/download';
+import { canonicalFor } from '@/config/externalUrls';
 import type { ToolType, ViewMode, TextBox, Drawing, PageRotation } from '@/types/pdfEditor';
 
 // Configure PDF.js worker - use public directory file which Vite serves correctly
@@ -1493,7 +1494,7 @@ const PdfEditor = () => {
           name="keywords"
           content="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor"
         />
-        <link rel="canonical" href="https://slixtools.io/tools/pdf-editor" />
+        <link rel="canonical" href={canonicalFor('/tools/pdf-editor')} />
       </Helmet>
 
       {/* Menu Bar */}

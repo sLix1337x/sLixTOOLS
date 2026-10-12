@@ -36,7 +36,7 @@ const XmlEditor = () => {
         setIsValid(true);
         setValidationError('');
       }
-    } catch (error) {
+    } catch {
       setIsValid(false);
       setValidationError('Invalid XML format');
     }
@@ -102,7 +102,7 @@ const XmlEditor = () => {
 
       setXmlContent(minified);
       toast.success('XML minified successfully!');
-    } catch (error) {
+    } catch {
       toast.error('Error minifying XML!');
     }
   }, [xmlContent]);
@@ -123,7 +123,7 @@ const XmlEditor = () => {
     try {
       await navigator.clipboard.writeText(xmlContent);
       toast.success('XML copied to clipboard!');
-    } catch (error) {
+    } catch {
       toast.error('Unable to copy automatically. Please copy manually.');
     }
   }, [xmlContent]);

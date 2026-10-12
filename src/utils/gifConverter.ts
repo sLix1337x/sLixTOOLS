@@ -23,7 +23,9 @@ interface GifJsInstance {
   addFrame(canvas: HTMLCanvasElement | CanvasRenderingContext2D, options?: { delay?: number | undefined; copy?: boolean | undefined } | undefined): void;
   render(): void;
   abort(): void;
-  freeWorkers(): void;
+  // Worker pools: abort() only terminates activeWorkers, idle ones live until terminated here
+  freeWorkers: Worker[];
+  activeWorkers: Worker[];
   on(event: 'finished', callback: (blob: Blob) => void): void;
   on(event: 'error', callback: (error: Error) => void): void;
   on(event: 'progress', callback: (progress: number) => void): void;
@@ -77,6 +79,14 @@ const loadGifJs = async (): Promise<GifJsConstructor> => {
 
 // Export the error class for external use
 export { GifConversionError, type EnhancedProgress, type EnhancedProgressCallback };
+
+// gif.js never terminates its workers: after 'finished' they all sit in freeWorkers forever
+export const terminateGifWorkers = (gif: Pick<GifJsInstance, 'freeWorkers' | 'activeWorkers'>) => {
+  for (const pool of [gif.activeWorkers, gif.freeWorkers]) {
+    if (!Array.isArray(pool)) continue;
+    pool.splice(0).forEach((worker) => worker.terminate());
+  }
+};
 
 // setTimeout treats delays above 2^31-1 (or Infinity) as 0
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
@@ -302,12 +312,7 @@ export const convertVideoToGif = async (
             }
 
             try {
-              if (gif && typeof gif.freeWorkers === 'function') {
-                gif.freeWorkers();
-              }
-              if (gif && typeof gif.abort === 'function') {
-                gif.abort();
-              }
+              terminateGifWorkers(gif);
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (_error) {
               // Worker cleanup handled silently

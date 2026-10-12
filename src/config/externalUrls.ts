@@ -12,6 +12,11 @@ const getLocalAssetPath = (path: string): string => {
   return `${cleanBase}${cleanPath}`;
 };
 
+// Absolute canonical for an in-app route. The site uses HashRouter, so a bare
+// "/tools/x" would resolve to the wrong page; this matches sitemap.xml.
+export const canonicalFor = (path: string): string =>
+  path.startsWith('/') ? `${window.location.origin}${import.meta.env.BASE_URL}#${path}` : path;
+
 export const EXTERNAL_URLS = {
   // Social Media and Branding
   OG_IMAGE: 'https://slixtools.io/og-image.png',

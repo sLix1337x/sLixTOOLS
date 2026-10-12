@@ -77,8 +77,8 @@ export const SEO = ({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image || EXTERNAL_URLS.OG_IMAGE} />
       
-      {/* Additional Meta Tags */}
-      <meta name="robots" content="index, follow" />
+      {/* Additional Meta Tags (the noindex/nofollow tag above must not be contradicted) */}
+      {!noIndex && !noFollow && <meta name="robots" content="index, follow" />}
       <meta name="author" content={author} />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       

@@ -1,5 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import { getFrameTimes, getGifDimensions } from './gifConverter';
+import { describe, it, expect, vi } from 'vitest';
+import { getFrameTimes, getGifDimensions, terminateGifWorkers } from './gifConverter';
+
+describe('terminateGifWorkers', () => {
+  it('terminates and drains both worker pools', () => {
+    const fake = () => ({ terminate: vi.fn() }) as unknown as Worker;
+    const gif = { freeWorkers: [fake(), fake()], activeWorkers: [fake()] };
+    const all = [...gif.freeWorkers, ...gif.activeWorkers];
+
+    terminateGifWorkers(gif);
+
+    expect(gif.freeWorkers).toEqual([]);
+    expect(gif.activeWorkers).toEqual([]);
+    all.forEach((w) => expect(w.terminate).toHaveBeenCalledTimes(1));
+  });
+
+  it('tolerates missing pools', () => {
+    expect(() => terminateGifWorkers({} as never)).not.toThrow();
+  });
+});
 
 describe('getFrameTimes', () => {
   it('emits one frame per 1/fps step that fits before the end', () => {

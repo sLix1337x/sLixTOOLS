@@ -1,6 +1,7 @@
 import GIFLib from 'gif.js';
 import { bytesToMB } from './formatters';
 import { config } from '../config';
+import { terminateGifWorkers } from './gifConverter';
 
 // GIF.js options interface
 interface GifJsOptions {
@@ -22,7 +23,8 @@ interface GifJsInstance {
   addFrame(canvas: HTMLCanvasElement | CanvasRenderingContext2D | ImageData, options?: { delay?: number | undefined; copy?: boolean | undefined } | undefined): void;
   render(): void;
   abort(): void;
-  freeWorkers(): void;
+  freeWorkers: Worker[];
+  activeWorkers: Worker[];
   on(event: 'finished', callback: (blob: Blob) => void): void;
   on(event: 'error', callback: (error: Error) => void): void;
   on(event: 'progress', callback: (progress: number) => void): void;
@@ -324,6 +326,7 @@ export const compressGif = async (
 
     return new Promise((resolve, reject) => {
       gif.on('finished', (blob: Blob) => {
+        terminateGifWorkers(gif);
         onProgress?.({
           stage: 'complete',
           progress: 100,
@@ -335,6 +338,7 @@ export const compressGif = async (
       });
 
       gif.on('error', (error: Error) => {
+        terminateGifWorkers(gif);
         reject(new GifCompressionError('Failed to render GIF', 'rebuilding', error));
       });
 
@@ -342,6 +346,7 @@ export const compressGif = async (
     });
 
   } catch (error) {
+    if (error instanceof GifCompressionError) throw error;
     throw new GifCompressionError(
       'Compression failed',
       'unknown',

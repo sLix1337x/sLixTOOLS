@@ -107,7 +107,7 @@ const VideoConverter = () => {
       title="Video Converter"
       description="Convert your videos between different formats with customizable quality and compression settings. All processing happens in your browser for maximum privacy."
       keywords="video converter, video compression, MP4, WebM, AVI, video format conversion"
-      canonicalUrl="https://slixtools.io/tools/video-converter"
+      canonicalUrl="/tools/video-converter"
       pageTitle="Video Converter - sLixTOOLS"
       pageDescription="Convert videos between different formats like MP4, WebM, and AVI with customizable quality settings."
       breadcrumbLabel="Video Converter"

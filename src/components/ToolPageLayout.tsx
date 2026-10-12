@@ -6,6 +6,7 @@ import AnimatedElement from '@/components/AnimatedElement';
 import ToolSwitcher from '@/components/tools/ToolSwitcher';
 import Divider from '@/components/ui/divider';
 import FooterLinks, { CopyrightNotice } from '@/components/common/FooterLinks';
+import { canonicalFor } from '@/config/externalUrls';
 
 interface FaqItem {
   question: string;
@@ -16,6 +17,7 @@ interface ToolPageLayoutProps {
   title: string;
   description: string;
   keywords: string;
+  /** App route of the page, e.g. "/tools/video-to-gif" (absolute URLs pass through) */
   canonicalUrl: string;
   pageTitle: string;
   pageDescription: string;
@@ -128,7 +130,7 @@ const ToolPageLayout = ({
         <title>{title}</title>
         <meta name="description" content={description} />
         <meta name="keywords" content={keywords} />
-        <link rel="canonical" href={canonicalUrl} />
+        <link rel="canonical" href={canonicalFor(canonicalUrl)} />
         {faqStructuredData && (
           <script type="application/ld+json">{JSON.stringify(faqStructuredData)}</script>
         )}
