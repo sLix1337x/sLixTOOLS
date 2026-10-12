@@ -1,7 +1,7 @@
 import React from 'react';
 import { Zap, Lock, CircleDollarSign, Settings, FileImage, Video, FileCode, FileArchive, ArrowRight, LayoutGrid, Star, Rocket, Files, Check, Headphones, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import AnimatedElement from '@/components/AnimatedElement';
 
 const FeatureItem = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
@@ -67,20 +67,11 @@ const Features = () => {
 
   return (
     <div className="text-white relative min-h-0">
-      <Helmet>
-        <title>Features - Free Online Video to GIF Converter & Media Tools | sLixTOOLS</title>
-        <meta name="description" content="Discover powerful features of sLixTOOLS: free video to GIF converter, image compressor, audio converter, and more. Fast, secure, browser-based tools with no uploads required." />
-        <meta name="keywords" content="video to gif converter, online gif maker, image compressor, audio converter, video converter, free media tools, browser-based converter, privacy-focused tools, no upload required, fast conversion" />
-        <meta name="robots" content="index, follow" />
-        <meta property="og:title" content="Features - Free Online Video to GIF Converter & Media Tools | sLixTOOLS" />
-        <meta property="og:description" content="Discover powerful features of sLixTOOLS: free video to GIF converter, image compressor, audio converter, and more. Fast, secure, browser-based tools." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://slixtools.io/features" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Features - Free Online Video to GIF Converter & Media Tools" />
-        <meta name="twitter:description" content="Fast, secure, browser-based media conversion tools. Convert videos to GIFs, compress images, and more - all for free!" />
-        <link rel="canonical" href="https://slixtools.io/features" />
-      </Helmet>
+      <SEO
+        title="Features - Free Online Video to GIF Converter & Media Tools | sLixTOOLS"
+        description="Discover powerful features of sLixTOOLS: free video to GIF converter, image compressor, PDF editor, and more. Fast, secure, browser-based tools with no uploads required."
+        keywords="video to gif converter, online gif maker, image compressor, video converter, pdf editor, free media tools, browser-based converter, privacy-focused tools, no upload required, fast conversion"
+      />
 
       <div className="container mx-auto px-4 py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">

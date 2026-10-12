@@ -13,8 +13,11 @@ const getLocalAssetPath = (path: string): string => {
 };
 
 export const EXTERNAL_URLS = {
+  /** Public site root (GitHub Pages). Routes live behind the hash: `${SITE}#/tools` — matches public/sitemap.xml */
+  SITE: 'https://sLix1337x.github.io/sLixTOOLS/',
+
   // Social Media and Branding
-  OG_IMAGE: 'https://slixtools.io/og-image.png',
+  OG_IMAGE: 'https://sLix1337x.github.io/sLixTOOLS/formen.png',
   BANNER_IMAGE: 'https://sLix1337x.github.io/sLixTOOLS/assets/images/slixtool-banner.svg',
   
   // Demo Images - Using local paths to avoid COEP blocking
@@ -39,4 +42,8 @@ export const EXTERNAL_URLS = {
     LICENSE_URL: 'https://opensource.org/licenses/MIT',
   },
 } as const;
+
+/** Public URL of a route, in the same `#/path` form public/sitemap.xml uses */
+export const siteUrl = (pathname: string): string =>
+  pathname === '/' ? EXTERNAL_URLS.SITE : `${EXTERNAL_URLS.SITE}#${pathname}`;
 

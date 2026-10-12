@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import Container from '@/components/layout/Container';
+import { SEO } from '@/components/SEO';
 
 interface SectionProps {
   num: number;
@@ -35,6 +36,10 @@ const List = ({ items }: { items: string[] }) => (
 const TermsOfService = () => {
   return (
     <div className="min-h-screen text-white">
+      <SEO
+        title="Terms of Service"
+        description="Terms of service for using the free, browser-based sLixTOOLS file conversion and editing tools."
+      />
       <Container className="py-10">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs font-medium uppercase tracking-widest text-sky-400/80 mb-3">

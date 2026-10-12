@@ -17,8 +17,13 @@ const LoadingSpinner = ({
   text = 'Loading...', 
   className = '' 
 }: LoadingSpinnerProps) => (
-  <div className={`flex flex-col items-center justify-center min-h-[200px] ${className}`}>
-    <Loader2 className={`animate-spin text-[#38BDF8] ${SIZE_CLASSES[size]}`} />
+  <div
+    className={`flex flex-col items-center justify-center min-h-[200px] ${className}`}
+    role="status"
+    aria-live="polite"
+  >
+    <Loader2 className={`animate-spin text-[#38BDF8] ${SIZE_CLASSES[size]}`} aria-hidden="true" />
+    {!text && <span className="sr-only">Loading…</span>}
     {text && (
       <p className="mt-2 text-sm text-gray-400 animate-pulse">{text}</p>
     )}

@@ -83,10 +83,9 @@ body {
   border-color: transparent !important;
   transform: none !important;
   box-shadow: none !important;
-  outline: none !important;
 }
 
-.rainbow-hover:focus {
+.rainbow-hover:focus:not(:focus-visible) {
   outline: none !important;
   box-shadow: none !important;
 }

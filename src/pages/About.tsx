@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import { BookOpen, Cpu, Heart, Check } from 'lucide-react';
 import AnimatedElement from '@/components/AnimatedElement';
 import Container from '@/components/layout/Container';
@@ -7,12 +7,11 @@ import Container from '@/components/layout/Container';
 const About = () => {
   return (
     <div className="text-white relative min-h-0">
-      <Helmet>
-        <title>About | sLixTOOLS</title>
-        <meta name="description" content="Learn about sLixTOOLS, a free, privacy-focused online tool for converting videos to GIFs directly in your browser." />
-        <meta name="keywords" content="about sLixTOOLS, privacy-focused GIF maker, free video to GIF converter, sLix1337" />
-        <link rel="canonical" href="https://slixtools.io/about" />
-      </Helmet>
+      <SEO
+        title="About"
+        description="Learn about sLixTOOLS: free, privacy-focused file tools for video, images, PDFs and text that run entirely in your browser."
+        keywords="about sLixTOOLS, privacy-focused GIF maker, free video to GIF converter, sLix1337"
+      />
 
       <Container className="py-8 flex flex-col min-h-0">
         <div className="max-w-3xl mx-auto text-center">

@@ -1,4 +1,5 @@
 import Container from '@/components/layout/Container';
+import { SEO } from '@/components/SEO';
 
 /**
  * German statutory imprint (Impressum).
@@ -8,6 +9,7 @@ import Container from '@/components/layout/Container';
 const Impressum = () => {
   return (
     <div className="min-h-screen text-white">
+      <SEO title="Impressum" description="Legal imprint (Impressum) for sLixTOOLS pursuant to § 5 DDG." />
       <Container className="py-10">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs font-medium uppercase tracking-widest text-sky-400/80 mb-3">

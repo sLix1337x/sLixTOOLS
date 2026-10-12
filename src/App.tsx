@@ -1,6 +1,7 @@
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { MotionConfig } from 'framer-motion';
 import { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -158,6 +159,18 @@ const AppContent = () => {
 
   return (
     <ErrorBoundary>
+      {/* Skip link: a plain #anchor would be read as a route by HashRouter, so focus manually */}
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('main-content')?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-lg focus:bg-sky-400 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-950"
+      >
+        Skip to content
+      </a>
+
       {showHeader && (
         <header
           className={`flex-shrink-0 ${isHomePage ? 'home-page-header' : `site-header${scrolled ? ' header-hidden' : ''}`}`}
@@ -172,10 +185,12 @@ const AppContent = () => {
       )}
 
       <main
+        id="main-content"
+        tabIndex={-1}
         className={
           !isHomePage && location.pathname !== '/contact' && !isPdfEditor
-            ? 'container mx-auto px-4 py-6'
-            : 'flex flex-col min-h-0'
+            ? 'container mx-auto px-4 py-6 focus:outline-none'
+            : 'flex flex-col min-h-0 focus:outline-none'
         }
       >
         <Routes>
@@ -267,6 +282,8 @@ const App = () => {
   return (
     <ErrorBoundary>
       <HelmetProvider>
+        {/* Honour the OS "reduce motion" setting for every framer-motion animation */}
+        <MotionConfig reducedMotion="user">
         <HashRouter
           future={{
             v7_startTransition: true,
@@ -277,6 +294,7 @@ const App = () => {
           <ScrollToTop />
           <AppWrapper />
         </HashRouter>
+        </MotionConfig>
 
         <Sonner className="toaster" position="bottom-right" />
       </HelmetProvider>
