@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Wand2, PartyPopper } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   ConversionOptions as ConversionOptionsType,
@@ -27,14 +28,13 @@ interface GifResult {
   processingTime: number;
 }
 
-type ConversionState = 'idle' | 'converting' | 'completed' | 'error';
-
 import { config } from '@/config';
 
 // Configuration constants
 const CONFIG = {
   MAX_FILE_SIZE: config.upload.maxFileSize, // Use centralized config
-  SUPPORTED_FORMATS: config.upload.allowedVideoTypes,
+  // Any video MIME: real files report quicktime/x-matroska/x-msvideo, not the pretty names
+  SUPPORTED_FORMATS: ['video/*'],
   DEFAULT_OPTIONS: {
     fps: 15,
     quality: 10, // gif.js sample interval (slider 1-20, lower = better)
@@ -120,7 +120,6 @@ const VideoToGif = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [gifBlob, setGifBlob] = useState<Blob | null>(null);
   const [gifResult, setGifResult] = useState<GifResult | null>(null);
-  const [conversionState, setConversionState] = useState<ConversionState>('idle');
   const [isConverting, setIsConverting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [showPostOptions, setShowPostOptions] = useState(false);
@@ -174,7 +173,8 @@ const VideoToGif = () => {
 
         setVideoFile(file);
         setGifBlob(null);
-        setConversionState('idle');
+        setGifResult(null);
+        setShowPostOptions(false);
 
         // Get video duration for trim options
         const video = document.createElement('video');
@@ -205,7 +205,6 @@ const VideoToGif = () => {
                 fileType: file.type,
               }
             );
-            setConversionState('error');
           } finally {
             window.URL.revokeObjectURL(video.src);
           }
@@ -255,10 +254,10 @@ const VideoToGif = () => {
       if (!gifResult) return;
 
       try {
-        toast.info(`Applying ${editType}...`);
-        // Here you would implement the actual editing logic
-        // For now, we'll just show a success message
-        toast.success(`${editType} applied successfully!`);
+        // ponytail: no GIF post-editing pipeline exists yet; say so instead of faking success
+        toast.info(`${editType} is not available yet`, {
+          description: 'Download the GIF and use the GIF Compressor or Image tools for now.',
+        });
       } catch (editError) {
         handleError(
           editError instanceof Error ? editError : new Error(String(editError)),
@@ -269,6 +268,15 @@ const VideoToGif = () => {
     },
     [gifResult, handleError]
   );
+
+  const resetVideo = () => {
+    setVideoFile(null);
+    setVideoDuration(0);
+    setGifBlob(null);
+    setGifResult(null);
+    setShowPostOptions(false);
+    setProgress(0);
+  };
 
   const handleDownload = useCallback(() => {
     if (gifBlob) {
@@ -294,12 +302,10 @@ const VideoToGif = () => {
           fileType: videoFile.type,
         }
       );
-      setConversionState('error');
       return;
     }
 
     setIsConverting(true);
-    setConversionState('converting');
     setProgress(0);
     setGifResult(null);
     setShowPostOptions(false);
@@ -338,7 +344,6 @@ const VideoToGif = () => {
         processingTime,
       });
       setShowPostOptions(true);
-      setConversionState('completed');
 
       const fileSizeMB = (gifBlob.size / 1024 / 1024).toFixed(2);
       toast.success('Conversion Successful!', {
@@ -354,15 +359,8 @@ const VideoToGif = () => {
           options: JSON.stringify(conversionOptions),
         }
       );
-      setConversionState('error');
     } finally {
       setIsConverting(false);
-      // Reset conversion state to idle after a delay to allow UI updates
-      setTimeout(() => {
-        if (conversionState !== 'completed') {
-          setConversionState('idle');
-        }
-      }, 1000);
     }
   };
 
@@ -392,20 +390,7 @@ const VideoToGif = () => {
     >
       {!videoFile ? (
         <FileUploadArea
-          acceptedTypes={[
-            'video/mp4',
-            'video/webm',
-            'video/avi',
-            'video/mov',
-            'video/mkv',
-            'video/flv',
-            'video/wmv',
-            'video/ogg',
-            'video/m4v',
-            'video/asf',
-            'video/3gp',
-            'video/mpeg',
-          ]}
+          acceptedTypes={[...CONFIG.SUPPORTED_FORMATS]}
           maxFileSize={CONFIG.MAX_FILE_SIZE}
           onFileSelected={handleFileSelected}
           onUrlSubmit={handleUrlSubmit}
@@ -419,6 +404,18 @@ const VideoToGif = () => {
         <div className="space-y-6">
           <AnimatedElement type="fadeIn" delay={0.2}>
             <VideoPreview file={videoFile} onDurationChange={setVideoDuration} />
+            <div className="flex justify-between items-center max-w-2xl mx-auto mt-2 text-sm text-gray-400">
+              <span className="truncate" title={videoFile.name}>{videoFile.name}</span>
+              <Button
+                onClick={resetVideo}
+                variant="outline"
+                size="sm"
+                disabled={isConverting}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              >
+                Remove
+              </Button>
+            </div>
           </AnimatedElement>
 
           <AnimatedElement type="fadeIn" delay={0.4}>

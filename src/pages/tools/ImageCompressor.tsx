@@ -381,7 +381,7 @@ const ImageCompressor = () => {
       title="Image Compressor"
       description="Compress your images without losing quality. All processing happens in your browser."
       keywords="image compressor, compress images, reduce image size, image optimizer, online image compressor"
-      canonicalUrl="https://slixtools.io/tools/image-compressor"
+      canonicalUrl="/tools/image-compressor"
       pageTitle="Image Compressor | sLixTOOLS"
       pageDescription="Compress your images online for free. Reduce image file size while maintaining good quality. No upload required, all processing happens in your browser."
       breadcrumbLabel="Image Compressor"

@@ -520,7 +520,7 @@ const ImageSplitter = () => {
       title="Image Splitter"
       description="Split any image into a grid of lossless PNG tiles. Presets, draggable cut lines, custom filenames, and ZIP export — 100% in your browser."
       keywords="image splitter, split image, image grid cutter, photo splitter online, slice image into parts"
-      canonicalUrl="https://slixtools.io/tools/image-splitter"
+      canonicalUrl="/tools/image-splitter"
       pageTitle="Image Splitter | sLixTOOLS"
       pageDescription="Split images into grids or custom tiles online for free. Choose a preset or drag your own cut lines, rename every part, and download as individual PNGs or a ZIP. Nothing ever leaves your device."
       breadcrumbLabel="Image Splitter"

@@ -6,7 +6,8 @@
     <script>
       // For HashRouter, redirect to the main page with hash routing
       const path = window.location.pathname.replace('/sLixTOOLS', '');
-      window.location.href = '/sLixTOOLS/#' + path;
+      // keep ?url= deep links for the tools' URL loader
+      window.location.href = '/sLixTOOLS/#' + path + window.location.search;
     </script>
   </head>
   <body>

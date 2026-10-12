@@ -192,7 +192,7 @@ const ImageResizer = () => {
       title="Image Resizer"
       description="Resize your images to any dimension. Supports JPG, PNG, GIF, WebP, and more."
       keywords="image resizer, resize images, image size reducer, online image editor, image tools"
-      canonicalUrl="https://slixtools.io/tools/image-resizer"
+      canonicalUrl="/tools/image-resizer"
       pageTitle="Image Resizer | sLixTOOLS"
       pageDescription="Resize your images online for free. Adjust width and height while maintaining aspect ratio. Supports multiple image formats including JPG, PNG, GIF, WebP, and more."
       breadcrumbLabel="Image Resizer"
