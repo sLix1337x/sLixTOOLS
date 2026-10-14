@@ -28,7 +28,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 | 🖼️ **Image Compressor** | Batch-compress JPG/PNG/WebP with a live before/after preview |
 | 📐 **Image Resizer** | Resize images by pixels or percentage, bulk-ready |
 | 🎥 **Video Converter** | Convert video formats right in the browser via ffmpeg.wasm |
-| 🔄 **Image Converter** | Convert between PNG / JPG / WebP — compress-after-convert optional |
+| 🔄 **Image Converter** | Batch-convert many images between PNG / JPG / WebP — quality slider, per-file or ZIP download |
 | 🧩 **Image Splitter** | Slice one image into a grid of tiles with view presets |
 | 🔤 **Convert Case** | 7 instant case styles (Sentence, Title, camelCase, aLtErNaTiNg…) |
 | 🧾 **XML Editor** | Format, validate and minify XML with instant feedback |

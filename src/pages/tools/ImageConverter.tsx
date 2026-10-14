@@ -1,17 +1,16 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { FileImage, Settings, Download } from 'lucide-react';
+import { FileImage, Settings, Download, X, Archive } from 'lucide-react';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import Divider from '@/components/ui/divider';
 import FileUploadArea from '@/components/FileUploadArea';
 import { toast } from 'sonner';
-import { useUrlFileLoader, useToolFile } from '@/hooks';
+import { useUrlFileLoader } from '@/hooks';
 import { downloadBlob } from '@/utils/download';
-import { dataURItoBlob } from '@/utils/dataConversion';
 import { config } from '@/config';
 
 interface ConversionOptions {
@@ -22,19 +21,33 @@ interface ConversionOptions {
   maintainAspectRatio: boolean;
 }
 
+interface Item {
+  id: number;
+  file: File;
+  url: string;
+  width: number;
+  height: number;
+  resultBlob?: Blob | undefined;
+  resultUrl?: string | undefined;
+  error?: string | undefined;
+}
+
 const MAX_DIMENSION = 16384; // 16384² is also Chromium's max canvas area
+const MAX_FILES = 50;
+
+const MIME: Record<string, string> = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+const EXT: Record<string, string> = { jpeg: 'jpg', png: 'png', webp: 'webp' };
 
 const clampDimension = (value: number) =>
   Math.min(MAX_DIMENSION, Math.max(1, Math.round(value) || 1));
 
 const baseName = (name: string) => name.replace(/\.[^.]+$/, '');
 
+const kb = (n: number) => `${(n / 1024).toFixed(1)} KB`;
+
 const ImageConverter = () => {
-  const [convertedImage, setConvertedImage] = useState<string | null>(null);
-  // Bumped on every new file so in-flight work for the previous file is ignored
-  const fileGenRef = useRef(0);
+  const [items, setItems] = useState<Item[]>([]);
   const [isConverting, setIsConverting] = useState(false);
-  const [originalDimensions, setOriginalDimensions] = useState<{ width: number; height: number } | null>(null);
   const [options, setOptions] = useState<ConversionOptions>({
     format: 'jpeg',
     quality: 85,
@@ -42,201 +55,161 @@ const ImageConverter = () => {
     height: 0,
     maintainAspectRatio: true
   });
+  const nextId = useRef(0);
+  const itemsRef = useRef<Item[]>([]);
+  const setAll = (next: Item[]) => {
+    itemsRef.current = next;
+    setItems(next);
+  };
 
-  // Use useToolFile hook for file handling
-  const {
-    file: imageFile,
-    previewUrl: imageUrl,
-    handleFileSelect
-  } = useToolFile({
-    acceptedTypes: ['image/*'],
-    maxFileSize: config.upload.maxFileSize,
-    onFileLoad: (file) => {
-      const gen = ++fileGenRef.current;
-      setConvertedImage(null);
+  // Free every object URL on unmount
+  useEffect(() => () => {
+    itemsRef.current.forEach(i => {
+      URL.revokeObjectURL(i.url);
+      if (i.resultUrl) URL.revokeObjectURL(i.resultUrl);
+    });
+  }, []);
 
-      // Get image dimensions
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        if (gen !== fileGenRef.current) return;
-        setOriginalDimensions({ width: img.width, height: img.height });
-        setOptions(prev => ({
-          ...prev,
-          width: img.width,
-          height: img.height
-        }));
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        if (gen === fileGenRef.current) toast.error('Could not read this image. Your browser may not support its format.');
-      };
-      img.src = objectUrl;
+  const addFile = useCallback((file: File) => {
+    if (itemsRef.current.length >= MAX_FILES) {
+      toast.error(`Up to ${MAX_FILES} images at a time`);
+      return;
     }
-  });
+    const url = URL.createObjectURL(file);
+    const id = nextId.current++;
+    const probe = new Image();
+    probe.onload = () => {
+      if (itemsRef.current.length >= MAX_FILES) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setAll([...itemsRef.current, { id, file, url, width: probe.width, height: probe.height }]);
+    };
+    probe.onerror = () => {
+      URL.revokeObjectURL(url);
+      toast.error(`Could not read ${file.name}`, { description: 'Your browser may not support its format.' });
+    };
+    probe.src = url;
+  }, []);
 
   const { loadFromUrl } = useUrlFileLoader({
     expectedType: 'image',
     maxFileSize: config.upload.maxFileSize,
-    onSuccess: handleFileSelect
+    onSuccess: addFile
   });
-
 
   const handleUrlSubmit = async (url: string) => {
     await loadFromUrl(url);
   };
 
-  const convertImage = useCallback(async (file: File, options: ConversionOptions): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
+  const revokeItem = (i: Item) => {
+    URL.revokeObjectURL(i.url);
+    if (i.resultUrl) URL.revokeObjectURL(i.resultUrl);
+  };
 
+  const removeItem = (id: number) => {
+    const item = itemsRef.current.find(i => i.id === id);
+    if (item) revokeItem(item);
+    setAll(itemsRef.current.filter(i => i.id !== id));
+  };
+
+  const clearAll = () => {
+    itemsRef.current.forEach(revokeItem);
+    setAll([]);
+  };
+
+  // Resize fields only apply to a single image; batches keep each original size
+  const single = items.length === 1 ? items[0] : null;
+  const originalDimensions = single ? { width: single.width, height: single.height } : null;
+  const singleId = single?.id;
+  useEffect(() => {
+    const only = itemsRef.current.length === 1 ? itemsRef.current[0] : null;
+    if (only) setOptions(prev => ({ ...prev, width: only.width, height: only.height }));
+  }, [singleId]);
+
+  const convertOne = (item: Item, opts: ConversionOptions, useSize: boolean): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
       img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
         try {
-          canvas.width = clampDimension(options.width || img.width);
-          canvas.height = clampDimension(options.height || img.height);
-          const mimeType = `image/${options.format}`;
-          if (ctx && mimeType === 'image/jpeg') {
+          const canvas = document.createElement('canvas');
+          canvas.width = clampDimension(useSize ? opts.width || img.width : img.width);
+          canvas.height = clampDimension(useSize ? opts.height || img.height : img.height);
+          const ctx = canvas.getContext('2d');
+          const mimeType = MIME[opts.format] ?? 'image/png';
+          if (ctx && opts.format === 'jpeg') {
             // JPEG has no alpha: fill white so transparent pixels don't turn black
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
           }
           ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-          const quality = options.format === 'jpeg' ? options.quality / 100 : undefined;
-
-          try {
-            const dataUrl = canvas.toDataURL(mimeType, quality);
-            // Unsupported formats silently fall back to PNG; oversized canvases yield "data:,"
-            if (!dataUrl.startsWith(`data:${mimeType}`)) {
-              reject(new Error(`Your browser could not encode a ${canvas.width}×${canvas.height} ${options.format.toUpperCase()} image`));
-              return;
+          const quality = opts.format === 'png' ? undefined : opts.quality / 100;
+          canvas.toBlob(blob => {
+            // Unsupported formats silently fall back to PNG; oversized canvases yield null
+            if (!blob || blob.type !== mimeType) {
+              reject(new Error(`Your browser could not encode a ${canvas.width}×${canvas.height} ${opts.format.toUpperCase()} image`));
+            } else {
+              resolve(blob);
             }
-            resolve(dataUrl);
-          } catch (error) {
-            reject(new Error(`Failed to convert image to ${options.format}: ${error instanceof Error ? error.message : 'Unknown error'}`));
-          }
+          }, mimeType, quality);
         } catch (error) {
           reject(error);
         }
       };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error('Failed to load image for conversion'));
-      };
-      img.src = objectUrl;
+      img.onerror = () => reject(new Error('Failed to load image for conversion'));
+      img.src = item.url;
     });
-  }, []);
 
   const handleConvert = useCallback(async () => {
-    if (!imageFile) {
+    const batch = itemsRef.current;
+    if (batch.length === 0) {
       toast.error('Please select an image file first');
       return;
     }
-
-    const gen = fileGenRef.current;
     setIsConverting(true);
-    setConvertedImage(null);
-
-    try {
-      const resultDataUrl = await convertImage(imageFile, options);
-      if (gen !== fileGenRef.current) return;
-      setConvertedImage(resultDataUrl);
-      toast.success('Image converted successfully!');
-    } catch (error) {
-      if (gen !== fileGenRef.current) return;
-      toast.error('Failed to convert image', {
-        description: error instanceof Error ? error.message : 'Unknown error occurred'
-      });
-    } finally {
-      setIsConverting(false);
+    const useSize = batch.length === 1;
+    let failed = 0;
+    for (const item of batch) {
+      let patch: Partial<Item>;
+      try {
+        const blob = await convertOne(item, options, useSize);
+        patch = { resultBlob: blob, resultUrl: URL.createObjectURL(blob), error: undefined };
+      } catch (error) {
+        failed++;
+        patch = { resultBlob: undefined, resultUrl: undefined, error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+      // Items may have been removed or re-converted mid-run; patch by id against the live list
+      const live = itemsRef.current.find(i => i.id === item.id);
+      if (!live) {
+        if (patch.resultUrl) URL.revokeObjectURL(patch.resultUrl);
+        continue;
+      }
+      if (live.resultUrl) URL.revokeObjectURL(live.resultUrl);
+      setAll(itemsRef.current.map(i => (i.id === item.id ? { ...i, ...patch } : i)));
     }
-  }, [imageFile, options, convertImage]);
+    setIsConverting(false);
+    if (failed === 0) toast.success(batch.length > 1 ? `Converted ${batch.length} images` : 'Image converted successfully!');
+    else toast.error(`${failed} of ${batch.length} failed to convert`);
+  }, [options]);
 
   // Format of the actual result (not the current dropdown selection)
-  const resultFormat = convertedImage?.match(/^data:image\/([\w.+-]+)/)?.[1] ?? options.format;
+  const ext = (item: Item) => EXT[(item.resultBlob?.type ?? '').replace('image/', '')] ?? 'png';
+  const outName = (item: Item) => `${baseName(item.file.name)}_converted.${ext(item)}`;
 
-  const handleDownload = useCallback(() => {
-    if (!convertedImage || !imageFile) return;
+  const done = items.filter(i => i.resultBlob);
 
-    const filename = `${baseName(imageFile.name)}_converted.${resultFormat}`;
-
-    downloadBlob(
-      dataURItoBlob(convertedImage),
-      filename,
-      { showToast: true }
-    );
-  }, [convertedImage, imageFile, resultFormat]);
-
-  // ---- Combined with the Image Compressor: compress the converted result ----
-  const [compressQuality, setCompressQuality] = useState(70);
-  const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
-  const [decodedResult, setDecodedResult] = useState<HTMLImageElement | null>(null);
-  const isLossyFormat = resultFormat === 'jpeg' || resultFormat === 'webp';
-
-  // Decode the converted result once so quality changes only re-encode
-  useEffect(() => {
-    setDecodedResult(null);
-    setCompressedUrl(null);
-    if (!convertedImage) return;
-    const img = new window.Image();
-    img.onload = () => setDecodedResult(img);
-    img.onerror = () => setDecodedResult(null);
-    img.src = convertedImage;
-  }, [convertedImage]);
-
-  // Live compressed preview, debounced while the slider moves
-  useEffect(() => {
-    if (!convertedImage || !decodedResult) return;
-    if (!isLossyFormat) {
-      setCompressedUrl(null);
-      return;
+  const handleDownloadZip = async () => {
+    const { default: JSZip } = await import('jszip');
+    const zip = new JSZip();
+    const used = new Set<string>();
+    for (const item of done) {
+      let name = outName(item);
+      for (let n = 2; used.has(name); n++) name = `${baseName(item.file.name)}_converted_${n}.${ext(item)}`;
+      used.add(name);
+      zip.file(name, item.resultBlob!);
     }
-    const timer = window.setTimeout(() => {
-      const canvas = document.createElement('canvas');
-      canvas.width = decodedResult.naturalWidth;
-      canvas.height = decodedResult.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(decodedResult, 0, 0);
-      try {
-        setCompressedUrl(
-          canvas.toDataURL(`image/${resultFormat}`, compressQuality / 100)
-        );
-      } catch {
-        setCompressedUrl(null);
-      }
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [convertedImage, decodedResult, compressQuality, resultFormat, isLossyFormat]);
-
-  const convertedSize = useMemo(
-    () => (convertedImage ? dataURItoBlob(convertedImage).size : 0),
-    [convertedImage]
-  );
-  const compressedSize = useMemo(
-    () => (compressedUrl ? dataURItoBlob(compressedUrl).size : 0),
-    [compressedUrl]
-  );
-  const sizeSaved =
-    convertedSize > 0 && compressedSize < convertedSize
-      ? Math.round((1 - compressedSize / convertedSize) * 100)
-      : 0;
-
-  const handleDownloadCompressed = () => {
-    if (!compressedUrl || !imageFile) return;
-    downloadBlob(
-      dataURItoBlob(compressedUrl),
-      `${baseName(imageFile.name)}_compressed.${resultFormat}`,
-      { showToast: true }
-    );
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), 'converted_images.zip', { showToast: true });
   };
-
 
   const handleDimensionChange = useCallback((dimension: 'width' | 'height', value: number) => {
     if (!originalDimensions) return;
@@ -265,16 +238,20 @@ const ImageConverter = () => {
   return (
     <ToolPageLayout
       title="Image Converter | sLixTOOLS"
-      description="Convert your images between different formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
-      keywords="image converter, jpeg to png, png to jpeg, webp converter, image format converter"
+      description="Convert one or many images between formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
+      keywords="image converter, batch image converter, jpeg to png, png to jpeg, webp converter, image format converter"
       canonicalUrl="/tools/image-converter"
       pageTitle="Image Converter"
-      pageDescription="Convert your images between different formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
+      pageDescription="Convert one or many images between formats with customizable quality and size settings. All processing happens in your browser for maximum privacy."
       breadcrumbLabel="Image Converter"
       faq={[
         {
           question: 'Which output formats are available?',
           answer: 'PNG, JPG and WebP. WebP usually gives the smallest files.',
+        },
+        {
+          question: 'Can I convert several images at once?',
+          answer: `Yes — drop or pick up to ${MAX_FILES} images, convert them in one click and download them individually or as a single ZIP.`,
         },
         {
           question: 'What happens to transparency when converting to JPG?',
@@ -285,12 +262,8 @@ const ImageConverter = () => {
           answer: 'No. Conversion happens entirely in your browser — your images never leave your device.',
         },
         {
-          question: 'Can I swap in a different image after uploading?',
-          answer: 'Yes — drop a new image onto the preview frame (or click it to browse) and it instantly replaces the current one.',
-        },
-        {
-          question: 'Can I compress the converted image too?',
-          answer: 'Yes — the result card includes a quality slider with a live file-size comparison, so you can compress further and download without opening a separate tool.',
+          question: 'Can I compress while converting?',
+          answer: 'Yes — JPEG and WebP output have a quality slider; lower it to shrink files. Each row shows the before and after size.',
         },
       ]}
     >
@@ -300,33 +273,62 @@ const ImageConverter = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <FileImage className="h-5 w-5" />
-              Upload Image
+              Upload Images
             </CardTitle>
           </CardHeader>
           <CardContent>
             <FileUploadArea
-              onFileSelected={handleFileSelect}
+              onFileSelected={addFile}
               onUrlSubmit={handleUrlSubmit}
               acceptedTypes={['image/*']}
-              maxFileSize={50 * 1024 * 1024}
+              maxFileSize={config.upload.maxFileSize}
               fileCategory="image"
+              title="Drop your images here"
+              description="or click to browse — select as many as you like (JPG, PNG, WEBP, GIF)"
               showUrlInput={true}
-              previewSrc={imageUrl}
+              multiple
             />
 
-            {imageFile && (
-              <div className="space-y-2 mt-4">
-                <p className="text-sm text-gray-300">
-                  <strong>File:</strong> {imageFile.name}
-                </p>
-                <p className="text-sm text-gray-300">
-                  <strong>Size:</strong> {(imageFile.size / 1024).toFixed(2)} KB
-                </p>
-                {originalDimensions && (
+            {items.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-300">
-                    <strong>Dimensions:</strong> {originalDimensions.width} × {originalDimensions.height}
+                    <strong>{items.length}</strong> image{items.length > 1 ? 's' : ''}
                   </p>
-                )}
+                  <Button variant="ghost" size="sm" onClick={clearAll} className="text-gray-400">
+                    Clear all
+                  </Button>
+                </div>
+                <ul className="space-y-2 max-h-80 overflow-y-auto">
+                  {items.map(item => (
+                    <li key={item.id} className="flex items-center gap-3 p-2 rounded-md bg-white/[0.03] border border-white/10">
+                      <img src={item.resultUrl ?? item.url} alt="" className="h-12 w-12 object-cover rounded" />
+                      <div className="min-w-0 flex-1 text-left">
+                        <p className="text-sm text-white truncate">{item.file.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {item.width} × {item.height} · {kb(item.file.size)}
+                          {item.resultBlob && (
+                            <span className="text-sky-400"> → {kb(item.resultBlob.size)} {ext(item).toUpperCase()}</span>
+                          )}
+                        </p>
+                        {item.error && <p className="text-xs text-red-400">{item.error}</p>}
+                      </div>
+                      {item.resultBlob && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Download ${item.file.name}`}
+                          onClick={() => downloadBlob(item.resultBlob!, outName(item), { showToast: true })}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" aria-label={`Remove ${item.file.name}`} onClick={() => removeItem(item.id)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>
@@ -355,13 +357,13 @@ const ImageConverter = () => {
               </Select>
             </div>
 
-            {options.format === 'jpeg' && (
+            {options.format !== 'png' && (
               <div className="space-y-2">
                 <Label className="text-white">Quality: {options.quality}%</Label>
                 <Slider
                   aria-label="Quality"
                   value={[options.quality]}
-                  onValueChange={([value]) => setOptions(prev => ({ ...prev, quality: value }))}
+                  onValueChange={([value]) => setOptions(prev => ({ ...prev, quality: value ?? prev.quality }))}
                   min={10}
                   max={100}
                   step={5}
@@ -414,105 +416,33 @@ const ImageConverter = () => {
               </>
             )}
 
+            {items.length > 1 && (
+              <p className="text-xs text-gray-400">Batch mode keeps each image at its original size.</p>
+            )}
+
             <Divider />
 
             <Button
               onClick={handleConvert}
-              disabled={!imageFile || isConverting}
+              disabled={items.length === 0 || isConverting}
               className="w-full bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(56,189,248,0.5)] hover:shadow-[0_0_25px_rgba(56,189,248,0.7)] transition-shadow duration-300"
             >
-              {isConverting ? 'Converting...' : 'Convert Image'}
+              {isConverting
+                ? 'Converting...'
+                : items.length > 1
+                  ? `Convert ${items.length} Images`
+                  : 'Convert Image'}
             </Button>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Result Section */}
-      {convertedImage && (
-        <>
-          <Divider label="Result" className="mt-6 mb-4" />
-          <Card className="bg-white/[0.03] border-white/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Download className="h-5 w-5" />
-              Converted Image
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-300 mb-2">
-                  <strong>Original:</strong> {(imageFile!.size / 1024).toFixed(2)} KB
-                </p>
-                <p className="text-sm text-gray-300 mb-4">
-                  <strong>Format:</strong> {resultFormat.toUpperCase()}
-                </p>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download
-                </Button>
-              </div>
-            </div>
-
-            <img
-              src={convertedImage}
-              alt="Converted"
-              className="w-full rounded-lg"
-              style={{ maxHeight: '300px', objectFit: 'contain' }}
-            />
-
-            {isLossyFormat ? (
-              <div className="pt-2">
-                <Divider label="Compress" />
-                <div className="mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="compress-quality" className="text-sm text-gray-300">
-                      Quality: {compressQuality}%
-                    </Label>
-                    <span className="text-xs text-gray-400">
-                      {compressedUrl
-                        ? sizeSaved > 0
-                          ? `${(convertedSize / 1024).toFixed(1)} KB → ${(compressedSize / 1024).toFixed(1)} KB (−${sizeSaved}%)`
-                          : 'No gain at this quality'
-                        : 'Calculating…'}
-                    </span>
-                  </div>
-                  <Slider
-                    id="compress-quality"
-                    aria-label="Compression quality"
-                    value={[compressQuality]}
-                    onValueChange={([value]) => setCompressQuality(value)}
-                    min={10}
-                    max={95}
-                    step={5}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>Smaller file</span>
-                    <span>Better quality</span>
-                  </div>
-                  <Button
-                    onClick={handleDownloadCompressed}
-                    disabled={!compressedUrl}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download compressed
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500 pt-4 border-t border-white/10">
-                {resultFormat.toUpperCase()} is lossless — pick JPEG or WebP in Conversion
-                Options and convert again to enable compression.
-              </p>
+            {done.length > 1 && (
+              <Button onClick={handleDownloadZip} className="w-full bg-blue-600 hover:bg-blue-700">
+                <Archive className="h-4 w-4 mr-2" />
+                Download all ({done.length}) as ZIP
+              </Button>
             )}
           </CardContent>
         </Card>
-        </>
-      )}
+      </div>
     </ToolPageLayout>
   );
 };

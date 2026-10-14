@@ -24,6 +24,8 @@ interface FileUploadAreaProps {
    * default icon/title content). Drop and click keep working to replace the file.
    */
   previewSrc?: string | null | undefined;
+  /** Allow picking/dropping several files; onFileSelected fires once per valid file. */
+  multiple?: boolean | undefined;
 }
 
 /**
@@ -41,7 +43,8 @@ const FileUploadArea = ({
   showUrlInput = false,
   onUrlSubmit,
   urlPlaceholder = 'Enter URL...',
-  previewSrc = null
+  previewSrc = null,
+  multiple = false
 }: FileUploadAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -104,14 +107,21 @@ const FileUploadArea = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      processFile(file);
+      processFiles(files);
     }
     // Allow re-selecting the same file (input keeps its value otherwise)
     e.target.value = '';
   };
 
-  const processFile = (file: File) => {
+  const processFiles = (files: FileList) => {
+    if (!multiple) {
+      processFile(files[0]);
+      return;
+    }
+    Array.from(files).forEach(f => processFile(f, true));
+  };
+
+  const processFile = (file: File, quiet = false) => {
     // Use centralized validation
     const validationOptions: Parameters<typeof validateFile>[1] = {};
     if (maxFileSize !== undefined) {
@@ -143,9 +153,11 @@ const FileUploadArea = ({
     setFileSize(fileSizeInMB);
     onFileSelected(file);
 
-    toast.success('File selected', {
-      description: file.name
-    });
+    if (!quiet) {
+      toast.success('File selected', {
+        description: file.name
+      });
+    }
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -180,8 +192,7 @@ const FileUploadArea = ({
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      const file = files[0];
-      processFile(file);
+      processFiles(files);
     }
   };
 
@@ -282,6 +293,7 @@ const FileUploadArea = ({
           ref={fileInputRef}
           className="hidden"
           accept={acceptString}
+          multiple={multiple}
           onChange={handleFileChange}
         />
       </motion.div>
