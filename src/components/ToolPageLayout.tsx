@@ -22,7 +22,6 @@ interface ToolPageLayoutProps {
   pageDescription: string;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl';
-  headerGradient?: string;
   /** Short name used in the breadcrumb (defaults to title) */
   breadcrumbLabel?: string;
   /** Optional FAQ entries rendered as an accordion with FAQPage structured data */
@@ -74,7 +73,6 @@ const ToolPageLayout = ({
   pageDescription,
   children,
   maxWidth = '4xl',
-  headerGradient = 'from-sky-200 via-indigo-200 to-sky-100',
   breadcrumbLabel,
   faq
 }: ToolPageLayoutProps) => {
@@ -183,11 +181,8 @@ const ToolPageLayout = ({
             </div>
           </AnimatedElement>
           <AnimatedElement type="fadeIn" delay={0.15}>
-            <h1
-              className={`text-3xl md:text-4xl font-bold tracking-tight mb-4 bg-gradient-to-r ${headerGradient} bg-clip-text text-transparent`}
-            >
-              {pageTitle}
-            </h1>
+            {/* The visible tool name now lives in the site header (App); keep an h1 for semantics/SEO */}
+            <h1 className="sr-only">{pageTitle}</h1>
           </AnimatedElement>
           <AnimatedElement type="slideUp" delay={0.25}>
             <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">

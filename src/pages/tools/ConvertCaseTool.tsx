@@ -63,27 +63,29 @@ interface CaseDef {
   abbr: string;
   label: string;
   convert: (text: string) => string;
+  /** Tailwind classes for the abbreviation badge (box background + letter colour). */
+  badge: string;
 }
 
 const TEXT_CASES: CaseDef[] = [
-  { abbr: 'Sc', label: 'Sentence case', convert: toSentenceCase },
-  { abbr: 'lc', label: 'lower case', convert: (t) => t.toLowerCase() },
-  { abbr: 'UC', label: 'UPPER CASE', convert: (t) => t.toUpperCase() },
-  { abbr: 'CC', label: 'Capitalized Case', convert: toCapitalizedCase },
-  { abbr: 'TC', label: 'Title Case', convert: toTitleCase },
-  { abbr: 'aC', label: 'aLtErNaTiNg cAsE', convert: toAlternatingCase },
-  { abbr: 'iC', label: 'InVeRsE CaSe', convert: toInverseCase },
+  { abbr: 'Sc', label: 'Sentence case', convert: toSentenceCase, badge: 'border-sky-400/40 bg-sky-400/15 text-sky-300' },
+  { abbr: 'lc', label: 'lower case', convert: (t) => t.toLowerCase(), badge: 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300' },
+  { abbr: 'UC', label: 'UPPER CASE', convert: (t) => t.toUpperCase(), badge: 'border-rose-400/40 bg-rose-400/15 text-rose-300' },
+  { abbr: 'CC', label: 'Capitalized Case', convert: toCapitalizedCase, badge: 'border-amber-400/40 bg-amber-400/15 text-amber-300' },
+  { abbr: 'TC', label: 'Title Case', convert: toTitleCase, badge: 'border-violet-400/40 bg-violet-400/15 text-violet-300' },
+  { abbr: 'aC', label: 'aLtErNaTiNg cAsE', convert: toAlternatingCase, badge: 'border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-300' },
+  { abbr: 'iC', label: 'InVeRsE CaSe', convert: toInverseCase, badge: 'border-cyan-400/40 bg-cyan-400/15 text-cyan-300' },
 ];
 
 const DEV_CASES: CaseDef[] = [
-  { abbr: 'cC', label: 'camelCase', convert: toCamelCase },
-  { abbr: 'PC', label: 'PascalCase', convert: toPascalCase },
-  { abbr: 's_c', label: 'snake_case', convert: toSnakeCase },
-  { abbr: 'k-c', label: 'kebab-case', convert: toKebabCase },
-  { abbr: 'C_C', label: 'CONSTANT_CASE', convert: toConstantCase },
-  { abbr: 'd.c', label: 'dot.case', convert: toDotCase },
-  { abbr: 'p/c', label: 'path/case', convert: toPathCase },
-  { abbr: 'T-C', label: 'Train-Case', convert: toTrainCase },
+  { abbr: 'cC', label: 'camelCase', convert: toCamelCase, badge: 'border-teal-400/40 bg-teal-400/15 text-teal-300' },
+  { abbr: 'PC', label: 'PascalCase', convert: toPascalCase, badge: 'border-indigo-400/40 bg-indigo-400/15 text-indigo-300' },
+  { abbr: 's_c', label: 'snake_case', convert: toSnakeCase, badge: 'border-lime-400/40 bg-lime-400/15 text-lime-300' },
+  { abbr: 'k-c', label: 'kebab-case', convert: toKebabCase, badge: 'border-orange-400/40 bg-orange-400/15 text-orange-300' },
+  { abbr: 'C_C', label: 'CONSTANT_CASE', convert: toConstantCase, badge: 'border-red-400/40 bg-red-400/15 text-red-300' },
+  { abbr: 'd.c', label: 'dot.case', convert: toDotCase, badge: 'border-purple-400/40 bg-purple-400/15 text-purple-300' },
+  { abbr: 'p/c', label: 'path/case', convert: toPathCase, badge: 'border-blue-400/40 bg-blue-400/15 text-blue-300' },
+  { abbr: 'T-C', label: 'Train-Case', convert: toTrainCase, badge: 'border-pink-400/40 bg-pink-400/15 text-pink-300' },
 ];
 
 const CLEANUP_ACTIONS: { label: string; icon: LucideIcon; run: (text: string) => string }[] = [
@@ -114,11 +116,6 @@ interface History {
   present: string;
   future: string[];
 }
-
-const formatReadingTime = (minutes: number) => {
-  if (minutes === 0) return '0 min';
-  return minutes < 1 ? '<1 min' : `${Math.ceil(minutes)} min`;
-};
 
 const copyToClipboard = async (value: string) => {
   try {
@@ -259,15 +256,6 @@ const ConvertCaseTool = () => {
 
   // Stats follow the deferred value so typing stays responsive on long texts
   const stats = useMemo(() => getTextStats(deferredText), [deferredText]);
-  const statItems: [string, string][] = [
-    ['Characters', stats.characters.toLocaleString()],
-    ['No spaces', stats.charactersNoSpaces.toLocaleString()],
-    ['Words', stats.words.toLocaleString()],
-    ['Sentences', stats.sentences.toLocaleString()],
-    ['Paragraphs', stats.paragraphs.toLocaleString()],
-    ['Lines', stats.lines.toLocaleString()],
-    ['Reading time', formatReadingTime(stats.readingMinutes)],
-  ];
 
   const renderCaseButtons = (cases: CaseDef[]) => (
     <div className="flex flex-wrap gap-2">
@@ -277,9 +265,13 @@ const ConvertCaseTool = () => {
             type="button"
             onClick={() => applyTransform(c.label, c.convert)}
             disabled={!hasText}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-sky-400/30 bg-sky-400/[0.08] text-slate-100 transition-colors enabled:hover:text-white enabled:hover:border-sky-400/70 enabled:hover:bg-sky-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-slate-100 transition-colors enabled:hover:border-white/25 enabled:hover:bg-white/[0.09] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <span className="rounded bg-sky-400/15 px-1.5 py-0.5 font-mono text-xs font-bold text-sky-300">{c.abbr}</span>
+            <span
+              className={`inline-flex h-6 min-w-[1.75rem] items-center justify-center rounded-md border px-1.5 font-mono text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${c.badge}`}
+            >
+              {c.abbr}
+            </span>
             <span className="text-sm font-medium">{c.label}</span>
           </button>
         ))}
@@ -295,6 +287,7 @@ const ConvertCaseTool = () => {
       pageTitle="Convert Case Tool - sLixTOOLS"
       pageDescription="Convert text to 15 cases with one click — Sentence, Title, UPPER, camelCase, snake_case, kebab-case and more. Clean up lines, find & replace, undo/redo, live statistics and .txt export."
       breadcrumbLabel="Convert Case"
+      maxWidth="6xl"
       faq={[
         {
           question: 'Which case styles are supported?',
@@ -322,9 +315,9 @@ const ConvertCaseTool = () => {
         },
       ]}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto w-full">
         {/* Editor */}
-        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
+        <section className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="input-text" className="flex items-center text-lg font-semibold text-white">
               <Type className="mr-2 h-5 w-5" aria-hidden="true" />
@@ -354,25 +347,46 @@ const ConvertCaseTool = () => {
             </div>
           </div>
 
-          {/* Stats */}
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            {statItems.map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
-                <dt className="text-[11px] uppercase tracking-wide text-slate-400">{label}</dt>
-                <dd className="text-sm font-semibold tabular-nums text-white">{value}</dd>
-              </div>
-            ))}
-          </dl>
+          {/* Cleanup (above the editor) */}
+          <div className="space-y-1.5">
+            <p className={sectionLabel}>Clean up</p>
+            <div className="flex flex-wrap gap-2">
+              {CLEANUP_ACTIONS.map(({ label, icon: Icon, run }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => applyTransform(label, run)}
+                  disabled={!text}
+                  className={chipButton}
+                >
+                  <Icon className="h-4 w-4 text-sky-300" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <Textarea
-            id="input-text"
-            placeholder="Type or paste your text here…"
-            value={text}
-            onChange={(e) => commit(e.target.value, true)}
-            onKeyDown={handleKeyDown}
-            className="min-h-[180px] resize-y border border-white/20 text-base text-white placeholder-gray-400"
-            style={{ backgroundColor: '#171714' }}
-          />
+          {/* Text area with live counts in the bottom-right corner */}
+          <div className="relative">
+            <Textarea
+              id="input-text"
+              placeholder="Type or paste your text here…"
+              value={text}
+              onChange={(e) => commit(e.target.value, true)}
+              onKeyDown={handleKeyDown}
+              aria-describedby="text-counts"
+              className="min-h-[170px] resize-y border border-white/20 pb-20 text-base text-white placeholder-gray-400"
+              style={{ backgroundColor: '#171714' }}
+            />
+            <div
+              id="text-counts"
+              className="pointer-events-none absolute bottom-2.5 right-3.5 space-y-0.5 text-right font-mono text-[11px] leading-tight text-slate-400"
+            >
+              <p>Character Count: <span className="tabular-nums text-slate-200">{stats.characters.toLocaleString()}</span></p>
+              <p>Word Count: <span className="tabular-nums text-slate-200">{stats.words.toLocaleString()}</span></p>
+              <p>Line Count: <span className="tabular-nums text-slate-200">{stats.lines.toLocaleString()}</span></p>
+            </div>
+          </div>
 
           {/* Case conversions (in place) */}
           <div className="space-y-2">
@@ -394,26 +408,6 @@ const ConvertCaseTool = () => {
               </Label>
             </div>
             {showDevCases && renderCaseButtons(DEV_CASES)}
-          </div>
-
-
-          {/* Cleanup */}
-          <div className="space-y-2">
-            <p className={sectionLabel}>Clean up</p>
-            <div className="flex flex-wrap gap-2">
-              {CLEANUP_ACTIONS.map(({ label, icon: Icon, run }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => applyTransform(label, run)}
-                  disabled={!text}
-                  className={chipButton}
-                >
-                  <Icon className="h-4 w-4 text-sky-300" aria-hidden="true" />
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Find & replace */}
@@ -516,7 +510,7 @@ const ConvertCaseTool = () => {
 
       {/* SEO Content Section */}
       <Divider className="mt-12 mb-10" />
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4">
         <div className="text-center space-y-6">
           <h2 className="text-2xl font-bold text-white mb-4 flex items-center justify-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">

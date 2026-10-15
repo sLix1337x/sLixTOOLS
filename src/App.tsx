@@ -102,7 +102,15 @@ import CookieConsent from '@/components/common/CookieConsent';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import AppBackground from '@/components/AppBackground';
 import FooterLinks, { CopyrightNotice } from '@/components/common/FooterLinks';
-import { getAvailableTools } from '@/config/toolsData';
+import { getAvailableTools, getToolByPath } from '@/config/toolsData';
+
+/** Two-letter badge for a tool, e.g. "Convert Case Tool" → "CT" (first + last word initial). */
+const getToolAbbr = (title: string) => {
+  const words = title.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
 
 const AnimatedHeaderLine = () => {
   const [visible, setVisible] = useState(false);
@@ -147,6 +155,8 @@ const AppContent = () => {
   const isHomePage = location.pathname === '/';
   const isPdfEditor = location.pathname === '/tools/pdf-editor';
   const showHeader = !isPdfEditor;
+  // Name of the tool for the current route (shown at the top-left edge of the header)
+  const currentTool = getToolByPath(location.pathname);
 
   // The site header steps out of the way once the page is scrolled
   const [scrolled, setScrolled] = useState(false);
@@ -175,6 +185,18 @@ const AppContent = () => {
         <header
           className={`flex-shrink-0 ${isHomePage ? 'home-page-header' : `site-header${scrolled ? ' header-hidden' : ''}`}`}
         >
+          {/* Tool name pinned to the top-left edge of the page; the logo/nav stay centered as before */}
+          {currentTool && (
+            <span className="absolute left-6 top-0 z-10 hidden h-20 items-center gap-2.5 lg:flex">
+              <span
+                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-sky-400/40 bg-sky-400/15 font-mono text-[11px] font-bold text-sky-300"
+                aria-hidden="true"
+              >
+                {getToolAbbr(currentTool.title)}
+              </span>
+              <span className="text-sm font-bold text-white">{currentTool.title}</span>
+            </span>
+          )}
           <div className="container mx-auto max-w-2xl flex flex-col items-center">
             <div className="h-20 flex items-center w-full">
               <MainNav />
