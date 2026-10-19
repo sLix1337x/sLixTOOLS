@@ -16,7 +16,6 @@ import { useIsMobile } from '@/hooks';
 import { SEO } from '@/components/SEO';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
 import FooterLinks, { CopyrightNotice } from '@/components/common/FooterLinks';
-import { cn } from '@/lib/utils';
 
 /** Hero feature cards configuration */
 const HERO_FEATURES = [
@@ -76,7 +75,7 @@ const Home = () => {
 
   return (
     <div
-      className={cn('fullpage-container', isMobile && 'h-auto overflow-auto')}
+      className="fullpage-container"
       ref={containerRef}
     >
       <SEO
@@ -100,7 +99,7 @@ const Home = () => {
       />
 
       <FullPageSectionsWrapper currentSection={currentSection} isMobile={isMobile}>
-        <section className="fullpage-section pt-20">
+        <section className="fullpage-section">
           <div className="hero-container mb-0 flex-1 min-h-0">
             <Container>
               {/* Animated Title Section */}
@@ -139,7 +138,7 @@ const Home = () => {
           </div>
         </section>
 
-        <section className="fullpage-section pt-4">
+        <section className="fullpage-section">
           <Container className="flex-1 min-h-0 flex flex-col relative">
             <div className="flex-1 flex flex-col justify-center">
               <div className="hero-content flex flex-col items-center justify-center">

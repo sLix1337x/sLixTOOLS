@@ -53,7 +53,7 @@ export function formatXmlString(xml: string): string {
   };
 
   // The DOM drops the <?xml ...?> declaration; carry it over from the source.
-  const decl = xml.match(/^\s*(<\?xml[\s\S]*?\?>)/)?.[1];
+  const decl = xml.match(/^\s*(<\?xml\s[\s\S]*?\?>)/)?.[1];
   const top = Array.from(doc.childNodes).map((n) => ser(n, 0, false));
   return (decl ? [decl, ...top] : top).join('\n');
 }

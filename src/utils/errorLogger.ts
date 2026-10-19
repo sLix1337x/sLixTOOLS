@@ -80,9 +80,10 @@ class ErrorLogger {
 
       window.addEventListener('unhandledrejection', (event) => {
         this.logError({
-          message: `Unhandled Promise Rejection: ${event.reason}`,
+          message: `Unhandled Promise Rejection: ${event.reason instanceof Error ? event.reason.message : String(event.reason)}`,
           category: ErrorCategory.UNKNOWN,
           severity: ErrorSeverity.HIGH,
+          stack: event.reason instanceof Error ? event.reason.stack : undefined,
           context: {
             component: 'Global',
             action: 'Promise Rejection',

@@ -61,8 +61,9 @@ export const useFullPageScroll = ({
 
         // Keyboard: PageUp/PageDown, arrows, Space/Shift+Space, Home/End move between sections
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
             const target = e.target as HTMLElement | null;
-            if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+            if (target?.closest('input, textarea, select, [contenteditable="true"], [role="slider"]')) return;
             if (e.key === ' ' && target?.closest('button, a, summary')) return;
 
             const current = currentSectionRef.current;

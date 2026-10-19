@@ -14,13 +14,8 @@ const MAX_FILE_SIZES = {
   general: 100 * 1024 * 1024, // 100MB general limit
 };
 
-// Supported file types
-const SUPPORTED_TYPES = {
-  image: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff'],
-  video: ['video/mp4', 'video/webm', 'video/avi', 'video/mpeg', 'video/mkv', 'video/flv', 'video/ogg', 'video/mov', 'video/m4v', 'video/wmv', 'video/asf', 'video/3gpp', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv', 'video/x-flv'],
-  document: ['application/pdf', 'text/plain', 'text/csv'],
-  audio: ['audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a'],
-};
+// Browsers report '' or vendor MIMEs for many video containers, so videos are validated by extension
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mpeg', 'mpg', 'mkv', 'flv', 'ogg', 'ogv', 'mov', 'm4v', 'wmv', 'asf', '3gp', '3gpp'];
 
 // File validation options interface with strict typing
 export interface FileValidationOptions {
@@ -146,10 +141,11 @@ export const validateVideoFile = (file: File): ValidationResult => {
   }
 
   // Check file type
-  if (!SUPPORTED_TYPES.video.includes(file.type)) {
+  const isVideoMime = file.type === '' || file.type.startsWith('video/');
+  if (!isVideoMime || !VIDEO_EXTENSIONS.includes(getFileExtension(file.name))) {
     return {
       isValid: false,
-      error: `Unsupported video format. Supported formats: ${SUPPORTED_TYPES.video.join(', ')}`
+      error: `Unsupported video format. Supported formats: ${VIDEO_EXTENSIONS.join(', ')}`
     };
   }
 
@@ -188,7 +184,8 @@ export const validateVideoFile = (file: File): ValidationResult => {
  * Get file extension from filename
  */
 export const getFileExtension = (filename: string): string => {
-  return filename.split('.').pop()?.toLowerCase() || '';
+  const dot = filename.lastIndexOf('.');
+  return dot > 0 ? filename.slice(dot + 1).toLowerCase() : '';
 };
 
 /**

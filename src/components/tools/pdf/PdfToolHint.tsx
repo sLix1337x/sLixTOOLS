@@ -13,7 +13,6 @@ const toolHints: Record<string, { icon: React.ReactNode; title: string; instruct
     title: 'Select Tool',
     instructions: [
       'Click on annotations to select them',
-      'Press Delete to remove selected items',
       'Click on empty space to deselect'
     ]
   },

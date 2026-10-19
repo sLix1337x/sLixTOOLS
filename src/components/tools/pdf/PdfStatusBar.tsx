@@ -40,7 +40,7 @@ const PdfStatusBar = ({
       case 'arrow':
         return 'Click and drag to draw';
       case 'select':
-        return 'Click annotations to select, Delete to remove';
+        return 'Click annotations to select';
       default:
         return '';
     }

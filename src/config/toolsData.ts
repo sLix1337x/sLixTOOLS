@@ -1,5 +1,6 @@
 import { FileVideo, FileImage, FileText, Music, Type, Code, Scissors, LayoutGrid, Braces } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { getLocalAssetPath } from '@/config/externalUrls';
 
 export interface ToolConfig {
   title: string;
@@ -22,7 +23,7 @@ export const TOOLS: ToolConfig[] = [
   // Featured/Available Tools
   {
     title: 'Video to GIF',
-    iconImage: '/sLixTOOLS/images/Video-To-Gif-Tool.png',
+    iconImage: getLocalAssetPath('images/Video-To-Gif-Tool.png'),
     description: 'Convert video files to animated GIF format',
     tooltip: 'Convert video files to animated GIF format with customizable quality and frame rate settings',
     icon: FileVideo,
@@ -32,7 +33,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'GIF Compressor',
-    iconImage: '/sLixTOOLS/images/Gif-Compressor-Tool.png',
+    iconImage: getLocalAssetPath('images/Gif-Compressor-Tool.png'),
     description: 'Reduce GIF file size while maintaining quality',
     tooltip: 'Reduce GIF file size while maintaining visual quality using advanced compression algorithms',
     icon: Scissors,
@@ -42,7 +43,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Image Compressor',
-    iconImage: '/sLixTOOLS/images/Image-Compressor-Tool.png',
+    iconImage: getLocalAssetPath('images/Image-Compressor-Tool.png'),
     description: 'Compress images to reduce file size',
     tooltip: 'Compress images to reduce file size without significant quality loss for web optimization',
     icon: FileImage,
@@ -52,7 +53,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Image Resizer',
-    iconImage: '/sLixTOOLS/images/Image-Resizer-Tool.png',
+    iconImage: getLocalAssetPath('images/Image-Resizer-Tool.png'),
     description: 'Resize images to specific dimensions',
     tooltip: 'Resize images to specific dimensions or scale them proportionally for different use cases',
     icon: FileImage,
@@ -62,7 +63,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Image Converter',
-    iconImage: '/sLixTOOLS/images/Image-Converter-Tool.png',
+    iconImage: getLocalAssetPath('images/Image-Converter-Tool.png'),
     description: 'Convert images between different formats',
     tooltip: 'Convert images between different formats (JPG, PNG, WebP, SVG) with quality control',
     icon: FileImage,
@@ -72,7 +73,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Image Splitter',
-    iconImage: '/sLixTOOLS/images/Image-Splitter-Tool.png',
+    iconImage: getLocalAssetPath('images/Image-Splitter-Tool.png'),
     description: 'Split images into grids or custom tiles',
     tooltip: 'Split any image into a grid of lossless PNG tiles with presets, draggable cut lines, custom filenames, and ZIP export — entirely in your browser',
     icon: LayoutGrid,
@@ -82,7 +83,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Video Converter',
-    iconImage: '/sLixTOOLS/images/Video-Converter-Tool.png',
+    iconImage: getLocalAssetPath('images/Video-Converter-Tool.png'),
     description: 'Convert video files between various formats',
     tooltip: 'Convert video files between various formats (MP4, AVI, MOV, etc.) with quality options',
     icon: FileVideo,
@@ -92,7 +93,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'Convert Case Tool',
-    iconImage: '/sLixTOOLS/images/Convert-Case-Tool.png',
+    iconImage: getLocalAssetPath('images/Convert-Case-Tool.png'),
     description: 'Transform text between different cases',
     tooltip: 'Transform text between different cases: uppercase, lowercase, title case, camelCase, and more',
     icon: Type,
@@ -102,7 +103,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'XML Editor',
-    iconImage: '/sLixTOOLS/images/XML-Editor-Tool.png',
+    iconImage: getLocalAssetPath('images/XML-Editor-Tool.png'),
     description: 'Edit, format, and validate XML data',
     tooltip: 'Edit, format, validate, and share XML data with syntax highlighting and real-time validation',
     icon: Code,
@@ -121,7 +122,7 @@ export const TOOLS: ToolConfig[] = [
   },
   {
     title: 'PDF Editor',
-    iconImage: '/sLixTOOLS/images/PDF-Editor-Tool.png',
+    iconImage: getLocalAssetPath('images/PDF-Editor-Tool.png'),
     description: 'Merge, split, and annotate PDFs',
     tooltip: 'Merge multiple PDFs, split by pages or ranges, and add text annotations entirely client-side',
     icon: FileText,

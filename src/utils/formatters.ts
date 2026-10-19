@@ -26,7 +26,7 @@ export const formatFileSize = (bytes: NonNegativeNumber): string => {
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'] as const;
   const i = Math.floor(Math.log(validBytes) / Math.log(k));
-  const sizeIndex = Math.min(i, sizes.length - 1);
+  const sizeIndex = Math.min(Math.max(i, 0), sizes.length - 1);
   
   return parseFloat((validBytes / Math.pow(k, sizeIndex)).toFixed(2)) + ' ' + sizes[sizeIndex];
 };

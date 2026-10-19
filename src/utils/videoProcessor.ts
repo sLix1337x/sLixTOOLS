@@ -214,7 +214,7 @@ const compressVideoWithFFmpeg = async (
       args.push('-c:a', 'libopus');
     } else {
       // MP4 (default), MOV and AVI all use H.264 + AAC
-      args.push('-c:v', 'libx264', '-c:a', 'aac');
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac');
       // Use faster preset for WASM (medium might be too slow)
       args.push('-preset', 'ultrafast', '-crf', crf);
       if (options.format !== 'avi') {

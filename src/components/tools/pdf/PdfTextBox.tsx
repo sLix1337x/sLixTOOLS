@@ -155,7 +155,7 @@ const PdfTextBox = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragStart, dragOffset, isDragging, textBox.id, pageSize, viewportScale, onUpdate]);
+  }, [dragStart, dragOffset, isDragging, hasMoved, textBox.id, pageSize, viewportScale, onUpdate]);
 
   // Convert PDF coordinates to viewport coordinates
   // Ensure pageSize is valid
@@ -213,6 +213,7 @@ const PdfTextBox = ({
             onDelete(textBox.id);
           }}
           className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-red-500 rounded-full p-1 transition-opacity"
+          aria-label="Delete text box"
         >
           <X className="h-3 w-3 text-white" />
         </button>

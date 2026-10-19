@@ -30,10 +30,21 @@ export const useUrlFileLoader = (options: UrlFileLoaderOptions = {}) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch(url);
+            const assertSize = (size: number) => {
+                if (options.maxFileSize && size > options.maxFileSize) {
+                    const sizeMB = (size / 1024 / 1024).toFixed(2);
+                    const maxMB = (options.maxFileSize / 1024 / 1024).toFixed(0);
+                    throw new Error(`File too large (${sizeMB}MB). Maximum: ${maxMB}MB`);
+                }
+            };
+
+            const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            // Reject oversized files before downloading the body when the server declares the size
+            assertSize(Number(response.headers.get('content-length')));
 
             const blob = await response.blob();
 
@@ -44,16 +55,14 @@ export const useUrlFileLoader = (options: UrlFileLoaderOptions = {}) => {
                 }
             }
 
-            // Size validation
-            if (options.maxFileSize && blob.size > options.maxFileSize) {
-                const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
-                const maxMB = (options.maxFileSize / 1024 / 1024).toFixed(0);
-                throw new Error(`File too large (${sizeMB}MB). Maximum: ${maxMB}MB`);
-            }
+            assertSize(blob.size);
 
             // Extract filename from URL or use default
-            const urlPath = new URL(url).pathname;
-            const filename = urlPath.split('/').pop() || `file-from-url.${blob.type.split('/')[1]}`;
+            const rawName = new URL(url, window.location.href).pathname.split('/').pop() || '';
+            let filename = rawName;
+            try { filename = decodeURIComponent(rawName); } catch { /* keep the raw name */ }
+            if (!filename) filename = 'file-from-url';
+            if (!filename.includes('.') && blob.type.includes('/')) filename += `.${blob.type.split('/')[1]}`;
 
             const file = new File([blob], filename, { type: blob.type });
 

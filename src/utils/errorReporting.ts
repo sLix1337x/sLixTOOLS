@@ -172,5 +172,5 @@ ${errorReport.componentStack || 'No component stack available'}
 \`\`\`
       `);
 
-  return `https://github.com/your-repo/issues/new?title=${issueTitle}&body=${issueBody}`;
+  return `https://github.com/sLix1337x/sLixTOOLS/issues/new?title=${issueTitle}&body=${issueBody}`;
 }

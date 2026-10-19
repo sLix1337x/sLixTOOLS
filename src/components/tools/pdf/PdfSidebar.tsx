@@ -86,7 +86,7 @@ const PdfSidebar = ({
 
   return (
     <div
-      className="bg-[#252526] border-r border-[#3e3e42] flex flex-col h-full"
+      className="relative bg-[#252526] border-r border-[#3e3e42] flex flex-col h-full"
       style={{ width: `${sidebarWidth}px` }}
     >
       {/* Sidebar Header */}

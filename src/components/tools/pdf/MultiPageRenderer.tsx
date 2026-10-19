@@ -292,29 +292,6 @@ const MultiPageRenderer = ({
                 onCanvasClick(e);
               }
             }}
-            onClick={(e) => {
-              // Also handle click events for compatibility
-              if (
-                activeTool === 'draw' ||
-                activeTool === 'rectangle' ||
-                activeTool === 'circle' ||
-                activeTool === 'line' ||
-                activeTool === 'arrow'
-              ) {
-                return;
-              }
-
-              if (activeTool === 'text') {
-                e.stopPropagation();
-                onCanvasClick(e);
-              } else if (activeTool === 'select') {
-                e.stopPropagation();
-                onAnnotationSelect(null);
-              } else {
-                e.stopPropagation();
-                onCanvasClick(e);
-              }
-            }}
           >
             {/* Render text boxes */}
             {currentPageTextBoxes.map((textBox) => (

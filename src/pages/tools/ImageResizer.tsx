@@ -40,7 +40,6 @@ const ImageResizer = () => {
   const [resizedSize, setResizedSize] = useState({ width: 0, height: 0 });
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   // Bumped on every new file / reset so in-flight work for the previous file is ignored
   const fileGenRef = useRef(0);
 
@@ -182,9 +181,6 @@ const ImageResizer = () => {
     setImageFile(null);
     setPreviewUrl(null);
     setResizedImageUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   return (
@@ -249,6 +245,7 @@ const ImageResizer = () => {
                     onClick={resetImage}
                     className="text-gray-400 hover:text-white transition-colors"
                     title="Remove image"
+                    aria-label="Remove image"
                   >
                     <X className="h-5 w-5" />
                   </button>

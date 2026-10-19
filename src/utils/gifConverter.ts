@@ -88,6 +88,20 @@ export const terminateGifWorkers = (gif: Pick<GifJsInstance, 'freeWorkers' | 'ac
   }
 };
 
+// gif.js never surfaces worker failures (no 'error' event): hook onerror on every worker it spawned
+export const onGifWorkerError = (gif: Pick<GifJsInstance, 'freeWorkers' | 'activeWorkers'>, handler: (event: ErrorEvent) => void) => {
+  for (const pool of [gif.activeWorkers, gif.freeWorkers]) {
+    if (!Array.isArray(pool)) continue;
+    pool.forEach((worker) => { worker.onerror = handler; });
+  }
+};
+
+// GIF delays are stored in centiseconds: snap fps to a representable delay so duration stays true
+export const getGifFrameDelayMs = (fps: number): number => Math.max(2, Math.round(100 / fps)) * 10;
+
+// Frames are held as RGBA ImageData until encoding finishes
+const MAX_FRAME_BYTES = 500 * 1024 * 1024;
+
 // setTimeout treats delays above 2^31-1 (or Infinity) as 0
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
@@ -128,7 +142,7 @@ export const getGifDimensions = (
 export const convertVideoToGif = async (
   videoFile: File,
   options: Partial<ConversionOptions> = {},
-  onProgress?: ((progress: number) => void) | EnhancedProgressCallback
+  onProgress?: EnhancedProgressCallback
 ): Promise<Blob> => {
   
   let video: HTMLVideoElement | null = null;
@@ -136,15 +150,7 @@ export const convertVideoToGif = async (
   let ctx: CanvasRenderingContext2D | null = null;
   
   const enhancedProgress = (stage: EnhancedProgress['stage'], progress: number, message: string, extra?: Partial<EnhancedProgress>) => {
-    if (typeof onProgress === 'function') {
-      // Check if it's the enhanced callback
-      if (onProgress.length > 1 || stage !== 'processing') {
-        (onProgress as EnhancedProgressCallback)({ stage, progress, message, ...extra });
-      } else {
-        // Legacy callback
-        (onProgress as (progress: number) => void)(progress / 100);
-      }
-    }
+    onProgress?.({ stage, progress, message, ...extra });
   };
   
   try {
@@ -255,7 +261,8 @@ export const convertVideoToGif = async (
             ? Math.min(actualStartTime + duration, video!.duration)
             : video!.duration;
 
-          const frameTimes = getFrameTimes(actualStartTime, actualEndTime, fps);
+          const frameDelay = getGifFrameDelayMs(fps);
+          const frameTimes = getFrameTimes(actualStartTime, actualEndTime, 1000 / frameDelay);
           const totalFrames = frameTimes.length;
 
           if (totalFrames === 0) {
@@ -276,6 +283,11 @@ export const convertVideoToGif = async (
             width,
             height
           );
+
+          if (totalFrames * targetWidth * targetHeight * 4 > MAX_FRAME_BYTES) {
+            fail(new GifConversionError(`Too many pixels to hold in memory (${totalFrames} frames at ${targetWidth}x${targetHeight}). Lower the FPS, shorten the clip or reduce the size.`, 'processing'));
+            return;
+          }
 
           canvas!.width = targetWidth;
           canvas!.height = targetHeight;
@@ -337,11 +349,6 @@ export const convertVideoToGif = async (
             resolve(blob);
           });
 
-          gif.on('error', (error: Error) => {
-            cleanupResources();
-            reject(new GifConversionError('GIF encoding failed', 'encoding', error));
-          });
-
           gif.on('progress', (progress: number) => {
             const encodingProgress = 80 + (progress * 20);
             enhancedProgress('encoding', encodingProgress, `Encoding... ${Math.round(progress * 100)}%`);
@@ -352,7 +359,6 @@ export const convertVideoToGif = async (
           enhancedProgress('processing', 40, 'Capturing video frames...', { frameCount: 0, totalFrames });
 
           // Seek to each frame time, capture exactly one frame per completed seek, then render
-          const frameDelay = Math.round(1000 / fps);
           const captureFrames = async () => {
             for (let i = 0; i < totalFrames; i++) {
               const v = video;
@@ -375,6 +381,10 @@ export const convertVideoToGif = async (
 
             enhancedProgress('encoding', 80, 'Encoding GIF...');
             gif.render();
+            onGifWorkerError(gif, (event) => {
+              cleanupResources();
+              reject(new GifConversionError(`GIF worker failed: ${event.message}`, 'encoding'));
+            });
           };
 
           captureFrames().catch((error) => {

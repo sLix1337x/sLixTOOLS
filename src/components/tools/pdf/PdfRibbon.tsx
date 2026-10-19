@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, FileImage, Type, Pencil, Square, Circle, Minus, ArrowRight, Merge, Split, X, Move, Palette, RotateCw, Download, Undo2, Redo2 } from 'lucide-react';
+import { FileText, FileImage, Type, Pencil, Square, Circle, Minus, ArrowRight, Merge, Split, X, Move, Palette, Download, Undo2, Redo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type RibbonTab = 'file' | 'pages' | 'text' | 'draw' | 'annotate' | 'export';
@@ -213,12 +213,6 @@ const PdfRibbon = ({
               <Move className="h-4 w-4" />
               Reorder
             </button>
-            <button
-              className="px-3 py-1.5 bg-[#3e3e42] hover:bg-[#464647] text-[#cccccc] rounded text-[12px] flex items-center gap-2 transition-colors"
-            >
-              <RotateCw className="h-4 w-4" />
-              Rotate
-            </button>
           </div>
         )}
 
@@ -378,7 +372,7 @@ const PdfRibbon = ({
               )}
             >
               <Download className="h-4 w-4" />
-              {processingState.isHighlighting ? 'Highlighting...' : 'Highlight & Download'}
+              {processingState.isHighlighting ? 'Highlighting...' : 'Apply Highlight'}
             </button>
           </div>
         )}
@@ -434,7 +428,7 @@ const PdfRibbon = ({
               )}
             >
               <Download className="h-4 w-4" />
-              {processingState.isAnnotating ? 'Annotating...' : 'Annotate & Download'}
+              {processingState.isAnnotating ? 'Annotating...' : 'Add Annotation'}
             </button>
           </div>
         )}

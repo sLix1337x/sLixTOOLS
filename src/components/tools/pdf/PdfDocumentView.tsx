@@ -86,6 +86,8 @@ const EditTextBoxPanel = ({
     setLocalText(textBox.text);
     setLocalFontSize(textBox.fontSize);
     setLocalColor(textBox.color);
+    // Size and color were applied live for preview: restore the committed values
+    onUpdate(textBox.id, { fontSize: textBox.fontSize, color: textBox.color });
     onClose();
   };
 
@@ -419,7 +421,7 @@ const PdfDocumentView = ({
       </div>
 
       {/* Precise Placement Toggle - Only show for old annotation system */}
-      {usePrecisePlacement && (activeTool === 'annotate' || activeTool === 'highlight') && (
+      {(activeTool === 'annotate' || activeTool === 'highlight') && (
         <div className="h-8 bg-[#2d2d30] border-t border-[#3e3e42] flex items-center justify-center px-4">
           <label className="flex items-center gap-2 text-[11px] text-[#858585] cursor-pointer">
             <input

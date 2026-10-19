@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Eye, Download, Upload, Save, Printer, X, Undo2, Redo2, Copy, Scissors, Clipboard, Search, ZoomIn, ZoomOut, Maximize2, PanelLeft, Grid3x3 } from 'lucide-react';
+import { Eye, Download, Upload, Save, Printer, X, Undo2, Redo2, Search, ZoomIn, ZoomOut, Maximize2, PanelLeft, Grid3x3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -69,11 +69,11 @@ const PdfMenuBar = ({
     {
       label: 'File',
       items: [
-        { label: 'Open...', icon: <Upload className="h-4 w-4" />, shortcut: 'Ctrl+O', action: onOpenFile },
-        { label: 'Save', icon: <Save className="h-4 w-4" />, shortcut: 'Ctrl+S', action: onSave, disabled: !hasDocument },
-        { label: 'Download', icon: <Download className="h-4 w-4" />, shortcut: 'Ctrl+D', action: onDownload, disabled: !hasDocument },
+        { label: 'Open...', icon: <Upload className="h-4 w-4" />, action: onOpenFile },
+        { label: 'Save', icon: <Save className="h-4 w-4" />, action: onSave, disabled: !hasDocument },
+        { label: 'Download', icon: <Download className="h-4 w-4" />, action: onDownload, disabled: !hasDocument },
         { separator: true },
-        { label: 'Print...', icon: <Printer className="h-4 w-4" />, shortcut: 'Ctrl+P', action: onPrint, disabled: !hasDocument },
+        { label: 'Print...', icon: <Printer className="h-4 w-4" />, action: onPrint, disabled: !hasDocument },
         { separator: true },
         { label: 'Close', icon: <X className="h-4 w-4" />, action: onClose, disabled: !hasDocument }
       ]
@@ -84,51 +84,22 @@ const PdfMenuBar = ({
         { label: 'Undo', icon: <Undo2 className="h-4 w-4" />, shortcut: 'Ctrl+Z', action: onUndo, disabled: !canUndo },
         { label: 'Redo', icon: <Redo2 className="h-4 w-4" />, shortcut: 'Ctrl+Y', action: onRedo, disabled: !canRedo },
         { separator: true },
-        { label: 'Cut', icon: <Scissors className="h-4 w-4" />, shortcut: 'Ctrl+X', disabled: !hasDocument },
-        { label: 'Copy', icon: <Copy className="h-4 w-4" />, shortcut: 'Ctrl+C', disabled: !hasDocument },
-        { label: 'Paste', icon: <Clipboard className="h-4 w-4" />, shortcut: 'Ctrl+V', disabled: !hasDocument },
-        { separator: true },
-        { label: 'Find...', icon: <Search className="h-4 w-4" />, shortcut: 'Ctrl+F', action: onFind, disabled: !hasDocument }
+        { label: 'Find...', icon: <Search className="h-4 w-4" />, action: onFind, disabled: !hasDocument }
       ]
     },
     {
       label: 'View',
       items: [
-        { label: 'Zoom In', icon: <ZoomIn className="h-4 w-4" />, shortcut: 'Ctrl++', action: onZoomIn, disabled: !hasDocument },
-        { label: 'Zoom Out', icon: <ZoomOut className="h-4 w-4" />, shortcut: 'Ctrl+-', action: onZoomOut, disabled: !hasDocument },
+        { label: 'Zoom In', icon: <ZoomIn className="h-4 w-4" />, action: onZoomIn, disabled: !hasDocument },
+        { label: 'Zoom Out', icon: <ZoomOut className="h-4 w-4" />, action: onZoomOut, disabled: !hasDocument },
         { separator: true },
-        { label: 'Fit to Page', icon: <Eye className="h-4 w-4" />, shortcut: 'Ctrl+0', action: onFitToPage, disabled: !hasDocument },
+        { label: 'Fit to Page', icon: <Eye className="h-4 w-4" />, action: onFitToPage, disabled: !hasDocument },
         { label: 'Fit to Width', action: onFitToWidth, disabled: !hasDocument },
-        { label: 'Actual Size', shortcut: 'Ctrl+1', action: onActualSize, disabled: !hasDocument },
+        { label: 'Actual Size', action: onActualSize, disabled: !hasDocument },
         { separator: true },
-        { label: sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar', icon: <PanelLeft className="h-4 w-4" />, shortcut: 'Ctrl+Shift+S', action: onToggleSidebar },
+        { label: sidebarVisible ? 'Hide Sidebar' : 'Show Sidebar', icon: <PanelLeft className="h-4 w-4" />, action: onToggleSidebar },
         { separator: true },
-        { label: 'Full Screen', icon: <Maximize2 className="h-4 w-4" />, shortcut: 'F11', action: onFullScreen }
-      ]
-    },
-    {
-      label: 'Tools',
-      items: [
-        { label: 'Merge PDFs', disabled: !hasDocument },
-        { label: 'Split PDF', disabled: !hasDocument },
-        { label: 'Delete Pages', disabled: !hasDocument },
-        { label: 'Reorder Pages', disabled: !hasDocument },
-        { separator: true },
-        { label: 'Add Text', disabled: !hasDocument },
-        { label: 'Highlight Text', disabled: !hasDocument },
-        { label: 'Annotate', disabled: !hasDocument },
-        { separator: true },
-        { label: 'Draw', disabled: !hasDocument },
-        { label: 'Shapes', disabled: !hasDocument },
-        { separator: true },
-        { label: 'Convert to Images', disabled: !hasDocument }
-      ]
-    },
-    {
-      label: 'Help',
-      items: [
-        { label: 'Keyboard Shortcuts', shortcut: 'F1' },
-        { label: 'About' }
+        { label: 'Full Screen', icon: <Maximize2 className="h-4 w-4" />, action: onFullScreen }
       ]
     }
   ];

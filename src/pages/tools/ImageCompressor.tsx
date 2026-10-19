@@ -202,6 +202,7 @@ const ImageCompressor = () => {
       const reader = new FileReader();
 
       reader.onerror = () => {
+        if (runId !== runIdRef.current) return;
         const error = new Error('Failed to read image file');
         errorLogger.logFileProcessingError(
           error,
@@ -219,6 +220,7 @@ const ImageCompressor = () => {
           const img = new window.Image();
 
           img.onerror = () => {
+            if (runId !== runIdRef.current) return;
             const error = new Error('Failed to load image data');
             errorLogger.logFileProcessingError(
               error,

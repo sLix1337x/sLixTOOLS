@@ -32,12 +32,17 @@ const MainNav = () => {
 
   useEffect(() => {
     if (!isHomePage) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const handleSectionChange = () => {
       setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 1500);
+      clearTimeout(timer);
+      timer = setTimeout(() => setIsAnimating(false), 1500);
     };
     window.addEventListener('section-change', handleSectionChange);
-    return () => window.removeEventListener('section-change', handleSectionChange);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('section-change', handleSectionChange);
+    };
   }, [isHomePage]);
 
   const handleClickOutside = useCallback((event: MouseEvent) => {

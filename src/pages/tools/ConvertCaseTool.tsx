@@ -1,4 +1,4 @@
-import { useState, useCallback, useDeferredValue, useMemo, useRef } from 'react';
+import { useState, useCallback, useDeferredValue, useEffect, useMemo, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { toast } from 'sonner';
 import {
@@ -137,6 +137,7 @@ const ConvertCaseTool = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const lastTypingAt = useRef(0);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
   const text = history.present;
   const deferredText = useDeferredValue(text);

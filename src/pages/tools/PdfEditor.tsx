@@ -78,6 +78,10 @@ const PdfEditor = () => {
 
   // Modal state for compact toolbar
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  // Some browsers/OSes report '' or octet-stream for PDFs: fall back to the extension
+  const isPdfFile = (file: File) =>
+    file.type === 'application/pdf' ||
+    ((file.type === '' || file.type === 'application/octet-stream') && file.name.toLowerCase().endsWith('.pdf'));
 
   // Enhanced tool state
   const [activeTool, setActiveTool] = useState<ToolType>('select');
@@ -293,7 +297,7 @@ const PdfEditor = () => {
       if (!files || files.length === 0) return;
 
       const file = files[0];
-      if (file.type !== 'application/pdf') {
+      if (!isPdfFile(file)) {
         toast.error('Please upload a PDF file');
         return;
       }
@@ -510,6 +514,7 @@ const PdfEditor = () => {
       }
       setPdfjsDoc(newDoc);
 
+      setClickCoord(null);
       toast.success('Annotation added');
     } catch (err) {
       console.error('Annotation error:', err);
@@ -538,7 +543,7 @@ const PdfEditor = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.type !== 'application/pdf') {
+        if (!isPdfFile(file)) {
           toast.error(`File ${file.name} is not a PDF`);
           continue;
         }
@@ -548,6 +553,8 @@ const PdfEditor = () => {
       }
 
       setUploadedFiles(loadedFiles);
+      // The merge list lives in the action panel, which only renders while a modal is open
+      setActiveModal('merge');
       toast.success(`${loadedFiles.length} PDF files loaded for merging`);
     } catch (error) {
       console.error('Multiple PDF upload error:', error);
@@ -678,6 +685,11 @@ const PdfEditor = () => {
       setPreviewTotalPages(newDoc.numPages);
       setPreviewPage(Math.min(previewPage, newDoc.numPages));
 
+      // Overlays are keyed by page number: renumber them and drop those on deleted pages
+      const remap = (page: number) => pagesToKeep.indexOf(page) + 1;
+      setTextBoxes((prev) => prev.filter((tb) => remap(tb.page) > 0).map((tb) => ({ ...tb, page: remap(tb.page) })));
+      setDrawings((prev) => prev.filter((d) => remap(d.page) > 0).map((d) => ({ ...d, page: remap(d.page) })));
+
       setProgressValue(100);
       toast.success(`Deleted ${pagesToRemove.length} page${pagesToRemove.length > 1 ? 's' : ''}`, {
         description: `Removed pages: ${pagesToRemove.join(', ')}. The document now has ${newDoc.numPages} page${newDoc.numPages > 1 ? 's' : ''}.`,
@@ -751,6 +763,7 @@ const PdfEditor = () => {
       }
       setPdfjsDoc(newDoc);
 
+      setClickCoord(null);
       toast.success('Text highlighted');
     } catch (err) {
       console.error('Highlight error:', err);
@@ -822,6 +835,11 @@ const PdfEditor = () => {
           pdfjsDoc.destroy();
         }
         setPdfjsDoc(newDoc);
+
+        // Overlays are keyed by page number: follow the pages to their new positions
+        const remap = (page: number) => order.indexOf(page) + 1;
+        setTextBoxes((prev) => prev.map((tb) => ({ ...tb, page: remap(tb.page) || tb.page })));
+        setDrawings((prev) => prev.map((d) => ({ ...d, page: remap(d.page) || d.page })));
 
         toast.success('Pages reordered successfully');
       } catch (err) {
@@ -1146,7 +1164,6 @@ const PdfEditor = () => {
       activeTool,
       overlayRef,
       canvasRef,
-      zoom,
       pdfjsDoc,
       previewPage,
       annotationText,
@@ -1294,7 +1311,7 @@ const PdfEditor = () => {
 
     pdfjsDoc.getPage(previewPage).then((page) => {
       const viewport = page.getViewport({ scale: 1 });
-      const container = canvasRef.current?.parentElement;
+      const container = canvasRef.current?.closest('.overflow-auto');
       if (!container) return;
 
       const containerWidth = container.clientWidth - 32; // Account for padding
@@ -1313,7 +1330,7 @@ const PdfEditor = () => {
 
     pdfjsDoc.getPage(previewPage).then((page) => {
       const viewport = page.getViewport({ scale: 1 });
-      const container = canvasRef.current?.parentElement;
+      const container = canvasRef.current?.closest('.overflow-auto');
       if (!container) return;
 
       const containerWidth = container.clientWidth - 32; // Account for padding
@@ -1460,14 +1477,14 @@ const PdfEditor = () => {
       }
 
       // Ctrl+Z or Cmd+Z for undo
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
         if (canUndo) {
           handleUndo();
         }
       }
       // Ctrl+Y or Ctrl+Shift+Z or Cmd+Shift+Z for redo
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
         e.preventDefault();
         if (canRedo) {
           handleRedo();
@@ -1519,7 +1536,7 @@ const PdfEditor = () => {
           activeTab={ribbonTab}
           onTabChange={setRibbonTab}
           activeTool={activeTool}
-          onToolChange={(tool) => setActiveTool(tool as ToolType)}
+          onToolChange={(tool) => setActiveTool((tool as ToolType | null) ?? 'select')}
           activeModal={activeModal}
           setActiveModal={setActiveModal}
           onMergeClick={() => document.getElementById('merge-files')?.click()}
@@ -1666,7 +1683,10 @@ const PdfEditor = () => {
         type="file"
         accept="application/pdf"
         multiple
-        onChange={(e) => onMultipleUpload(e.target.files)}
+        onChange={(e) => {
+          onMultipleUpload(e.target.files);
+          e.target.value = '';
+        }}
         className="hidden"
       />
 
@@ -1761,7 +1781,7 @@ const PdfEditor = () => {
       <PdfConfirmDialog
         isOpen={showDeleteConfirm}
         title="Delete Pages"
-        message={`Are you sure you want to delete the specified pages? This action cannot be undone.`}
+        message="Delete the specified pages? You can undo this with Ctrl+Z."
         confirmText="Delete"
         cancelText="Cancel"
         variant="danger"

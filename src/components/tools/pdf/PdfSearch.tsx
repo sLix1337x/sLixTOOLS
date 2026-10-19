@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ const PdfSearch = ({ pdfDoc, onResultSelect, className }: PdfSearchProps) => {
   const [results, setResults] = useState<Array<{ page: number; index: number; text: string }>>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const searchId = useRef(0);
 
   const searchInPdf = useCallback(async (text: string) => {
     if (!pdfDoc || !text.trim()) {
@@ -22,6 +23,7 @@ const PdfSearch = ({ pdfDoc, onResultSelect, className }: PdfSearchProps) => {
       return;
     }
 
+    const id = ++searchId.current;
     setIsSearching(true);
     const searchResults: Array<{ page: number; index: number; text: string }> = [];
 
@@ -42,6 +44,7 @@ const PdfSearch = ({ pdfDoc, onResultSelect, className }: PdfSearchProps) => {
         });
       }
 
+      if (id !== searchId.current) return; // superseded by a newer search
       setResults(searchResults);
       setCurrentResultIndex(0);
       

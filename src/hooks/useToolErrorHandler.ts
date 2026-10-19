@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import errorLogger, { ErrorCategory } from '@/utils/errorLogger';
+import errorLogger, { ErrorCategory, ErrorSeverity } from '@/utils/errorLogger';
 
 /**
  * Options for the tool error handler
@@ -39,6 +39,8 @@ export const useToolErrorHandler = (options: ToolErrorHandlerOptions) => {
         // Log error
         const errorId = errorLogger.logError({
             category: errorCategory,
+            // The hook toasts below; MEDIUM keeps logError from toasting a second time
+            severity: ErrorSeverity.MEDIUM,
             message: `${context}: ${errorMessage}`,
             stack: err.stack,
             context: {

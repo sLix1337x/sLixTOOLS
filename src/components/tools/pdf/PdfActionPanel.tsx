@@ -174,7 +174,7 @@ const PdfActionPanel = ({
                                         />
                                     </div>
                                     <Button onClick={onDelete} disabled={!uploadedFile || processingState.isDeleting} className="w-full h-10">
-                                        <Download className="mr-2 h-4 w-4" />{processingState.isDeleting ? 'Deleting...' : 'Delete & Download'}
+                                        <Download className="mr-2 h-4 w-4" />{processingState.isDeleting ? 'Deleting...' : 'Delete Pages'}
                                     </Button>
                                 </div>
                             </div>

@@ -115,6 +115,7 @@ const FileUploadArea = ({
 
   const processFiles = (files: FileList) => {
     if (!multiple) {
+      if (files.length > 1) toast.info('Only the first file was used');
       processFile(files[0]);
       return;
     }
@@ -225,7 +226,7 @@ const FileUploadArea = ({
   return (
     <AnimatedElement type="fadeIn" delay={0.6} className="space-y-6 w-full max-w-2xl mx-auto">
       <motion.div
-        className={`border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${isDragging ? 'border-sky-400 bg-sky-400/10' : ''
+        className={`relative border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${isDragging ? 'border-sky-400 bg-sky-400/10' : ''
           } ${className}`}
         onClick={() => fileInputRef.current?.click()}
         role="button"

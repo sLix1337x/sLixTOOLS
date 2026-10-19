@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
 
-export const CURRENT_YEAR = new Date().getFullYear();
-export const COPYRIGHT_TEXT = `© ${CURRENT_YEAR} sLixTOOLS. All rights reserved.`;
+const CURRENT_YEAR = new Date().getFullYear();
 
 /** Copyright line with a sky→violet gradient brand name */
 export const CopyrightNotice = ({ className = '' }: { className?: string }) => (
@@ -21,7 +21,7 @@ const FOOTER_LINKS = [
   { to: '/contact', label: 'Contact' },
 ] as const;
 
-const GITHUB_URL = 'https://github.com/sLix1337x/sLixTOOLS';
+const GITHUB_URL = EXTERNAL_URLS.GITHUB.REPO;
 
 export interface FooterLinksProps {
   className?: string;

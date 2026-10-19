@@ -56,7 +56,7 @@ const Features = () => {
     {
       icon: <FileCode className="h-6 w-6" />,
       title: 'Image & Video Converters',
-      description: 'A suite of tools to convert between various image and video formats. (Coming Soon)',
+      description: 'A suite of tools to convert between various image and video formats.',
     },
     {
       icon: <FileArchive className="h-6 w-6" />,
@@ -213,23 +213,12 @@ const Features = () => {
 
         <AnimatedElement type="fadeIn" delay={0.45} className="w-full">
           <div className="mt-6 text-center">
-            <Link to="/tools">
-              <button
-                className="bg-white text-slate-950 font-semibold py-3 px-8 rounded-xl flex items-center justify-center mx-auto transition-all duration-200 hover:bg-slate-200 shadow-lg shadow-black/40 hover:shadow-black/50"
-                style={{
-                  outline: 'none',
-                  border: 'none',
-                  WebkitAppearance: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                  minWidth: '200px'
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.outline = 'none';
-                }}
-              >
-                <span className="relative z-10">Get Started Now</span>
-                <ArrowRight className="ml-2 h-4 w-4 relative z-10" />
-              </button>
+            <Link
+              to="/tools"
+              className="inline-flex min-w-[200px] items-center justify-center rounded-xl bg-white px-8 py-3 font-semibold text-slate-950 shadow-lg shadow-black/40 transition-all duration-200 hover:bg-slate-200 hover:shadow-black/50"
+            >
+              Get Started Now
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>
         </AnimatedElement>

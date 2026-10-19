@@ -39,7 +39,7 @@ export const SEO = ({
   structuredData
 }: SEOProps) => {
   const { pathname } = useLocation();
-  const fullTitle = title.includes('sLixTOOLS') ? title : `${title} - sLixTOOLS`;
+  const fullTitle = title.toLowerCase().includes('slixtools') ? title : `${title} - sLixTOOLS`;
   const url = canonical ?? siteUrl(pathname);
 
   return (

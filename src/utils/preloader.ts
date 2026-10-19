@@ -61,22 +61,11 @@ export const preloadRoute = (routePath: string): Promise<void> => {
     
     // Skip low priority routes on slow connections
     if (isSlowConnection && routeConfig.priority === 'low') {
-      if (process.env.NODE_ENV === 'development') {
-        // Route skipping logged to development system
-      }
       return Promise.resolve();
     }
     
-    return routeConfig.loader().then(() => {
-      if (process.env.NODE_ENV === 'development') {
-        // Route preloading logged to development system
-      }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    }).catch((_error) => {
-      if (process.env.NODE_ENV === 'development') {
-        // Route preloading errors logged to development system
-      }
-    });
+    // Preload failures are non-fatal: the route loads on demand later
+    return routeConfig.loader().then(() => undefined, () => undefined);
   }
   
   return Promise.resolve();

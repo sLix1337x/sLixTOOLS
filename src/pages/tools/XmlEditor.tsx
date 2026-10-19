@@ -140,6 +140,7 @@ const XmlEditor = () => {
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = '';
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.xml')) {
@@ -194,7 +195,7 @@ const XmlEditor = () => {
       faq={[
         {
           question: 'Does the editor validate my XML?',
-          answer: 'Yes, the document is checked in real time and errors are highlighted with line information as you type.',
+          answer: 'Yes, the document is checked in real time and parse errors are reported with line information as you type.',
         },
         {
           question: 'Can I format and minify XML?',

@@ -4,7 +4,7 @@
  */
 
 // Helper to get local asset path (works in both dev and production)
-const getLocalAssetPath = (path: string): string => {
+export const getLocalAssetPath = (path: string): string => {
   const basePath = import.meta.env.BASE_URL || '/sLixTOOLS/';
   // Remove trailing slash from basePath if present, add leading slash to path if not present
   const cleanBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
@@ -36,6 +36,8 @@ export const EXTERNAL_URLS = {
   
   // GitHub and Repository URLs
   GITHUB: {
+    REPO: 'https://github.com/sLix1337x/sLixTOOLS',
+    ISSUES: 'https://github.com/sLix1337x/sLixTOOLS/issues/new',
     DEPLOY_BADGE: 'https://github.com/slix1337x/sLixTOOLS/actions/workflows/deploy.yml/badge.svg',
     DEPLOY_ACTION: 'https://github.com/slix1337x/sLixTOOLS/actions/workflows/deploy.yml',
     LICENSE_BADGE: 'https://img.shields.io/badge/License-MIT-yellow.svg',

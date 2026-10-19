@@ -114,7 +114,7 @@ const VideoConverter = () => {
       faq={[
         {
           question: 'Which formats can I convert between?',
-          answer: 'MP4, WebM and AVI are supported as output formats, with most common video formats accepted as input.',
+          answer: 'MP4, WebM, AVI and MOV are supported as output formats, with most common video formats accepted as input.',
         },
         {
           question: 'How long does a conversion take?',
@@ -175,9 +175,9 @@ const VideoConverter = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-white">Output Format</Label>
+              <Label htmlFor="output-format" className="text-white">Output Format</Label>
               <Select value={options.format} onValueChange={(value) => setOptions(prev => ({ ...prev, format: value as 'mp4' | 'webm' | 'avi' | 'mov' }))}>
-                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                <SelectTrigger id="output-format" className="bg-gray-700 border-gray-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-700 border-gray-600">

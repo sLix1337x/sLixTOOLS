@@ -1,7 +1,7 @@
 import GIFLib from 'gif.js';
 import { bytesToMB } from './formatters';
 import { config } from '../config';
-import { terminateGifWorkers } from './gifConverter';
+import { onGifWorkerError, terminateGifWorkers } from './gifConverter';
 
 // GIF.js options interface
 interface GifJsOptions {
@@ -116,6 +116,7 @@ const decodeGifFrames = async (
       });
     }
 
+    if (frames.length === 0) throw new GifCompressionError('GIF contains no frames', 'extracting');
     return { frames, delays, width: frames[0].width, height: frames[0].height };
   } finally {
     decoder.close();
@@ -154,7 +155,7 @@ const extractGifFrames = async (
         
         onProgress?.({
           stage: 'extracting',
-          progress: 100,
+          progress: 40,
           message: 'Frames extracted successfully'
         });
 
@@ -278,44 +279,22 @@ export const compressGif = async (
     // Frames are already thinned by frameSkip during extraction (delays stay aligned)
     const processedFrames = frames;
 
+    // One scratch canvas pair for all frames; copy:true makes gif.js snapshot pixels before the next draw
+    const frameCanvas = document.createElement('canvas');
+    const frameCtx = frameCanvas.getContext('2d');
+    const outCanvas = document.createElement('canvas');
+    const outCtx = outCanvas.getContext('2d');
+    if (!frameCtx || !outCtx) throw new GifCompressionError('Canvas is not available', 'rebuilding');
+    frameCanvas.width = width;
+    frameCanvas.height = height;
+    outCanvas.width = targetWidth;
+    outCanvas.height = targetHeight;
+    const needsResize = targetWidth !== width || targetHeight !== height;
+
     processedFrames.forEach((frame, index) => {
-      const compressedFrame = compressFrame(frame, quality);
-      
-      // Resize frame if needed
-      if (targetWidth !== width || targetHeight !== height) {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx) {
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-          
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d');
-          
-          if (tempCtx) {
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            tempCtx.putImageData(compressedFrame, 0, 0);
-            
-            ctx.drawImage(tempCanvas, 0, 0, targetWidth, targetHeight);
-            
-            gif.addFrame(canvas, { delay: delays[index] || 100 });
-          }
-        }
-      } else {
-        // Convert ImageData to canvas before adding to GIF
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (ctx) {
-          canvas.width = compressedFrame.width;
-          canvas.height = compressedFrame.height;
-          ctx.putImageData(compressedFrame, 0, 0);
-          
-          gif.addFrame(canvas, { delay: delays[index] || 100 });
-        }
-      }
+      frameCtx.putImageData(compressFrame(frame, quality), 0, 0);
+      if (needsResize) outCtx.drawImage(frameCanvas, 0, 0, targetWidth, targetHeight);
+      gif.addFrame(needsResize ? outCanvas : frameCanvas, { copy: true, delay: delays[index] || 100 });
       
       onProgress?.({
         stage: 'rebuilding',
@@ -325,7 +304,14 @@ export const compressGif = async (
     });
 
     return new Promise((resolve, reject) => {
+      // gif.js never reports a stuck worker: 5 s per frame + 30 s buffer, minimum 2 minutes
+      const timeout = setTimeout(() => {
+        terminateGifWorkers(gif);
+        reject(new GifCompressionError('GIF encoding timed out', 'rebuilding'));
+      }, Math.max(120000, processedFrames.length * 5000 + 30000));
+
       gif.on('finished', (blob: Blob) => {
+        clearTimeout(timeout);
         terminateGifWorkers(gif);
         onProgress?.({
           stage: 'complete',
@@ -337,12 +323,12 @@ export const compressGif = async (
         resolve(blob);
       });
 
-      gif.on('error', (error: Error) => {
-        terminateGifWorkers(gif);
-        reject(new GifCompressionError('Failed to render GIF', 'rebuilding', error));
-      });
-
       gif.render();
+      onGifWorkerError(gif, (event) => {
+        clearTimeout(timeout);
+        terminateGifWorkers(gif);
+        reject(new GifCompressionError(`GIF worker failed: ${event.message}`, 'rebuilding'));
+      });
     });
 
   } catch (error) {

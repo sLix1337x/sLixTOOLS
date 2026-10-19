@@ -2,6 +2,7 @@ import { SEO } from '@/components/SEO';
 import AnimatedElement from '@/components/AnimatedElement';
 import { ExternalLink, MessagesSquare } from 'lucide-react';
 import Container from '@/components/layout/Container';
+import { getLocalAssetPath } from '@/config/externalUrls';
 
 const Contact = () => {
   return (
@@ -31,7 +32,7 @@ const Contact = () => {
                 className="block hover:opacity-90 transition-opacity transform hover:scale-105"
               >
                 <img
-                  src="/sLixTOOLS/images/kofi.png"
+                  src={getLocalAssetPath('images/kofi.png')}
                   alt="Buy Me a Coffee at ko-fi.com"
                   className="h-20 w-auto filter brightness-0 invert"
                 />

@@ -122,8 +122,16 @@ export interface FindOptions {
 }
 
 /** Global, multiline search pattern (^/$ match per line); throws SyntaxError for an invalid regex. */
-export const buildPattern = (find: string, { matchCase, useRegex }: FindOptions): RegExp =>
-  new RegExp(useRegex ? find : find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), matchCase ? 'gmu' : 'gimu');
+export const buildPattern = (find: string, { matchCase, useRegex }: FindOptions): RegExp => {
+  const source = useRegex ? find : find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const flags = matchCase ? 'gm' : 'gim';
+  try {
+    return new RegExp(source, flags + 'u');
+  } catch {
+    // Unicode mode rejects identity escapes like \- that plain mode accepts
+    return new RegExp(source, flags);
+  }
+};
 
 export const countMatches = (text: string, pattern: RegExp): number => Array.from(text.matchAll(pattern)).length;
 

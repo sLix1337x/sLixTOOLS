@@ -212,13 +212,13 @@ const ImageConverter = () => {
   };
 
   const handleDimensionChange = useCallback((dimension: 'width' | 'height', value: number) => {
-    if (!originalDimensions) return;
+    if (!single) return;
 
     setOptions(prev => {
       const newOptions = { ...prev };
 
       if (prev.maintainAspectRatio) {
-        const aspectRatio = originalDimensions.width / originalDimensions.height;
+        const aspectRatio = single.width / single.height;
 
         if (dimension === 'width') {
           newOptions.width = clampDimension(value);
@@ -233,7 +233,7 @@ const ImageConverter = () => {
 
       return newOptions;
     });
-  }, [originalDimensions]);
+  }, [single]);
 
   return (
     <ToolPageLayout

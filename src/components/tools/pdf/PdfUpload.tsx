@@ -20,7 +20,10 @@ const PdfUpload = ({ onUpload, resetAll, isUploading, hasFile }: PdfUploadProps)
                 <input
                     type="file"
                     accept="application/pdf"
-                    onChange={(e) => onUpload(e.target.files)}
+                    onChange={(e) => {
+                        onUpload(e.target.files);
+                        e.target.value = '';
+                    }}
                     disabled={isUploading}
                     className="text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
                 />

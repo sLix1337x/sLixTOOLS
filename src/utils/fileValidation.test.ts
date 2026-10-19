@@ -16,7 +16,7 @@ describe('getFileExtension', () => {
   });
 
   it('returns the whole lowercased name when there is no dot', () => {
-    expect(getFileExtension('README')).toBe('readme');
+    expect(getFileExtension('README')).toBe('');
   });
 });
 

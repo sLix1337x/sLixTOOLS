@@ -134,7 +134,7 @@ const ToolListItem = memo<ToolListItemProps>(({
   return (
     <AnimatedElement type="fadeIn" className="h-full">
       <Link
-        to={path || '#'}
+        to={path ?? '/tools'}
         className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-2xl"
         data-tool-name={title}
       >

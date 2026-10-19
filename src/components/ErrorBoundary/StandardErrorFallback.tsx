@@ -37,7 +37,7 @@ export function StandardErrorFallback({
           <div className="bg-muted p-4 rounded-lg text-left">
             <h3 className="font-medium mb-2">Error Details:</h3>
             <p className="text-sm font-mono text-red-600 break-all">{error.message}</p>
-            {process.env.NODE_ENV === 'development' && (
+            {import.meta.env.DEV && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm font-medium">Stack Trace</summary>
                 <pre className="text-xs mt-2 overflow-auto max-h-32">{error.stack}</pre>

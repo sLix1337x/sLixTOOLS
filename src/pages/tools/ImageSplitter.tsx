@@ -1065,7 +1065,7 @@ const ImageSplitter = () => {
                                 setEdit({ idx: i, value: e.target.value.replace(/[\\/:*?"<>|]/g, '') })
                               }
                               onBlur={() => {
-                                renamePart(i, edit && edit.idx === i ? edit.value : '');
+                                if (edit && edit.idx === i) renamePart(i, edit.value);
                                 setEdit(null);
                               }}
                               onKeyDown={(e) => {

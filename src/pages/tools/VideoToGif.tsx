@@ -250,23 +250,15 @@ const VideoToGif = () => {
   );
 
   const handlePostEdit = useCallback(
-    async (editType: string, params?: import('@/types/common').EditParams) => {
+    (editType: string) => {
       if (!gifResult) return;
 
-      try {
-        // ponytail: no GIF post-editing pipeline exists yet; say so instead of faking success
-        toast.info(`${editType} is not available yet`, {
-          description: 'Download the GIF and use the GIF Compressor or Image tools for now.',
-        });
-      } catch (editError) {
-        handleError(
-          editError instanceof Error ? editError : new Error(String(editError)),
-          'Post-conversion editing',
-          { editType, params: params ? JSON.stringify(params) : undefined }
-        );
-      }
+      // ponytail: no GIF post-editing pipeline exists yet; say so instead of faking success
+      toast.info(`${editType} is not available yet`, {
+        description: 'Download the GIF and use the GIF Compressor or Image tools for now.',
+      });
     },
-    [gifResult, handleError]
+    [gifResult]
   );
 
   const resetVideo = () => {
@@ -326,9 +318,7 @@ const VideoToGif = () => {
           width: conversionOptions.width ?? 0, // 0 = auto
           height: conversionOptions.height ?? 0,
         },
-        (progress: number | { stage: string; message: string; progress: number }) => {
-          setProgress(typeof progress === 'number' ? progress : progress.progress / 100);
-        }
+        (progress) => setProgress(progress.progress / 100)
       );
       const endTime = performance.now();
       const processingTime = Math.round(endTime - startTime);

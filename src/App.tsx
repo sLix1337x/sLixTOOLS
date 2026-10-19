@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
+import { EXTERNAL_URLS } from '@/config/externalUrls';
 
 // Immediate load components (critical path)
 import Home from './pages/Home';
@@ -175,7 +176,7 @@ const AppContent = () => {
           e.preventDefault();
           document.getElementById('main-content')?.focus();
         }}
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-lg focus:bg-sky-400 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-950"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[110] focus:rounded-lg focus:bg-sky-400 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-950"
       >
         Skip to content
       </a>
@@ -214,6 +215,8 @@ const AppContent = () => {
             : 'flex flex-col min-h-0 focus:outline-none'
         }
       >
+        {/* Keyed so a crashed tool page recovers on client-side navigation; header/footer stay up */}
+        <ErrorBoundary key={location.pathname}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/tools" element={<Tools />} />
@@ -233,6 +236,7 @@ const AppContent = () => {
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
       </main>
 
       {!isHomePage && !location.pathname.startsWith('/tools/') && (
@@ -277,7 +281,7 @@ const AppContent = () => {
                     </li>
                     <li>
                       <a
-                        href="https://github.com/sLix1337x/sLixTOOLS"
+                        href={EXTERNAL_URLS.GITHUB.REPO}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-white transition-colors"

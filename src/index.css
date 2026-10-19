@@ -219,6 +219,30 @@ p:first-child {
   padding-top: 0;
 }
 
+/* Below the mobile breakpoint the section snapper is off: let the page scroll normally */
+@media (max-width: 767px) {
+  .fullpage-container {
+    height: auto;
+    overflow: visible;
+  }
+  .fullpage-section {
+    height: auto;
+    min-height: 100vh;
+  }
+}
+
+/* Below the mobile breakpoint the section snapper is off: let the page scroll normally */
+@media (max-width: 767px) {
+  .fullpage-container {
+    height: auto;
+    overflow: visible;
+  }
+  .fullpage-section {
+    height: auto;
+    min-height: 100vh;
+  }
+}
+
 .home-page-header {
   position: fixed;
   top: 0;

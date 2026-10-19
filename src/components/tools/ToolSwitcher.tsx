@@ -42,7 +42,6 @@ const ToolSwitcher = () => {
       <div
         ref={trackRef}
         className="flex-1 min-w-0 flex gap-2 overflow-x-auto scrollbar-none scroll-smooth snap-x py-1 px-1"
-        role="tablist"
       >
         {tools.map((tool) => {
           const Icon = tool.icon;
@@ -51,8 +50,7 @@ const ToolSwitcher = () => {
             <Link
               key={tool.path}
               to={tool.path ?? '#'}
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               data-active={active}
               className={cn(
                 'snap-start flex items-center gap-2 h-9 px-3 rounded-lg border text-[13px] leading-none whitespace-nowrap transition-colors',
