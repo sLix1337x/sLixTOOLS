@@ -1,7 +1,6 @@
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { HashRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { MotionConfig } from 'framer-motion';
 import { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -304,8 +303,6 @@ const App = () => {
   return (
     <ErrorBoundary>
       <HelmetProvider>
-        {/* Honour the OS "reduce motion" setting for every framer-motion animation */}
-        <MotionConfig reducedMotion="user">
         <HashRouter
           future={{
             v7_startTransition: true,
@@ -316,7 +313,6 @@ const App = () => {
           <ScrollToTop />
           <AppWrapper />
         </HashRouter>
-        </MotionConfig>
 
         <Sonner className="toaster" position="bottom-right" />
       </HelmetProvider>
