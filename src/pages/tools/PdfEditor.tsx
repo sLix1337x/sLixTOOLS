@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { SEO } from '@/components/SEO';
 import { toast } from 'sonner';
 import PdfUpload from '@/components/tools/pdf/PdfUpload';
+import FaqSection from '@/components/FaqSection';
 import PdfActionPanel from '@/components/tools/pdf/PdfActionPanel';
 import PdfMenuBar from '@/components/tools/pdf/PdfMenuBar';
 import PdfRibbon, { type RibbonTab } from '@/components/tools/pdf/PdfRibbon';
@@ -55,6 +56,21 @@ type LoadedPdf = {
   name: string;
   arrayBuffer: ArrayBuffer;
 };
+
+const PDF_FAQ = [
+  {
+    question: 'What can I do with the PDF Editor?',
+    answer: 'Add text, highlights and annotations, draw shapes and freehand lines, and merge several PDF files into one.',
+  },
+  {
+    question: 'Are my PDFs uploaded anywhere?',
+    answer: 'No. Your files are processed in your browser and never leave your device.',
+  },
+  {
+    question: 'Why will my PDF not open?',
+    answer: 'The file may be corrupted or password-protected. Remove the password in another app and try again.',
+  },
+];
 
 const PdfEditor = () => {
   const [uploadedFile, setUploadedFile] = useState<LoadedPdf | null>(null);
@@ -1505,6 +1521,7 @@ const PdfEditor = () => {
         description="Upload a PDF, preview pages, and annotate precisely in your browser. All processing happens locally for maximum privacy."
         keywords="PDF editor, PDF annotation, PDF split, PDF tools, browser PDF editor"
       />
+      <h1 className="sr-only">PDF Editor - sLixTOOLS</h1>
 
       {/* Menu Bar */}
       <PdfMenuBar
@@ -1606,13 +1623,16 @@ const PdfEditor = () => {
 
         {/* Document View or Upload Area */}
         {!uploadedFile ? (
-          <div className="flex-1 flex items-center justify-center">
-            <PdfUpload
-              onUpload={onUpload}
-              resetAll={resetAll}
-              isUploading={isUploading}
-              hasFile={false}
-            />
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
+              <PdfUpload
+                onUpload={onUpload}
+                resetAll={resetAll}
+                isUploading={isUploading}
+                hasFile={false}
+              />
+              <FaqSection items={PDF_FAQ} />
+            </div>
           </div>
         ) : pdfjsDoc ? (
           <PdfDocumentView

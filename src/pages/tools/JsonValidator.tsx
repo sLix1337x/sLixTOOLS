@@ -1,20 +1,31 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Braces, Copy, Trash2, Download, Upload, CheckCircle, AlertCircle, ListChecks, Check, Crosshair } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, ArrowDownAZ, Braces, Bug, CheckCircle, Copy, Crosshair, Download, ListTree, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
-import '@/styles/xml-editor.css';
+import CodeEditor from '@/components/tools/CodeEditor';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
+import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import {
+  chipButton,
+  errorRow,
+  guideCard,
+  guideHeading,
+  primaryButton,
+  segmentButton,
+  segmentGroup,
+  statusRow,
+  toolButton,
+  toolWorkspace,
+  toolbarRow,
+} from '@/styles/constants';
 import { validateJson, formatJson, minifyJson, type JsonIndent, type JsonResult } from '@/utils/jsonValidate';
 import { formatFileSize } from '@/utils/formatters';
 import { downloadBlob } from '@/utils/download';
 
 const LINE_HEIGHT_PX = 24; // 1.5rem
 const VALIDATE_DELAY_MS = 300;
-const INDENT_OPTIONS: Record<string, JsonIndent> = { '2': 2, '4': 4, tab: '\t' };
+const INDENT_OPTIONS: Record<string, JsonIndent> = { '2': 2, '4': 4, Tab: '\t' };
 
 const SAMPLE_JSON = `{
   "store": "sLix Books",
@@ -27,13 +38,65 @@ const SAMPLE_JSON = `{
   "manager": null
 }`;
 
+const guideItem = (term: string, text: string) => (
+  <li key={term}>
+    <strong className="text-white">{term}</strong> {text}
+  </li>
+);
+
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <Braces className="h-5 w-5" aria-hidden="true" />
+      </span>
+      Working with JSON
+    </h2>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Bug className="h-5 w-5" aria-hidden="true" />
+          Common Errors
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Trailing commas:', 'remove the comma after the last item.')}
+          {guideItem('Single quotes:', 'keys and strings need double quotes.')}
+          {guideItem('Unquoted keys:', 'write {"id": 1}, not {id: 1}.')}
+          {guideItem('Comments:', 'JSON has none, remove them first.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+          Before You Format
+        </h3>
+        <p className="mt-0 text-sm leading-relaxed text-gray-300">
+          Format and Minify rewrite the parsed data. Of duplicate keys only the last one stays, 1.0 becomes 1, and
+          integers beyond 9,007,199,254,740,991 lose precision. Validation alone changes nothing, so stop there for
+          data with large numeric IDs.
+        </p>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <ListTree className="h-5 w-5" aria-hidden="true" />
+          Reading the Status Bar
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Depth:', 'nesting levels of objects and arrays.')}
+          {guideItem('Object keys:', 'all keys, including nested ones.')}
+          {guideItem('Array elements:', 'all items, including nested ones.')}
+        </ul>
+      </section>
+    </div>
+  </div>
+);
+
 const JsonValidator = () => {
   const [jsonContent, setJsonContent] = useState<string>('');
   const [result, setResult] = useState<JsonResult>({ status: 'empty' });
   const [indent, setIndent] = useState<string>('2');
   const [sortKeys, setSortKeys] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const lineNumbersRef = useRef<HTMLDivElement>(null);
 
   // Debounced so large documents don't re-parse on every keystroke.
   useEffect(() => {
@@ -41,26 +104,7 @@ const JsonValidator = () => {
     return () => clearTimeout(id);
   }, [jsonContent]);
 
-  const lineCount = jsonContent.split('\n').length;
   const errorLine = result.status === 'invalid' ? result.location?.line : undefined;
-
-  useEffect(() => {
-    if (!lineNumbersRef.current) return;
-    let html = '';
-    for (let i = 1; i <= lineCount; i++) {
-      html +=
-        i === errorLine
-          ? `<div class="line-number" style="color:#f87171;background:rgba(239,68,68,0.2)">${i}</div>`
-          : `<div class="line-number">${i}</div>`;
-    }
-    lineNumbersRef.current.innerHTML = html;
-    if (textareaRef.current) lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-  }, [lineCount, errorLine]);
-
-  const handleScroll = useCallback(() => {
-    if (!lineNumbersRef.current || !textareaRef.current) return;
-    lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-  }, []);
 
   const jumpToError = useCallback(() => {
     const textarea = textareaRef.current;
@@ -69,8 +113,7 @@ const JsonValidator = () => {
     textarea.focus();
     textarea.setSelectionRange(offset, Math.min(offset + 1, jsonContent.length));
     textarea.scrollTop = Math.max(0, (line - 1) * LINE_HEIGHT_PX - textarea.clientHeight / 2);
-    handleScroll();
-  }, [result, jsonContent.length, handleScroll]);
+  }, [result, jsonContent.length]);
 
   const transform = useCallback(
     (fn: (text: string) => string, done: string) => {
@@ -161,6 +204,14 @@ const JsonValidator = () => {
 
   const stats = result.status === 'valid' ? result.stats : null;
 
+  const statItems = [
+    ['Lines', jsonContent.split('\n').length.toLocaleString()],
+    ['Size', stats ? formatFileSize(stats.bytes) : '-'],
+    ['Depth', stats ? stats.depth : '-'],
+    ['Object keys', stats ? stats.keys.toLocaleString() : '-'],
+    ['Array elements', stats ? stats.elements.toLocaleString() : '-'],
+  ];
+
   return (
     <ToolPageLayout
       title="JSON Validator"
@@ -170,6 +221,7 @@ const JsonValidator = () => {
       pageTitle="JSON Validator & Formatter - sLixTOOLS"
       pageDescription="Free online JSON validator and formatter. Find errors by line and column, pretty-print, minify and sort keys - entirely in your browser."
       breadcrumbLabel="JSON Validator"
+      belowTool={seoContent}
       faq={[
         {
           question: 'How do I find where my JSON is broken?',
@@ -185,227 +237,162 @@ const JsonValidator = () => {
         },
       ]}
     >
-      <div className="max-w-6xl mx-auto">
-        <div className="space-y-6">
-          {/* Header with validation status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="json-content" className="text-white text-lg font-semibold flex items-center">
-                <Braces className="h-5 w-5 mr-2" />
-                JSON Content:
-              </Label>
-              {result.status !== 'empty' && (
-                <div className="flex items-center space-x-1" aria-live="polite">
-                  {result.status === 'valid' ? (
-                    <CheckCircle className="h-4 w-4 text-sky-400" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-400" />
-                  )}
-                  <span className={`text-sm ${result.status === 'valid' ? 'text-sky-400' : 'text-red-400'}`}>
-                    {result.status === 'valid' ? 'Valid JSON' : 'Invalid JSON'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="file"
-                accept=".json,application/json"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-              />
-              <Button
+      <div className={toolWorkspace}>
+        <div className={toolbarRow}>
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="file-upload"
+          />
+          <div className="flex flex-wrap items-center gap-1">
+            <Tooltip label="Upload file" hint="Opens a .json file. It stays on your device." side="bottom">
+              <button
+                type="button"
                 onClick={() => document.getElementById('file-upload')?.click()}
-                className="bg-blue-600 hover:bg-blue-700 text-white border-0 h-9"
+                aria-label="Upload JSON file"
+                className={toolButton}
               >
-                <Upload className="h-4 w-4 mr-1" />
-                Upload
-              </Button>
-              <Button
-                onClick={loadSampleJson}
-                className="bg-purple-600 hover:bg-purple-700 text-white border-0 h-9"
-              >
-                Load Sample
-              </Button>
-            </div>
-          </div>
-
-          {/* Error message */}
-          {result.status === 'invalid' && (
-            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 flex items-start justify-between gap-3">
-              <div className="text-sm">
-                {result.location && (
-                  <p className="text-red-300 font-semibold">
-                    Line {result.location.line}, column {result.location.column}
-                  </p>
-                )}
-                <p className="text-red-400 break-all">{result.message}</p>
-              </div>
-              {result.location && (
-                <Button
-                  onClick={jumpToError}
-                  className="bg-red-600 hover:bg-red-700 text-white border-0 h-8 flex-shrink-0"
-                >
-                  <Crosshair className="h-4 w-4 mr-1" />
-                  Go to error
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* JSON Editor with Line Numbers */}
-          <div className="relative">
-            <div className="flex border border-white/20 rounded-lg overflow-hidden" style={{ backgroundColor: '#171714' }}>
-              {/* Line Numbers */}
-              <div
-                ref={lineNumbersRef}
-                className="flex flex-col text-gray-500 text-sm font-mono bg-gray-800/50 border-r border-white/10 px-2 py-3 select-none overflow-hidden"
-                style={{
-                  minWidth: '50px',
-                  maxHeight: '400px',
-                  lineHeight: '1.5rem'
-                }}
-              />
-
-              {/* Textarea */}
-              <Textarea
-                ref={textareaRef}
-                id="json-content"
-                placeholder="Paste your JSON here or upload a .json file..."
-                value={jsonContent}
-                onChange={(e) => setJsonContent(e.target.value)}
-                onScroll={handleScroll}
-                spellCheck={false}
-                wrap="off"
-                className="flex-1 min-h-[400px] h-[400px] whitespace-pre overflow-x-auto border-0 text-white placeholder-gray-400 resize-none text-sm font-mono bg-transparent focus:ring-0 focus:outline-none"
-                style={{
-                  lineHeight: '1.5rem',
-                  paddingLeft: '12px',
-                  paddingTop: '12px',
-                  paddingBottom: '12px'
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-            {[
-              ['Status', result.status === 'empty' ? '-' : result.status === 'valid' ? 'Valid' : 'Invalid'],
-              ['Size', stats ? formatFileSize(stats.bytes) : '-'],
-              ['Depth', stats ? stats.depth : '-'],
-              ['Object keys', stats ? stats.keys.toLocaleString() : '-'],
-              ['Array elements', stats ? stats.elements.toLocaleString() : '-'],
-            ].map(([label, value]) => (
-              <div key={label} className="bg-gray-900/50 border border-white/10 rounded-lg p-3">
-                <div className="text-gray-400 text-xs">{label}</div>
-                <div className="text-white font-mono">{value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Options */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="json-indent" className="text-white text-sm">Indentation</Label>
-              <Select value={indent} onValueChange={setIndent}>
-                <SelectTrigger id="json-indent" className="bg-gray-700 border-gray-600 text-white h-9 w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-700 border-gray-600">
-                  <SelectItem value="2">2 spaces</SelectItem>
-                  <SelectItem value="4">4 spaces</SelectItem>
-                  <SelectItem value="tab">Tab</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="sort-keys"
-                checked={sortKeys}
-                onChange={(e) => setSortKeys(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="sort-keys" className="text-white text-sm">
-                Sort keys alphabetically
-              </Label>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            <Button
+                <Upload className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <button type="button" onClick={loadSampleJson} className={chipButton}>
+              Load sample
+            </button>
+            <ToolbarDivider />
+            <button
+              type="button"
               onClick={formatJsonContent}
               disabled={!jsonContent.trim() || result.status === 'invalid'}
-              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(56,189,248,0.5)] hover:shadow-[0_0_25px_rgba(56,189,248,0.7)] transition-shadow duration-300 text-white border-0 h-9"
+              className={primaryButton}
             >
               Format
-            </Button>
-
-            <Button
+            </button>
+            <button
+              type="button"
               onClick={minifyJsonContent}
               disabled={!jsonContent.trim() || result.status === 'invalid'}
-              className="bg-orange-600 hover:bg-orange-700 text-white border-0 h-9"
+              className={cn(chipButton, 'ml-1')}
             >
               Minify
-            </Button>
-
-            <Button
-              onClick={copyToClipboard}
-              disabled={!jsonContent.trim()}
-              className="bg-blue-600 hover:bg-blue-700 text-white border-0 h-9"
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              Copy
-            </Button>
-
-            <Button
-              onClick={downloadJson}
-              disabled={!jsonContent.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white border-0 h-9"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Download
-            </Button>
-
-            <Button
-              onClick={clearContent}
-              disabled={!jsonContent.trim()}
-              className="bg-red-600 hover:bg-red-700 text-white border-0 h-9"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          </div>
-
-          {/* Features Info */}
-          <Divider className="my-4" />
-          <div className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
-            <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-sky-400" aria-hidden="true" />
-              Features:
-            </h3>
-            <ul className="text-gray-300 text-sm space-y-1.5">
-              {[
-                'Validation as you type with line and column of the first error',
-                'Jump straight to the error location',
-                'Format with 2 spaces, 4 spaces or tabs',
-                'Minify JSON to a single line',
-                'Optionally sort object keys alphabetically',
-                'Size, nesting depth, key and element counts',
-                'Upload, download and copy JSON',
-              ].map((item) => (
-                <li key={item} className="flex gap-2.5">
-                  <Check className="h-3.5 w-3.5 text-sky-400 mt-1 flex-shrink-0" aria-hidden="true" />
-                  <span>{item}</span>
-                </li>
+            </button>
+            <ToolbarDivider />
+            <span id="json-indent-label" className="text-xs text-slate-400">
+              Indent
+            </span>
+            <div role="group" aria-labelledby="json-indent-label" className={cn(segmentGroup, 'ml-1')}>
+              {Object.keys(INDENT_OPTIONS).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={indent === option}
+                  onClick={() => setIndent(option)}
+                  className={segmentButton}
+                >
+                  {option}
+                </button>
               ))}
-            </ul>
+            </div>
+            <Tooltip label="Sort keys" hint="Format and Minify order object keys A to Z." side="bottom">
+              <button
+                type="button"
+                aria-pressed={sortKeys}
+                onClick={() => setSortKeys(!sortKeys)}
+                aria-label="Sort keys alphabetically"
+                className={toolButton}
+              >
+                <ArrowDownAZ className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <ToolbarDivider />
+            <Tooltip label="Copy" side="bottom">
+              <button
+                type="button"
+                onClick={copyToClipboard}
+                disabled={!jsonContent.trim()}
+                aria-label="Copy JSON"
+                className={toolButton}
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Download" hint="Saves as data.json." side="bottom">
+              <button
+                type="button"
+                onClick={downloadJson}
+                disabled={!jsonContent.trim()}
+                aria-label="Download JSON"
+                className={toolButton}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Clear" side="bottom">
+              <button
+                type="button"
+                onClick={clearContent}
+                disabled={!jsonContent.trim()}
+                aria-label="Clear editor"
+                className={toolButton}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
+          <p aria-live="polite" className="mt-0 flex items-center gap-1.5 text-sm lg:ml-auto">
+            {result.status === 'valid' && (
+              <>
+                <CheckCircle className="h-4 w-4 text-sky-400" aria-hidden="true" />
+                <span className="text-sky-400">Valid JSON</span>
+              </>
+            )}
+            {result.status === 'invalid' && (
+              <>
+                <AlertCircle className="h-4 w-4 text-red-400" aria-hidden="true" />
+                <span className="text-red-400">Invalid JSON</span>
+              </>
+            )}
+          </p>
         </div>
+
+        {result.status === 'invalid' && (
+          <div className={errorRow}>
+            <p className="mt-0 min-w-0 break-words">
+              {result.location && (
+                <strong className="mr-2 font-semibold text-red-200">
+                  Line {result.location.line}, column {result.location.column}
+                </strong>
+              )}
+              {result.message}
+            </p>
+            {result.location && (
+              <button type="button" onClick={jumpToError} className={cn(chipButton, 'flex-shrink-0')}>
+                <Crosshair className="h-4 w-4" aria-hidden="true" />
+                Go to error
+              </button>
+            )}
+          </div>
+        )}
+
+        <CodeEditor
+          ref={textareaRef}
+          id="json-content"
+          label="JSON content"
+          placeholder="Paste your JSON here or upload a .json file..."
+          value={jsonContent}
+          onChange={setJsonContent}
+          errorLine={errorLine}
+        />
+
+        <dl className={statusRow}>
+          {statItems.map(([label, value]) => (
+            <div key={label} className="flex gap-1.5">
+              <dt>{label}:</dt>
+              <dd className="tabular-nums text-slate-200">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </ToolPageLayout>
   );

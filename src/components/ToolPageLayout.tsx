@@ -1,16 +1,14 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
-import { Link, useNavigationType } from 'react-router-dom';
+import { Link, useLocation, useNavigationType } from 'react-router-dom';
 import { SEO } from '@/components/SEO';
-import { ShieldCheck, CloudOff, Infinity as InfinityIcon, ChevronRight, ChevronDown, MessageCircleQuestion, HelpCircle } from 'lucide-react';
+import { ShieldCheck, CloudOff, Infinity as InfinityIcon, ChevronRight } from 'lucide-react';
 import AnimatedElement from '@/components/AnimatedElement';
+import FaqSection, { type FaqItem } from '@/components/FaqSection';
+import ToolBar from '@/components/tools/ToolBar';
 import ToolSwitcher from '@/components/tools/ToolSwitcher';
 import Divider from '@/components/ui/divider';
 import FooterLinks, { CopyrightNotice } from '@/components/common/FooterLinks';
-
-interface FaqItem {
-  question: string;
-  answer: string;
-}
+import { getToolByPath } from '@/config/toolsData';
 
 interface ToolPageLayoutProps {
   title: string;
@@ -26,6 +24,8 @@ interface ToolPageLayoutProps {
   breadcrumbLabel?: string;
   /** Optional FAQ entries rendered as an accordion with FAQPage structured data */
   faq?: FaqItem[];
+  /** Explanatory content below the tool; full-width tools only, others keep it in children */
+  belowTool?: React.ReactNode;
 }
 
 const TRUST_BADGES = [
@@ -34,30 +34,26 @@ const TRUST_BADGES = [
   { icon: InfinityIcon, label: 'Free & unlimited' },
 ] as const;
 
-const FaqSection = ({ items }: { items: FaqItem[] }) => (
-  <section className="mt-16 max-w-2xl mx-auto w-full" aria-label="Frequently asked questions">
-    <AnimatedElement type="fadeIn" delay={0.1}>
-      <Divider className="mb-8" />
-      <h2 className="text-xl font-semibold text-white mb-4 text-center flex items-center justify-center gap-2">
-        <MessageCircleQuestion className="h-5 w-5 text-sky-400" aria-hidden="true" />
-        Frequently asked questions
-      </h2>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <details key={item.question} className="faq-item">
-            <summary>
-              <span className="flex items-center gap-2.5 min-w-0">
-                <HelpCircle className="h-4 w-4 flex-shrink-0 text-sky-400/80" aria-hidden="true" />
-                <span>{item.question}</span>
-              </span>
-              <ChevronDown className="faq-chevron h-4 w-4" aria-hidden="true" />
-            </summary>
-            <p className="faq-answer">{item.answer}</p>
-          </details>
-        ))}
-      </div>
-    </AnimatedElement>
-  </section>
+const TrustBadges = () => (
+  <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+    {TRUST_BADGES.map(({ icon: Icon, label }) => (
+      <span
+        key={label}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-xs text-slate-400"
+      >
+        <Icon className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
+        {label}
+      </span>
+    ))}
+  </div>
+);
+
+const PageFooter = () => (
+  <div className="mt-16 text-center">
+    <Divider className="mb-6" />
+    <CopyrightNotice className="text-sm" />
+    <FooterLinks className="mt-2" linkClassName="mx-2" />
+  </div>
 );
 
 /**
@@ -74,7 +70,8 @@ const ToolPageLayout = ({
   children,
   maxWidth = '4xl',
   breadcrumbLabel,
-  faq
+  faq,
+  belowTool
 }: ToolPageLayoutProps) => {
   const maxWidthClass = {
     'sm': 'max-w-sm',
@@ -90,6 +87,7 @@ const ToolPageLayout = ({
 
   const contentRef = useRef<HTMLDivElement>(null);
   const navigationType = useNavigationType();
+  const { pathname } = useLocation();
 
   // Defined start point: on in-site tool navigation the page opens AT the tool
   // content instead of animating a scroll. The layout effect sets the position
@@ -108,26 +106,38 @@ const ToolPageLayout = ({
     }
   }, [navigationType]);
 
-  const faqStructuredData = faq
-    ? {
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: faq.map((item) => ({
-          '@type': 'Question',
-          name: item.question,
-          acceptedAnswer: { '@type': 'Answer', text: item.answer },
-        })),
-      }
-    : undefined;
+  const seo = (
+    <SEO
+      title={title}
+      description={description}
+      keywords={keywords}
+    />
+  );
+
+  if (getToolByPath(pathname)?.fullWidth) {
+    return (
+      <div className="text-white relative min-h-0">
+        {seo}
+        <h1 className="sr-only">{pageTitle}</h1>
+        <ToolBar title={breadcrumbLabel ?? title} />
+        {children}
+        <div className="container mx-auto px-4 pb-8 flex flex-col min-h-0">
+          <Divider className="mb-8" />
+          <div className="max-w-3xl mx-auto text-center mb-10">
+            <TrustBadges />
+            <p className="mt-0 text-base md:text-lg text-slate-400 leading-relaxed">{pageDescription}</p>
+          </div>
+          {belowTool}
+          {faq && faq.length > 0 && <FaqSection items={faq} />}
+          <PageFooter />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="text-white relative min-h-0">
-      <SEO
-        title={title}
-        description={description}
-        keywords={keywords}
-        structuredData={faqStructuredData}
-      />
+      {seo}
 
       <div className="container mx-auto px-4 pt-0 pb-8 flex flex-col min-h-0">
         {/* Tool switcher carousel */}
@@ -168,17 +178,7 @@ const ToolPageLayout = ({
         {/* Header */}
         <div className="max-w-3xl mx-auto text-center mt-3">
           <AnimatedElement type="fadeIn" delay={0.1}>
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-              {TRUST_BADGES.map(({ icon: Icon, label }) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-xs text-slate-400"
-                >
-                  <Icon className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
-                  {label}
-                </span>
-              ))}
-            </div>
+            <TrustBadges />
           </AnimatedElement>
           <AnimatedElement type="fadeIn" delay={0.15}>
             {/* The visible tool name now lives in the site header (App); keep an h1 for semantics/SEO */}
@@ -200,12 +200,7 @@ const ToolPageLayout = ({
         {/* FAQ */}
         {faq && faq.length > 0 && <FaqSection items={faq} />}
 
-        {/* Footer */}
-        <div className="mt-16 text-center">
-          <Divider className="mb-6" />
-          <CopyrightNotice className="text-sm" />
-          <FooterLinks className="mt-2" linkClassName="mx-2" />
-        </div>
+        <PageFooter />
       </div>
     </div>
   );

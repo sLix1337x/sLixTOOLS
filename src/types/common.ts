@@ -18,13 +18,6 @@ export interface ProcessingMetadata {
 }
 
 /**
- * Parameters for edit operations
- */
-export interface EditParams {
-  [key: string]: string | number | boolean | null | undefined;
-}
-
-/**
  * Generic metadata type for flexible use cases
  */
 export type Metadata = Record<string, string | number | boolean | null | undefined>;

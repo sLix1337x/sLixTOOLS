@@ -116,3 +116,10 @@ export const formatCompressionRatio = (originalSize: number, compressedSize: num
     return `No size change (${originalFormatted})`;
   }
 };
+
+/** Short size comparison for status rows, e.g. "83% smaller". */
+export const formatSizeChange = (before: number, after: number): string => {
+  const percent = before > 0 ? Math.round((Math.abs(before - after) / before) * 100) : 0;
+  if (percent === 0) return 'Same size';
+  return `${percent}% ${after < before ? 'smaller' : 'larger'}`;
+};

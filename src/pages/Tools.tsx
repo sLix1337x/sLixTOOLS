@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Search, ShieldCheck, CloudOff, Infinity as InfinityIcon, Lock, X,
-  Video, FileImage, FileText, Type, Music, FolderOpen, Hourglass, LayoutGrid,
+  Video, FileImage, FileText, Type, Music, FolderOpen, Hourglass, LayoutGrid, Palette,
   type LucideIcon,
 } from 'lucide-react';
 import ToolListItem from '@/components/common/ToolListItem';
@@ -15,13 +15,14 @@ import { SEO } from '@/components/SEO';
 import { EXTERNAL_URLS, siteUrl } from '@/config/externalUrls';
 import { cn } from '@/lib/utils';
 
-const CATEGORY_ORDER: ToolConfig['category'][] = ['video', 'image', 'document', 'text'];
+const CATEGORY_ORDER: ToolConfig['category'][] = ['video', 'image', 'document', 'text', 'design'];
 
 const CATEGORY_LABELS: Record<ToolConfig['category'], string> = {
   video: 'Video & GIF',
   image: 'Image',
   document: 'Documents',
   text: 'Text',
+  design: 'Design',
   audio: 'Audio',
   other: 'Other',
 };
@@ -31,6 +32,7 @@ const CATEGORY_ICONS: Record<ToolConfig['category'], LucideIcon> = {
   image: FileImage,
   document: FileText,
   text: Type,
+  design: Palette,
   audio: Music,
   other: FolderOpen,
 };

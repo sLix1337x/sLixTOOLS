@@ -6,9 +6,10 @@
     <!-- Site is dark-only: native controls render dark, and Dark Reader must not re-theme it -->
     <meta name="color-scheme" content="dark" />
     <meta name="darkreader-lock" />
+    <!-- data-rh hands a tag to react-helmet, which replaces it with the SEO component's per-page value -->
     <title>sLixTOOLS - Free Online File Conversion Tools</title>
-    <meta name="description" content="Free online tools for all your file conversion needs. Convert videos, images, documents and more with our easy-to-use tools." />
-    <meta name="author" content="sLixTOOLS" />
+    <meta data-rh="true" name="description" content="Free online tools for all your file conversion needs. Convert videos, images, documents and more with our easy-to-use tools." />
+    <meta data-rh="true" name="author" content="sLixTOOLS" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="./formen.png" />
@@ -25,15 +26,15 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: https:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
 
     <!-- Open Graph / Social Media -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="sLixTOOLS - Free Online File Conversion Tools" />
-    <meta property="og:description" content="Free online tools for all your file conversion needs." />
-    <meta property="og:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
+    <meta data-rh="true" property="og:type" content="website" />
+    <meta data-rh="true" property="og:title" content="sLixTOOLS - Free Online File Conversion Tools" />
+    <meta data-rh="true" property="og:description" content="Free online tools for all your file conversion needs." />
+    <meta data-rh="true" property="og:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="sLixTOOLS" />
-    <meta name="twitter:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
+    <meta data-rh="true" name="twitter:card" content="summary_large_image" />
+    <meta data-rh="true" name="twitter:title" content="sLixTOOLS" />
+    <meta data-rh="true" name="twitter:image" content="https://sLix1337x.github.io/sLixTOOLS/formen.png" />
     
     <link rel="apple-touch-icon" href="%BASE_URL%formen.png" />
   </head>

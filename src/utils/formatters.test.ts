@@ -7,6 +7,7 @@ import {
   bytesToMB,
   formatFileSizeMB,
   formatCompressionRatio,
+  formatSizeChange,
 } from './formatters';
 
 describe('formatFileSize', () => {
@@ -103,5 +104,17 @@ describe('formatCompressionRatio', () => {
     expect(result).toContain('50.0%');
     expect(result).toContain('2 MB');
     expect(result).toContain('1 MB');
+  });
+});
+
+describe('formatSizeChange', () => {
+  it('reports the direction of the change', () => {
+    expect(formatSizeChange(1000, 170)).toBe('83% smaller');
+    expect(formatSizeChange(1000, 1200)).toBe('20% larger');
+  });
+
+  it('treats tiny changes and empty input as the same size', () => {
+    expect(formatSizeChange(1000, 1001)).toBe('Same size');
+    expect(formatSizeChange(0, 100)).toBe('Same size');
   });
 });

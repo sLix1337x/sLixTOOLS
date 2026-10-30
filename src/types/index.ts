@@ -17,14 +17,6 @@ export interface VideoFile {
   duration: number;
 }
 
-export interface GifResult {
-  blob: Blob;
-  url: string;
-  size: number;
-  width?: number;
-  height?: number;
-}
-
 /**
  * @deprecated Use ToolConfig from '@/config/toolsData' instead.
  * This type is kept for backwards compatibility but ToolConfig is the canonical source.
@@ -32,17 +24,6 @@ export interface GifResult {
 export type { ToolConfig as ToolItem } from '@/config/toolsData';
 
 // Component Props Types
-export interface VideoPreviewProps {
-  file: File | null;
-  onDurationChange?: (duration: number) => void;
-}
-
-export interface GifPreviewProps {
-  gifBlob: Blob | null;
-  onDownload: () => void;
-  isConverting: boolean;
-}
-
 export interface ConversionOptionsProps {
   options: ConversionOptions;
   onOptionsChange: (options: ConversionOptions) => void;

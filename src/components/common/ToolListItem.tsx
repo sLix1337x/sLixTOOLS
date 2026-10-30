@@ -81,25 +81,17 @@ const ToolListItem = memo<ToolListItemProps>(({
         </span>
       )}
 
-      <div>
+      <div
+        className={cn(
+          "w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-lg border border-white/10 transition-all duration-300",
+          comingSoon ? CARD_STYLES.iconContainerDisabled : CARD_STYLES.iconContainerAvailable
+        )}
+        aria-hidden="true"
+      >
         {tool.iconImage ? (
-          <img
-            src={tool.iconImage}
-            alt=""
-            aria-hidden="true"
-            loading="lazy"
-            className="h-11 w-11 md:h-12 md:w-12 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
-          />
+          <img src={tool.iconImage} alt="" loading="lazy" className="w-6 h-6 object-contain" />
         ) : (
-          <div
-            className={cn(
-              "w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-lg border border-white/10 transition-all duration-300",
-              comingSoon ? CARD_STYLES.iconContainerDisabled : CARD_STYLES.iconContainerAvailable
-            )}
-            aria-hidden="true"
-          >
-            <Icon className="w-5 h-5" />
-          </div>
+          <Icon className="w-5 h-5" />
         )}
       </div>
 

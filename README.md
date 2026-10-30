@@ -33,6 +33,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 | 🔤 **Convert Case** | 7 instant case styles (Sentence, Title, camelCase, aLtErNaTiNg…) |
 | 🧾 **XML Editor** | Format, validate and minify XML with instant feedback |
 | 📄 **PDF Editor** | Merge, split and rearrange PDF pages with pdf-lib |
+| 🎨 **Color Scheme Designer** | Harmony-based palettes with WCAG contrast, color blindness preview and CSS, Tailwind or SCSS export |
 
 ---
 
@@ -43,7 +44,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 * 🧳 **Lean First Load** — every route and heavy library (like `ffmpeg.wasm`) is code-split and loaded on demand
 * 🎨 **Dual Identity** — an indie-glitch aesthetic on the home page, a graphite + azure "pro" theme across the tools
 * 📱 **Installable** — ships a web app manifest, so it installs to your home screen like a native app
-* 🧪 **Tested** — 76 unit tests via Vitest, strict TypeScript, ESLint-clean
+* 🧪 **Tested** — 118 unit tests via Vitest, strict TypeScript, ESLint-clean
 
 ---
 
@@ -91,7 +92,7 @@ The build splits vendor chunks (`framer-motion`, `react`, ffmpeg…). `public/40
 ### Tests & Lint
 
 ```bash
-npm test          # Vitest — 76 tests
+npm test          # Vitest — 118 tests
 npm run lint      # ESLint
 ```
 

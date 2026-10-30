@@ -195,7 +195,8 @@ const compressVideoWithFFmpeg = async (
     await ffmpeg.writeFile(inputName, await fileToUint8Array(videoFile));
     
     // Build FFmpeg command based on output format
-    const args = ['-i', inputName];
+    // Default stats period (0.5 s) ends before short clips report any progress
+    const args = ['-stats_period', '0.1', '-i', inputName];
 
     // Memory management for FFmpeg WASM
     // Limit threads to reduce memory usage (WASM has limited threading support)

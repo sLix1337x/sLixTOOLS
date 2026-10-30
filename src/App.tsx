@@ -23,6 +23,7 @@ const ConvertCaseTool = lazy(() => import('./pages/tools/ConvertCaseTool'));
 const XmlEditor = lazy(() => import('./pages/tools/XmlEditor'));
 const JsonValidator = lazy(() => import('./pages/tools/JsonValidator'));
 const PdfEditor = lazy(() => import('./pages/tools/PdfEditor'));
+const ColorSchemeDesigner = lazy(() => import('./pages/tools/ColorSchemeDesigner'));
 
 // Lazy load info pages
 const About = lazy(() => import('./pages/About'));
@@ -82,6 +83,7 @@ const lazyRoutes: LazyRouteConfig[] = [
   { path: '/tools/xml-editor', Component: XmlEditor, fallbackText: 'Loading XML Editor...' },
   { path: '/tools/json-validator', Component: JsonValidator, fallbackText: 'Loading JSON Validator...' },
   { path: '/tools/pdf-editor', Component: PdfEditor, fallbackText: 'Loading PDF Editor...' },
+  { path: '/tools/color-scheme-designer', Component: ColorSchemeDesigner, fallbackText: 'Loading Color Scheme Designer...' },
   { path: '/about', Component: About },
   { path: '/contact', Component: Contact },
   { path: '/features', Component: Features },
@@ -154,9 +156,10 @@ const AppContent = () => {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
   const isPdfEditor = location.pathname === '/tools/pdf-editor';
-  const showHeader = !isPdfEditor;
   // Name of the tool for the current route (shown at the top-left edge of the header)
   const currentTool = getToolByPath(location.pathname);
+  const isFullWidth = Boolean(currentTool?.fullWidth);
+  const showHeader = !isPdfEditor && !isFullWidth;
 
   // The site header steps out of the way once the page is scrolled
   const [scrolled, setScrolled] = useState(false);
@@ -210,7 +213,7 @@ const AppContent = () => {
         id="main-content"
         tabIndex={-1}
         className={
-          !isHomePage && location.pathname !== '/contact' && !isPdfEditor
+          !isHomePage && location.pathname !== '/contact' && !isPdfEditor && !isFullWidth
             ? 'container mx-auto px-4 py-6 focus:outline-none'
             : 'flex flex-col min-h-0 focus:outline-none'
         }

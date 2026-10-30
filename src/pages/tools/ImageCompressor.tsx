@@ -1,140 +1,75 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Download, SlidersHorizontal, FileImage, Minimize2, ShieldCheck, X } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Download, FileImage, Gauge, Minimize2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
-import AnimatedElement from '@/components/AnimatedElement';
 import errorLogger, { ErrorCategory } from '@/utils/errorLogger';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
 import FileUploadArea from '@/components/FileUploadArea';
+import ComparePanes from '@/components/tools/ComparePanes';
+import QualitySlider from '@/components/tools/QualitySlider';
+import SourceChip from '@/components/tools/SourceChip';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
 import { config } from '@/config';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
-import { useUrlFileLoader } from '@/hooks';
+import { useObjectUrl, useUrlFileLoader } from '@/hooks';
+import { cn } from '@/lib/utils';
+import { guideCard, guideHeading, primaryButton, statusRow, toolDropzone, toolWorkspace, toolbarRow } from '@/styles/constants';
 import { downloadBlob } from '@/utils/download';
 import { dataURItoBlob } from '@/utils/dataConversion';
-import ToolActionButton from '@/components/tools/ToolActionButton';
+import { formatFileSize, formatSizeChange } from '@/utils/formatters';
 
-interface ImagePreviewProps {
-  file: File | null;
-  compressedUrl: string | null;
-  quality: number;
-  onQualityChange: (value: number) => void;
-  onDownload: () => void;
-  isCompressing: boolean;
-}
+const guideItem = (term: string, text: string) => (
+  <li key={term}>
+    <strong className="text-white">{term}</strong> {text}
+  </li>
+);
 
-const ImagePreview = ({
-  file,
-  compressedUrl,
-  quality,
-  onQualityChange,
-  onDownload,
-  isCompressing
-}: ImagePreviewProps) => {
-  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setOriginalUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  if (!file) return null;
-  const compressedSize = compressedUrl ? dataURItoBlob(compressedUrl).size : 0;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-300 flex items-center gap-1.5">
-            <FileImage className="h-4 w-4 text-sky-400" aria-hidden="true" />
-            Original
-          </h3>
-          <div className="relative aspect-square border-2 border-dashed border-gray-700 rounded-lg overflow-hidden">
-            <img
-              src={originalUrl ?? undefined}
-              alt="Original"
-              className="w-full h-full object-contain p-2"
-            />
-            <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-              {(file.size / 1024).toFixed(2)} KB
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm font-medium text-gray-300 flex items-center gap-1.5">
-              <Minimize2 className="h-4 w-4 text-sky-400" aria-hidden="true" />
-              Compressed
-            </h3>
-            {compressedUrl && (
-              <span className="text-xs text-gray-400">
-                {Math.round((1 - compressedSize / file.size) * 100)}% smaller
-              </span>
-            )}
-          </div>
-          <div className="relative aspect-square border-2 border-dashed border-sky-500/30 rounded-lg overflow-hidden">
-            {compressedUrl ? (
-              <>
-                <img
-                  src={compressedUrl}
-                  alt="Compressed"
-                  className="w-full h-full object-contain p-2"
-                />
-                <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                  {`${(compressedSize / 1024).toFixed(2)} KB`}
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                {isCompressing ? 'Compressing...' : 'Preview will appear here'}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="quality" className="text-sm font-medium text-gray-300">
-            Quality: {quality}%
-          </Label>
-          <span className="text-xs text-gray-400">
-            {quality > 80 ? 'Best' : quality > 50 ? 'Good' : 'Low'} quality
-          </span>
-        </div>
-        <Slider
-          id="quality"
-          aria-label="Quality"
-          min={10}
-          max={90}
-          step={5}
-          value={[quality]}
-          onValueChange={(value) => onQualityChange(value[0])}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>Smaller file</span>
-          <span>Better quality</span>
-        </div>
-      </div>
-
-      <div className="flex justify-center w-full">
-        <ToolActionButton
-          icon={Download}
-          onClick={onDownload}
-          disabled={!compressedUrl || isCompressing}
-        >
-          Download Compressed
-        </ToolActionButton>
-      </div>
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <Minimize2 className="h-5 w-5" aria-hidden="true" />
+      </span>
+      Getting Smaller Images
+    </h2>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Gauge className="h-5 w-5" aria-hidden="true" />
+          Choosing a Quality
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('80-90%:', 'large photos where details matter.')}
+          {guideItem('60-75%:', 'websites, email and social media.')}
+          {guideItem('Below 50%:', 'thumbnails. Blocks and halos become visible.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <FileImage className="h-5 w-5" aria-hidden="true" />
+          What Changes in the File
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Format:', 'the result is always a JPG.')}
+          {guideItem('Transparency:', 'transparent areas become white.')}
+          {guideItem('Size:', 'images over 2000 px on the longest side are scaled down.')}
+          {guideItem('GIFs:', 'only the first frame is kept.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+          When the File Gets Larger
+        </h3>
+        <p className="mt-0 text-sm leading-relaxed text-gray-300">
+          Images that are already compressed have little left to remove, and logos or screenshots with few colors are
+          often smaller as PNG than as JPG. The status bar shows the change. If the result is larger, keep your original
+          or try WebP in the Image Converter.
+        </p>
+      </section>
     </div>
-  );
-};
+  </div>
+);
 
 const ImageCompressor = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -143,6 +78,11 @@ const ImageCompressor = () => {
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
   // Bumped per run and per file change so a stale compression can't overwrite a newer one
   const runIdRef = useRef(0);
+  const originalUrl = useObjectUrl(imageFile);
+  const compressedSize = useMemo(
+    () => (compressedUrl ? dataURItoBlob(compressedUrl).size : null),
+    [compressedUrl]
+  );
 
   const resetImage = () => {
     runIdRef.current++;
@@ -364,8 +304,6 @@ const ImageCompressor = () => {
     );
   };
 
-
-
   useEffect(() => {
     if (imageFile) {
       const timer = setTimeout(() => {
@@ -378,15 +316,24 @@ const ImageCompressor = () => {
     return undefined;
   }, [imageFile, quality, compressImage]);
 
+  const statItems = imageFile
+    ? [
+        ['Original', formatFileSize(imageFile.size)],
+        ['Compressed', compressedSize === null ? '-' : formatFileSize(compressedSize)],
+        ['Change', compressedSize === null ? '-' : formatSizeChange(imageFile.size, compressedSize)],
+      ]
+    : [];
+
   return (
     <ToolPageLayout
       title="Image Compressor"
-      description="Compress your images without losing quality. All processing happens in your browser."
+      description="Reduce image file size and compare the result with the original. All processing happens in your browser."
       keywords="image compressor, compress images, reduce image size, image optimizer, online image compressor"
       canonicalUrl="/tools/image-compressor"
       pageTitle="Image Compressor | sLixTOOLS"
       pageDescription="Compress your images online for free. Reduce image file size while maintaining good quality. No upload required, all processing happens in your browser."
       breadcrumbLabel="Image Compressor"
+      belowTool={seoContent}
       faq={[
         {
           question: 'How much smaller will my image get?',
@@ -398,65 +345,65 @@ const ImageCompressor = () => {
         },
         {
           question: 'Is the compression lossless?',
-          answer: 'Compression is lossy at lower quality levels, but you can preview the result before downloading to find the sweet spot.',
+          answer: 'No. The result is a JPG, which is always lossy. Compare both images next to each other to find the lowest quality that still looks good.',
         },
       ]}
     >
-      <div className="max-w-2xl mx-auto w-full">
+      <div className={toolWorkspace}>
         {!imageFile ? (
-          <FileUploadArea
-            onFileSelected={handleFileSelected}
-            fileCategory="image"
-            maxFileSize={config.upload.maxFileSize}
-            acceptedTypes={['jpg', 'jpeg', 'png', 'webp', 'gif']}
-            showUrlInput={true}
-            onUrlSubmit={handleUrlSubmit}
-            urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
-          />
-        ) : (
-          <AnimatedElement type="fadeIn" delay={0.6}>
-            <Card className="p-6 border border-gray-700/50 bg-gray-900/20">
-              <div className="flex justify-between items-center gap-4 mb-4">
-                <p className="font-medium text-gray-200 truncate">{imageFile.name}</p>
-                <button
-                  onClick={resetImage}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Remove image"
-                  aria-label="Remove image"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <ImagePreview
-                file={imageFile}
-                compressedUrl={compressedUrl}
-                quality={quality}
-                onQualityChange={setQuality}
-                onDownload={handleDownload}
-                isCompressing={isCompressing}
-              />
-            </Card>
-          </AnimatedElement>
-        )}
-
-        <Divider className="mt-8 mb-6" />
-        <AnimatedElement type="fadeIn" delay={0.8}>
-          <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-gray-200 flex items-center">
-              <SlidersHorizontal className="mr-2 h-5 w-5 text-sky-400" />
-              How to use
-            </h3>
-            <ol className="space-y-2 text-sm text-gray-300 list-decimal list-inside">
-              <li>Upload an image by clicking the area above or dragging and dropping</li>
-              <li>Adjust the quality slider to balance between size and quality</li>
-              <li>Download your compressed image with the download button</li>
-            </ol>
-            <p className="mt-4 text-xs text-gray-500 flex items-start gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-sky-400/70" aria-hidden="true" />
-              <span><span className="font-semibold">Note:</span> All processing happens in your browser. Your images are never uploaded to any server.</span>
-            </p>
+          <div className={toolDropzone}>
+            <FileUploadArea
+              fill
+              onFileSelected={handleFileSelected}
+              fileCategory="image"
+              maxFileSize={config.upload.maxFileSize}
+              acceptedTypes={['jpg', 'jpeg', 'png', 'webp', 'gif']}
+              showUrlInput={true}
+              onUrlSubmit={handleUrlSubmit}
+              urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
+            />
           </div>
-        </AnimatedElement>
+        ) : (
+          <>
+            <div className={toolbarRow}>
+              <SourceChip
+                thumbnail={originalUrl}
+                name={imageFile.name}
+                meta={formatFileSize(imageFile.size)}
+                onRemove={resetImage}
+              />
+              <ToolbarDivider />
+              <QualitySlider value={quality} onChange={setQuality} min={10} max={90} step={5} />
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={!compressedUrl}
+                className={cn(primaryButton, 'lg:ml-auto')}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download
+              </button>
+            </div>
+
+            <ComparePanes
+              originalSrc={originalUrl}
+              originalMeta={formatFileSize(imageFile.size)}
+              resultSrc={compressedUrl}
+              resultMeta={compressedSize === null ? undefined : formatFileSize(compressedSize)}
+              resultLabel="Compressed"
+              emptyText={isCompressing ? 'Compressing...' : 'Preview will appear here'}
+            />
+
+            <dl className={statusRow}>
+              {statItems.map(([label, value]) => (
+                <div key={label} className="flex gap-1.5">
+                  <dt>{label}:</dt>
+                  <dd className="tabular-nums text-slate-200">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
       </div>
     </ToolPageLayout>
   );

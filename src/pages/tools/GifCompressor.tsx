@@ -1,17 +1,69 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { FileImage, Download, Zap, Settings } from 'lucide-react';
+import { Download, Gauge, Minimize2, Scaling, TriangleAlert, Zap } from 'lucide-react';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
 import FileUploadArea from '@/components/FileUploadArea';
+import ComparePanes from '@/components/tools/ComparePanes';
+import QualitySlider from '@/components/tools/QualitySlider';
+import SourceChip from '@/components/tools/SourceChip';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
 import { compressGif, getOptimalCompressionSettings, supportsAnimatedGifDecode, type CompressionProgress } from '@/utils/gifCompressor';
-import { formatFileSizeMB } from '@/utils/formatters';
-import { useLoading, useUrlFileLoader } from '@/hooks';
+import { formatFileSize, formatFileSizeMB, formatSizeChange } from '@/utils/formatters';
+import { useLoading, useObjectUrl, useUrlFileLoader } from '@/hooks';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
+import { chipButton, guideCard, guideHeading, primaryButton, statusRow, toolDropzone, toolWorkspace, toolbarRow } from '@/styles/constants';
 import { downloadBlobWithGeneratedName } from '@/utils/download';
-import ToolActionButton from '@/components/tools/ToolActionButton';
+
+const guideItem = (term: string, text: string) => (
+  <li key={term}>
+    <strong className="text-white">{term}</strong> {text}
+  </li>
+);
+
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <Minimize2 className="h-5 w-5" aria-hidden="true" />
+      </span>
+      Getting Smaller GIFs
+    </h2>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Gauge className="h-5 w-5" aria-hidden="true" />
+          What Quality Does
+        </h3>
+        <p className="mt-0 text-sm leading-relaxed text-gray-300">
+          Lower quality reduces the number of colors in every frame. Flat graphics and screen recordings stay clean for
+          a long time, while photos and soft gradients start to show bands. Press Compress again after moving the slider
+          to compare.
+        </p>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Scaling className="h-5 w-5" aria-hidden="true" />
+          Large Files
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Over 5 MB:', 'frames are scaled down to 800 × 600 px at most.')}
+          {guideItem('Over 10 MB:', 'every second frame is dropped as well.')}
+          {guideItem('Limit:', 'up to 50 MB per GIF.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+          Good to Know
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Browser:', 'keeping the animation needs ImageDecoder, as in recent Chrome, Edge or Firefox. Elsewhere only the first frame is kept.')}
+          {guideItem('Larger result:', 'optimized GIFs can grow. The status bar shows the change, so keep your original then.')}
+        </ul>
+      </section>
+    </div>
+  </div>
+);
 
 function GifCompressor() {
   const [file, setFile] = useState<File | null>(null);
@@ -20,9 +72,16 @@ function GifCompressor() {
   const [quality, setQuality] = useState(80);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const originalUrl = useObjectUrl(file);
+  const compressedUrl = useObjectUrl(compressedBlob);
 
   const handleFileSelected = (selectedFile: File) => {
     setFile(selectedFile);
+    setCompressedBlob(null);
+  };
+
+  const removeFile = () => {
+    setFile(null);
     setCompressedBlob(null);
   };
 
@@ -97,144 +156,112 @@ function GifCompressor() {
     );
   };
 
+  const statItems = file
+    ? [
+        ['Original', formatFileSize(file.size)],
+        ['Compressed', compressedBlob ? formatFileSize(compressedBlob.size) : '-'],
+        ['Change', compressedBlob ? formatSizeChange(file.size, compressedBlob.size) : '-'],
+      ]
+    : [];
+
   return (
     <ToolPageLayout
       title="GIF Compressor"
-      description="Reduce the file size of your animated GIFs while maintaining quality and vibrancy."
+      description="Reduce the file size of your animated GIFs and compare the result with the original."
       keywords="gif compressor, gif optimizer, reduce gif size, compress animated gif, gif file size reducer"
       canonicalUrl="/tools/gif-compressor"
       pageTitle="Online GIF Compressor | sLixTOOLS"
       pageDescription="Compress and optimize your GIF files online for free. Reduce GIF file size while maintaining visual quality with sLixTOOLS."
       breadcrumbLabel="GIF Compressor"
+      belowTool={seoContent}
       faq={[
         {
           question: 'Does compressing a GIF reduce its quality?',
-          answer: 'Compression removes redundant pixel data between frames. At moderate levels the difference is barely visible while the file gets much smaller.',
+          answer: 'Yes, it reduces the colors in every frame. At moderate levels the difference is hard to see. Files over 5 MB are also scaled down, and over 10 MB every second frame is dropped.',
         },
         {
           question: 'Is there a file size limit?',
-          answer: 'The limit depends on your device memory since processing happens locally in your browser — there are no server-side limits.',
+          answer: 'Yes, up to 50 MB per GIF. Processing happens locally, so very large GIFs also depend on your device memory.',
         },
         {
           question: 'Will the output still be a GIF?',
-          answer: 'Yes, the output is always an optimized GIF that works everywhere GIFs are supported.',
+          answer: 'Yes, the output is always a GIF that works everywhere GIFs are supported.',
         },
       ]}
     >
-      {!file ? (
-        <FileUploadArea
-          acceptedTypes={['image/gif']}
-          maxFileSize={50 * 1024 * 1024} // 50MB
-          onFileSelected={handleFileSelected}
-          onUrlSubmit={handleUrlSubmit}
-          showUrlInput={true}
-          urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.ANIMATION_GIF}
-          fileCategory="image"
-          title="Drop your GIF here"
-          description="or click to browse files (GIF)"
-        />
-      ) : (
-        <div className="space-y-8">
-          <Card className="p-6 border border-gray-700/50 bg-gray-900/20">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-4">
-                  <FileImage className="h-10 w-10 text-sky-400" />
-                  <div>
-                    <p className="font-medium text-gray-200">{file.name}</p>
-                    <p className="text-sm text-gray-400">{(file.size / 1024).toFixed(2)} KB</p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setFile(null)}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                >
-                  Remove
-                </Button>
-              </div>
-
-              {compressedBlob && (
-                <div className="mb-6 p-4 bg-sky-400/10 border border-sky-400/20 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sky-400 font-medium">Compression Complete!</p>
-                      <p className="text-sm text-gray-300">
-                        Original: {(file.size / 1024).toFixed(2)} KB →
-                        Compressed: {(compressedBlob.size / 1024).toFixed(2)} KB
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleDownload}
-                      className="bg-primary-action text-white hover:bg-primary-action/90 shadow-[0_0_15px_rgba(56,189,248,0.5)] hover:shadow-[0_0_25px_rgba(56,189,248,0.7)] transition-shadow duration-300"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-6">
-
-                  <div className="space-y-4 p-4 bg-blue-400/5 rounded-lg border border-blue-400/20">
-                    <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
-                      <Settings className="h-4 w-4" aria-hidden="true" />
-                      Standard Compression Options
-                    </h4>
-                    <div>
-                      <label className="block text-sm text-gray-300 mb-2">Quality: {quality}%</label>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        value={quality}
-                        onChange={(e) => setQuality(parseInt(e.target.value))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-400"
-                      />
-                      <div className="flex justify-between text-xs text-gray-400 mt-1">
-                        <span>Lower Quality</span>
-                        <span>Higher Quality</span>
-                      </div>
-                    </div>
-                  </div>
-              </div>
-
-              <Divider className="my-6" />
-
-              <div className="flex justify-center">
-                <ToolActionButton
-                  icon={Zap}
+      <div className={toolWorkspace}>
+        {!file ? (
+          <div className={toolDropzone}>
+            <FileUploadArea
+              fill
+              acceptedTypes={['image/gif']}
+              maxFileSize={50 * 1024 * 1024} // 50MB
+              onFileSelected={handleFileSelected}
+              onUrlSubmit={handleUrlSubmit}
+              showUrlInput={true}
+              urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.ANIMATION_GIF}
+              fileCategory="image"
+              title="Drop your GIF here"
+              description="or click to browse files (GIF)"
+            />
+          </div>
+        ) : (
+          <>
+            <div className={toolbarRow}>
+              <SourceChip
+                thumbnail={originalUrl}
+                name={file.name}
+                meta={formatFileSize(file.size)}
+                onRemove={removeFile}
+                disabled={isLoading}
+              />
+              <ToolbarDivider />
+              <QualitySlider value={quality} onChange={setQuality} min={10} max={100} step={1} disabled={isLoading} />
+              <div className="flex items-center gap-2 lg:ml-auto">
+                <button
+                  type="button"
                   onClick={handleCompress}
                   disabled={isLoading}
-                  isLoading={isLoading}
-                  loadingText="Compressing..."
-                  fullWidth
+                  className={compressedBlob ? chipButton : primaryButton}
                 >
-                  Compress GIF
-                </ToolActionButton>
+                  <Zap className="h-4 w-4" aria-hidden="true" />
+                  {isLoading ? 'Compressing...' : 'Compress'}
+                </button>
+                {compressedBlob && (
+                  <button type="button" onClick={handleDownload} className={primaryButton}>
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download
+                  </button>
+                )}
               </div>
+            </div>
 
+            <ComparePanes
+              originalSrc={originalUrl}
+              originalMeta={formatFileSize(file.size)}
+              resultSrc={compressedUrl}
+              resultMeta={compressedBlob ? formatFileSize(compressedBlob.size) : undefined}
+              resultLabel="Compressed"
+              emptyText={isLoading ? 'Compressing...' : 'Press Compress to see the result'}
+            />
 
+            <dl className={statusRow}>
+              {statItems.map(([label, value]) => (
+                <div key={label} className="flex gap-1.5">
+                  <dt>{label}:</dt>
+                  <dd className="tabular-nums text-slate-200">{value}</dd>
+                </div>
+              ))}
               {isLoading && (
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-between text-sm text-gray-400">
-                    <span>{progressMessage}</span>
-                    <span>{Math.round(progress)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-sky-400 to-blue-400 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+                <div className="flex gap-1.5">
+                  <dt>{progressMessage}</dt>
+                  <dd className="tabular-nums text-slate-200">{Math.round(progress)}%</dd>
                 </div>
               )}
-            </div>
-          </Card>
-        </div>
-      )}
+            </dl>
+          </>
+        )}
+      </div>
     </ToolPageLayout>
   );
 }

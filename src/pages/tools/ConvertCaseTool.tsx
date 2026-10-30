@@ -5,9 +5,6 @@ import {
   Type,
   Copy,
   Trash2,
-  Wand2,
-  ListChecks,
-  ThumbsUp,
   Check,
   CaseSensitive,
   Undo2,
@@ -23,13 +20,31 @@ import {
   WrapText,
   Space,
   ScissorsLineDashed,
+  Code2,
+  Keyboard,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import * as SwitchPrimitive from '@radix-ui/react-switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Tooltip } from '@/components/ui/tooltip';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
+import { useHistory } from '@/hooks';
+import {
+  chipButton,
+  fieldClass,
+  guideCard,
+  guideHeading,
+  guideKey,
+  primaryButton,
+  sectionLabel,
+  settingsGrid,
+  statusRow,
+  toolButton,
+  toolWorkspace,
+  toolbarRow,
+} from '@/styles/constants';
+import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
 import {
   buildPattern,
@@ -99,83 +114,130 @@ const CLEANUP_ACTIONS: { label: string; icon: LucideIcon; run: (text: string) =>
   { label: 'Reverse lines', icon: ArrowDownUp, run: reverseLines },
 ];
 
-const HISTORY_LIMIT = 100;
-/** Keystrokes closer together than this collapse into one undo step. */
-const TYPING_MERGE_MS = 1000;
+const guideItem = (term: string, desc: string) => (
+  <li key={term} className="flex gap-2.5">
+    <Check className="h-3.5 w-3.5 text-blue-400 mt-1 flex-shrink-0" aria-hidden="true" />
+    <span><strong>{term}</strong> {desc}</span>
+  </li>
+);
 
-const chipButton =
-  'inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-white/25 bg-white/[0.08] text-sm font-medium text-white transition-colors enabled:hover:border-sky-400/70 enabled:hover:bg-sky-400/20 disabled:opacity-60 disabled:cursor-not-allowed';
-const iconButton =
-  'inline-flex items-center justify-center h-8 w-8 rounded-md border border-white/20 bg-white/[0.06] text-slate-200 transition-colors enabled:hover:text-white enabled:hover:border-sky-400/60 enabled:hover:bg-sky-400/15 disabled:opacity-50 disabled:cursor-not-allowed';
-const sectionLabel = 'text-xs font-semibold uppercase tracking-wide text-slate-300';
-const fieldClass =
-  'h-9 w-full rounded-md border border-white/15 bg-[#171714] px-3 text-sm text-white placeholder-gray-500 outline-none focus:border-sky-400/60';
-
-interface History {
-  past: string[];
-  present: string;
-  future: string[];
-}
-
-const copyToClipboard = async (value: string) => {
-  try {
-    await navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    toast.error('Unable to copy automatically. Please copy manually.');
-    return false;
-  }
-};
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <CaseSensitive className="h-5 w-5" aria-hidden="true" />
+      </span>
+      How to Convert Text Case
+    </h2>
+    <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {[
+        ['Paste your text', 'Type or paste into the editor. A list with one name per line works too.'],
+        ['Clean it up', 'Trim lines, drop duplicates or empty lines, and sort the list if you need to.'],
+        ['Pick a case', 'One click rewrites the whole text. Each step can be undone, so you can try several.'],
+        ['Copy or download', 'Copy the result to your clipboard or save it as a .txt file.'],
+      ].map(([title, text], i) => (
+        <li key={title} className={guideCard}>
+          <span className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-sky-400/15 text-sm font-semibold text-sky-300">
+            {i + 1}
+          </span>
+          <h3 className="mt-0 text-sm font-semibold text-white">{title}</h3>
+          <p className="mt-1 text-sm leading-relaxed text-gray-300">{text}</p>
+        </li>
+      ))}
+    </ol>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Code2 className="h-5 w-5" aria-hidden="true" />
+          Which Developer Case Goes Where?
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('camelCase:', 'variables in JavaScript and Java, JSON keys.')}
+          {guideItem('PascalCase:', 'classes, types and React components.')}
+          {guideItem('snake_case:', 'Python names and database columns.')}
+          {guideItem('kebab-case:', 'CSS classes, URLs and file names.')}
+          {guideItem('CONSTANT_CASE:', 'constants and environment variables.')}
+          {guideItem('dot.case:', 'config keys and translation keys.')}
+          {guideItem('path/case:', 'folders and routes.')}
+          {guideItem('Train-Case:', 'HTTP headers such as Content-Type.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Type className="h-5 w-5" aria-hidden="true" />
+          Which Text Case Goes Where?
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Sentence case:', 'normal body text, and text that arrived in all caps.')}
+          {guideItem('Title Case:', 'headlines. Small words like "and" or "of" stay lowercase.')}
+          {guideItem('Capitalized Case:', 'names and lists, every word starts with a capital.')}
+          {guideItem('UPPER CASE:', 'labels and short notices.')}
+          {guideItem('lower case:', 'tags, or a neutral start before another conversion.')}
+          {guideItem('InVeRsE CaSe:', 'text typed with Caps Lock on by mistake.')}
+          {guideItem('aLtErNaTiNg cAsE:', 'mocking memes, and not much else.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Regex className="h-5 w-5" aria-hidden="true" />
+          Find &amp; Replace Recipes
+        </h3>
+        <p className="mt-0 mb-3 text-sm leading-relaxed text-gray-300">
+          Turn on the regular expression button first. <code>^</code> and <code>$</code> match each line.
+        </p>
+        <dl className="space-y-2 text-sm text-gray-300">
+          {[
+            ['^', '- ', 'Turn every line into a bullet'],
+            ['[ \\t]+$', '(empty)', 'Remove spaces at the end of lines'],
+            ['(\\w+), (\\w+)', '$2 $1', 'Turn "Doe, Jane" into "Jane Doe"'],
+            ['\\d+', '#', 'Mask every number'],
+          ].map(([find, replacement, effect]) => (
+            <div key={find} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+              <dt className="flex items-center gap-1.5">
+                <kbd className={`${guideKey} font-mono`}>{find}</kbd>
+                <span aria-hidden="true">to</span>
+                <kbd className={`${guideKey} font-mono`}>{replacement}</kbd>
+              </dt>
+              <dd className="text-right">{effect}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Keyboard className="h-5 w-5" aria-hidden="true" />
+          Keyboard Shortcuts
+        </h3>
+        <dl className="space-y-2 text-sm text-gray-300">
+          {[
+            ['Ctrl + Z', 'Undo'],
+            ['Ctrl + Y', 'Redo'],
+            ['Ctrl + Shift + Z', 'Redo'],
+          ].map(([key, action]) => (
+            <div key={key} className="flex items-center justify-between gap-4">
+              <dt><kbd className={guideKey}>{key}</kbd></dt>
+              <dd className="text-right">{action}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-3 text-xs text-gray-400">These work while the editor has focus. On a Mac, use Cmd instead of Ctrl.</p>
+      </section>
+    </div>
+  </div>
+);
 
 const ConvertCaseTool = () => {
-  const [history, setHistory] = useState<History>({ past: [], present: '', future: [] });
+  const { present: text, canUndo, canRedo, commit, undo, redo } = useHistory(() => '');
   const [find, setFind] = useState('');
   const [replaceWith, setReplaceWith] = useState('');
   const [matchCase, setMatchCase] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
-  const [showDevCases, setShowDevCases] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const lastTypingAt = useRef(0);
   const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
-  const text = history.present;
   const deferredText = useDeferredValue(text);
   const hasText = text.trim() !== '';
-
-  /** Sets new text and records an undo step; rapid typing is merged into one step. */
-  const commit = useCallback((next: string, typing = false) => {
-    const now = Date.now();
-    const merge = typing && now - lastTypingAt.current < TYPING_MERGE_MS;
-    lastTypingAt.current = typing ? now : 0;
-    setHistory((h) =>
-      next === h.present
-        ? h
-        : {
-            past: merge ? h.past : [...h.past, h.present].slice(-HISTORY_LIMIT),
-            present: next,
-            future: [],
-          }
-    );
-  }, []);
-
-  const undo = useCallback(() => {
-    lastTypingAt.current = 0;
-    setHistory((h) =>
-      h.past.length === 0
-        ? h
-        : { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future] }
-    );
-  }, []);
-
-  const redo = useCallback(() => {
-    lastTypingAt.current = 0;
-    setHistory((h) =>
-      h.future.length === 0
-        ? h
-        : { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) }
-    );
-  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -258,24 +320,34 @@ const ConvertCaseTool = () => {
   // Stats follow the deferred value so typing stays responsive on long texts
   const stats = useMemo(() => getTextStats(deferredText), [deferredText]);
 
+  const statItems = [
+    ['Characters', stats.characters.toLocaleString()],
+    ['No spaces', stats.charactersNoSpaces.toLocaleString()],
+    ['Words', stats.words.toLocaleString()],
+    ['Sentences', stats.sentences.toLocaleString()],
+    ['Paragraphs', stats.paragraphs.toLocaleString()],
+    ['Lines', stats.lines.toLocaleString()],
+    ['Reading time', `${Math.ceil(stats.readingMinutes)} min`],
+  ];
+
   const renderCaseButtons = (cases: CaseDef[]) => (
-    <div className="flex flex-wrap gap-2">
-        {cases.map((c) => (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => applyTransform(c.label, c.convert)}
-            disabled={!hasText}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-slate-100 transition-colors enabled:hover:border-white/25 enabled:hover:bg-white/[0.09] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+    <div className="grid grid-cols-2 gap-1.5">
+      {cases.map((c) => (
+        <button
+          key={c.label}
+          type="button"
+          onClick={() => applyTransform(c.label, c.convert)}
+          disabled={!hasText}
+          className="inline-flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1.5 text-left text-slate-100 transition-colors enabled:hover:border-white/25 enabled:hover:bg-white/[0.09] enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span
+            className={`inline-flex h-6 min-w-[1.75rem] shrink-0 items-center justify-center rounded-md border px-1 font-mono text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${c.badge}`}
           >
-            <span
-              className={`inline-flex h-6 min-w-[1.75rem] items-center justify-center rounded-md border px-1.5 font-mono text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${c.badge}`}
-            >
-              {c.abbr}
-            </span>
-            <span className="text-sm font-medium">{c.label}</span>
-          </button>
-        ))}
+            {c.abbr}
+          </span>
+          <span className="truncate text-[13px] font-medium">{c.label}</span>
+        </button>
+      ))}
     </div>
   );
 
@@ -288,7 +360,7 @@ const ConvertCaseTool = () => {
       pageTitle="Convert Case Tool - sLixTOOLS"
       pageDescription="Convert text to 15 cases with one click — Sentence, Title, UPPER, camelCase, snake_case, kebab-case and more. Clean up lines, find & replace, undo/redo, live statistics and .txt export."
       breadcrumbLabel="Convert Case"
-      maxWidth="6xl"
+      belowTool={seoContent}
       faq={[
         {
           question: 'Which case styles are supported?',
@@ -299,6 +371,16 @@ const ConvertCaseTool = () => {
           question: 'How do developer cases handle multiple lines?',
           answer:
             'Each line is converted on its own, so you can paste a list of names and get a list of identifiers back. Existing camelCase, acronyms and separators are split into words first.',
+        },
+        {
+          question: 'Why are some words lowercase in Title Case?',
+          answer:
+            'Short words such as "and", "of", "the" and "with" stay lowercase unless they are the first or last word, which is the usual rule for headlines. Use Capitalized Case if every word should start with a capital.',
+        },
+        {
+          question: 'Can I use regular expressions in find and replace?',
+          answer:
+            'Yes. Turn on the regular expression button, then use $1, $2 and so on in the replacement to insert captured groups. The match count updates as you type, and an invalid pattern shows its error next to the fields.',
         },
         {
           question: 'Can I undo a conversion?',
@@ -316,169 +398,89 @@ const ConvertCaseTool = () => {
         },
       ]}
     >
-      <div className="max-w-6xl mx-auto w-full">
-        {/* Editor */}
-        <section className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="input-text" className="flex items-center text-lg font-semibold text-white">
-              <Type className="mr-2 h-5 w-5" aria-hidden="true" />
-              Your text
-            </Label>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={undo}
-                disabled={history.past.length === 0}
-                className={iconButton}
-                aria-label="Undo"
-                title="Undo (Ctrl+Z)"
-              >
-                <Undo2 className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={redo}
-                disabled={history.future.length === 0}
-                className={iconButton}
-                aria-label="Redo"
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                <Redo2 className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-
-          {/* Cleanup (above the editor) */}
-          <div className="space-y-1.5">
-            <p className={sectionLabel}>Clean up</p>
-            <div className="flex flex-wrap gap-2">
-              {CLEANUP_ACTIONS.map(({ label, icon: Icon, run }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => applyTransform(label, run)}
-                  disabled={!text}
-                  className={chipButton}
-                >
-                  <Icon className="h-4 w-4 text-sky-300" aria-hidden="true" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Text area with live counts in the bottom-right corner */}
-          <div className="relative">
-            <Textarea
-              id="input-text"
-              placeholder="Type or paste your text here…"
-              value={text}
-              onChange={(e) => commit(e.target.value, true)}
-              onKeyDown={handleKeyDown}
-              aria-describedby="text-counts"
-              className="min-h-[170px] resize-y border border-white/20 pb-20 text-base text-white placeholder-gray-400"
-              style={{ backgroundColor: '#171714' }}
+      <div className={toolWorkspace}>
+        <div className={toolbarRow}>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              placeholder="Find"
+              aria-label="Find"
+              aria-invalid={!!search.error}
+              className={`${fieldClass} sm:w-52 ${search.error ? 'border-red-500/60' : ''}`}
             />
-            <div
-              id="text-counts"
-              className="pointer-events-none absolute bottom-2.5 right-3.5 space-y-0.5 text-right font-mono text-[11px] leading-tight text-slate-400"
-            >
-              <p>Character Count: <span className="tabular-nums text-slate-200">{stats.characters.toLocaleString()}</span></p>
-              <p>Word Count: <span className="tabular-nums text-slate-200">{stats.words.toLocaleString()}</span></p>
-              <p>Line Count: <span className="tabular-nums text-slate-200">{stats.lines.toLocaleString()}</span></p>
-            </div>
-          </div>
-
-          {/* Case conversions (in place) */}
-          <div className="space-y-2">
-            <p className={sectionLabel}>Convert to</p>
-            {renderCaseButtons(TEXT_CASES)}
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5">
-              <SwitchPrimitive.Root
-                id="dev-cases"
-                checked={showDevCases}
-                onCheckedChange={setShowDevCases}
-                className="inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-white/25 bg-white/10 transition-colors data-[state=checked]:border-sky-400 data-[state=checked]:bg-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
-              >
-                <SwitchPrimitive.Thumb className="block h-4 w-4 translate-x-px rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[17px]" />
-              </SwitchPrimitive.Root>
-              <Label htmlFor="dev-cases" className="cursor-pointer text-sm text-slate-200">
-                Developer cases <span className="text-slate-400">(camelCase, snake_case, kebab-case …)</span>
-              </Label>
-            </div>
-            {showDevCases && renderCaseButtons(DEV_CASES)}
-          </div>
-
-          {/* Find & replace */}
-          <div className="space-y-2">
-            <p className={sectionLabel}>Find &amp; replace</p>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <input
-                type="text"
-                value={find}
-                onChange={(e) => setFind(e.target.value)}
-                placeholder="Find"
-                aria-label="Find"
-                aria-invalid={!!search.error}
-                className={`${fieldClass} md:flex-1 ${search.error ? 'border-red-500/60' : ''}`}
-              />
-              <input
-                type="text"
-                value={replaceWith}
-                onChange={(e) => setReplaceWith(e.target.value)}
-                placeholder={useRegex ? 'Replace with ($1 for groups)' : 'Replace with'}
-                aria-label="Replace with"
-                className={`${fieldClass} md:flex-1`}
-              />
-              <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={replaceWith}
+              onChange={(e) => setReplaceWith(e.target.value)}
+              placeholder={useRegex ? 'Replace with ($1 for groups)' : 'Replace with'}
+              aria-label="Replace with"
+              className={`${fieldClass} sm:w-52`}
+            />
+            <div className="flex items-center gap-1">
+              <Tooltip label="Match case" hint="Treat A and a as different letters." side="bottom">
                 <button
                   type="button"
                   onClick={() => setMatchCase((v) => !v)}
                   aria-pressed={matchCase}
                   aria-label="Match case"
-                  title="Match case"
-                  className={`${iconButton} aria-pressed:border-sky-400/60 aria-pressed:bg-sky-400/15 aria-pressed:text-sky-300`}
+                  className={toolButton}
                 >
                   <CaseSensitive className="h-4 w-4" aria-hidden="true" />
                 </button>
+              </Tooltip>
+              <Tooltip label="Regular expression" hint="Search with a pattern. Use $1 in the replacement for groups." side="bottom">
                 <button
                   type="button"
                   onClick={() => setUseRegex((v) => !v)}
                   aria-pressed={useRegex}
                   aria-label="Use regular expression"
-                  title="Regular expression"
-                  className={`${iconButton} aria-pressed:border-sky-400/60 aria-pressed:bg-sky-400/15 aria-pressed:text-sky-300`}
+                  className={toolButton}
                 >
                   <Regex className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <button
-                  type="button"
-                  onClick={replaceAll}
-                  disabled={!search.pattern || matchCount === 0}
-                  className={chipButton}
-                >
-                  <Replace className="h-4 w-4 text-sky-300" aria-hidden="true" />
-                  Replace all
-                </button>
-              </div>
+              </Tooltip>
             </div>
+            <button
+              type="button"
+              onClick={replaceAll}
+              disabled={!search.pattern || matchCount === 0}
+              className={chipButton}
+            >
+              <Replace className="h-4 w-4 text-sky-300" aria-hidden="true" />
+              Replace all
+            </button>
             {find && (
-              <p className={`text-xs ${search.error ? 'text-red-400' : 'text-slate-400'}`} aria-live="polite">
+              <span className={`text-xs ${search.error ? 'text-red-400' : 'text-slate-400'}`} aria-live="polite">
                 {search.error || `${matchCount.toLocaleString()} match${matchCount === 1 ? '' : 'es'}`}
-              </p>
+              </span>
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="button"
-              onClick={copyInput}
-              disabled={!hasText}
-              className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border-0 bg-primary-action text-white shadow-[0_0_15px_rgba(56,189,248,0.5)] outline-none transition-shadow duration-300 hover:bg-primary-action/90 hover:shadow-[0_0_25px_rgba(56,189,248,0.7)] focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            >
+          <div className="flex flex-wrap items-center gap-1 lg:ml-auto">
+            <Tooltip label="Undo" shortcut="Ctrl+Z" side="bottom">
+              <button type="button" onClick={undo} disabled={!canUndo} className={toolButton} aria-label="Undo">
+                <Undo2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Redo" shortcut="Ctrl+Y" side="bottom">
+              <button type="button" onClick={redo} disabled={!canRedo} className={toolButton} aria-label="Redo">
+                <Redo2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Download" hint="Save the text as a .txt file." side="bottom">
+              <button type="button" onClick={downloadText} disabled={!hasText} className={toolButton} aria-label="Download as .txt">
+                <Download className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Clear" hint="Empty the editor. You can undo this." side="bottom">
+              <button type="button" onClick={clearText} disabled={!text} className={toolButton} aria-label="Clear text">
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <ToolbarDivider />
+            <button type="button" onClick={copyInput} disabled={!hasText} className={primaryButton}>
               {copiedKey === 'input' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
               ) : (
@@ -486,92 +488,59 @@ const ConvertCaseTool = () => {
               )}
               Copy Text
             </button>
-            <button
-              type="button"
-              onClick={downloadText}
-              disabled={!hasText}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-5 text-slate-300 transition-colors enabled:hover:border-sky-400/50 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              .txt
-            </button>
-            <button
-              type="button"
-              onClick={clearText}
-              disabled={!text}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-5 text-slate-300 transition-colors enabled:hover:border-white/30 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Clear
-            </button>
           </div>
-        </section>
+        </div>
 
-      </div>
-
-      {/* SEO Content Section */}
-      <Divider className="mt-12 mb-10" />
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center space-y-6">
-          <h2 className="text-2xl font-bold text-white mb-4 flex items-center justify-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
-              <CaseSensitive className="h-5 w-5" aria-hidden="true" />
-            </span>
-            Free Online Text Case Converter Tool
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6 text-left">
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-blue-400 flex items-center gap-2">
-                <Wand2 className="h-5 w-5" aria-hidden="true" />
-                One Click, Any Case
-              </h3>
-              <p className="text-gray-300 text-sm leading-relaxed">
-                Type or paste your text and convert it to any of fifteen cases with one click — from Sentence and Title Case for
-                writing to camelCase and snake_case for code. Clean up lines, find and replace, undo any step and
-                download the result as a .txt file. Everything runs in your browser.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-blue-400 flex items-center gap-2">
-                <ListChecks className="h-5 w-5" aria-hidden="true" />
-                Supported Case Types
-              </h3>
-              <ul className="text-gray-300 text-sm space-y-1.5">
-                {[
-                  ['Writing:', 'Sentence case, lower case, UPPER CASE, Capitalized Case, Title Case'],
-                  ['Fun:', 'aLtErNaTiNg cAsE and InVeRsE CaSe'],
-                  ['Code:', 'camelCase, PascalCase, snake_case, kebab-case, CONSTANT_CASE'],
-                  ['Paths & keys:', 'dot.case, path/case and Train-Case'],
-                  ['Cleanup:', 'trim, collapse spaces, join, dedupe, sort and reverse lines'],
-                ].map(([term, desc]) => (
-                  <li key={term} className="flex gap-2.5">
-                    <Check className="h-3.5 w-3.5 text-blue-400 mt-1 flex-shrink-0" aria-hidden="true" />
-                    <span><strong>{term}</strong> {desc}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <Divider className="mt-8 mb-6" />
-          <div className="p-4 bg-white/5 rounded-lg">
-            <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
-              <ThumbsUp className="h-5 w-5" aria-hidden="true" />
-              Why Use Our Case Converter?
-            </h3>
-            <div className="grid md:grid-cols-3 gap-3 text-sm text-gray-300">
-              {[
-                '15 text and developer cases',
-                'Undo/redo with keyboard shortcuts',
-                'Find & replace with regex support',
-                'Words, sentences and reading time',
-                'Download your text as .txt',
-                'Private — nothing leaves your browser',
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-sky-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
-                  <span>{item}</span>
+        <div className={settingsGrid}>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            <Label htmlFor="input-text" className="sr-only">
+              Your text
+            </Label>
+            <Textarea
+              id="input-text"
+              placeholder="Type or paste your text here…"
+              value={text}
+              onChange={(e) => commit(e.target.value, true)}
+              onKeyDown={handleKeyDown}
+              aria-describedby="text-counts"
+              className="m-4 min-h-[45dvh] w-auto flex-1 resize-y rounded-lg border border-white/10 px-4 py-3 text-base text-white placeholder-gray-400 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-sky-400/40 focus-visible:ring-offset-0 lg:min-h-0 lg:resize-none"
+              style={{ backgroundColor: '#171714' }}
+            />
+            <dl id="text-counts" className={statusRow}>
+              {statItems.map(([label, value]) => (
+                <div key={label} className="flex gap-1.5">
+                  <dt>{label}:</dt>
+                  <dd className="tabular-nums text-slate-200">{value}</dd>
                 </div>
               ))}
+            </dl>
+          </div>
+
+          <div className="space-y-4 border-t border-white/10 p-4 lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <div className="space-y-2">
+              <p className={`${sectionLabel} mt-0`}>Convert to</p>
+              {renderCaseButtons(TEXT_CASES)}
+            </div>
+            <div className="space-y-2">
+              <p className={`${sectionLabel} mt-0`}>Developer cases</p>
+              {renderCaseButtons(DEV_CASES)}
+            </div>
+            <div className="space-y-2">
+              <p className={`${sectionLabel} mt-0`}>Clean up</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {CLEANUP_ACTIONS.map(({ label, icon: Icon, run }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => applyTransform(label, run)}
+                    disabled={!text}
+                    className={`${chipButton} min-w-0 !px-2 !text-[13px]`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-sky-300" aria-hidden="true" />
+                    <span className="truncate">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

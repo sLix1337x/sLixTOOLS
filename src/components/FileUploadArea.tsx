@@ -26,6 +26,8 @@ interface FileUploadAreaProps {
   previewSrc?: string | null | undefined;
   /** Allow picking/dropping several files; onFileSelected fires once per valid file. */
   multiple?: boolean | undefined;
+  /** Stretch to fill a flex parent instead of the centered narrow column. */
+  fill?: boolean | undefined;
 }
 
 /**
@@ -44,7 +46,8 @@ const FileUploadArea = ({
   onUrlSubmit,
   urlPlaceholder = 'Enter URL...',
   previewSrc = null,
-  multiple = false
+  multiple = false,
+  fill = false
 }: FileUploadAreaProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -224,10 +227,14 @@ const FileUploadArea = ({
       }).join(',');
 
   return (
-    <AnimatedElement type="fadeIn" delay={0.6} className="space-y-6 w-full max-w-2xl mx-auto">
+    <AnimatedElement
+      type="fadeIn"
+      delay={fill ? 0 : 0.6}
+      className={fill ? 'flex flex-1 flex-col gap-6' : 'space-y-6 w-full max-w-2xl mx-auto'}
+    >
       <motion.div
         className={`relative border-2 border-dashed border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${isDragging ? 'border-sky-400 bg-sky-400/10' : ''
-          } ${className}`}
+          } ${fill ? 'flex flex-1 items-center justify-center' : ''} ${className}`}
         onClick={() => fileInputRef.current?.click()}
         role="button"
         tabIndex={0}
@@ -275,7 +282,7 @@ const FileUploadArea = ({
               <p className="text-sm text-gray-400 mt-1">{displayDescription}</p>
             </div>
 
-            {fileName && (
+            {fileName && !multiple && (
               <div className="mt-3 p-3 bg-sky-500/10 border border-sky-500/30 rounded-lg w-full max-w-sm">
                 <div className="flex items-center gap-3">
                   {getIcon()}
@@ -300,7 +307,7 @@ const FileUploadArea = ({
       </motion.div>
 
       {showUrlInput && (
-        <div className="relative">
+        <div className={`relative ${fill ? 'mx-auto w-full max-w-2xl' : ''}`}>
           <div className="flex items-center mb-2">
             <div className="h-px bg-gray-700 flex-1"></div>
             <span className="px-3 text-sm text-gray-400">or</span>

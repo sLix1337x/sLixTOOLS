@@ -1,17 +1,31 @@
-import { useState, useRef } from 'react';
-import { Image, Download, SlidersHorizontal, X, ShieldCheck } from 'lucide-react';
-import { Slider } from '@/components/ui/slider';
-import { Card } from '@/components/ui/card';
+import { useMemo, useState, useRef } from 'react';
+import { Download, ExternalLink, FileImage, Link2, Ruler, Scaling } from 'lucide-react';
 import { toast } from 'sonner';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
 import FileUploadArea from '@/components/FileUploadArea';
+import SizeFields from '@/components/tools/SizeFields';
+import SourceChip from '@/components/tools/SourceChip';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useLoading, useUrlFileLoader } from '@/hooks';
 import { downloadBlob } from '@/utils/download';
 import { config } from '@/config';
 import { EXTERNAL_URLS } from '@/config/externalUrls';
+import {
+  chipButton,
+  guideCard,
+  guideHeading,
+  primaryButton,
+  segmentButton,
+  segmentGroup,
+  statusRow,
+  toolButton,
+  toolDropzone,
+  toolWorkspace,
+  toolbarRow,
+} from '@/styles/constants';
 import { dataURItoBlob } from '@/utils/dataConversion';
-import ToolActionButton from '@/components/tools/ToolActionButton';
+import { formatFileSize } from '@/utils/formatters';
 
 // Use centralized config for file size limits
 const MAX_FILE_SIZE_BYTES = config.upload.maxFileSize;
@@ -26,10 +40,66 @@ const SUPPORTED_IMAGE_TYPES = [
   'image/avif'
 ];
 
+const PREVIEW_MODES = ['Original', 'Resized'] as const;
+
 const MAX_DIMENSION = 16384; // 16384² is also Chromium's max canvas area
 
 const clampDimension = (value: number) =>
   Math.min(MAX_DIMENSION, Math.max(1, Math.round(value) || 1));
+
+const guideItem = (term: string, text: string) => (
+  <li key={term}>
+    <strong className="text-white">{term}</strong> {text}
+  </li>
+);
+
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <Scaling className="h-5 w-5" aria-hidden="true" />
+      </span>
+      Resizing Images
+    </h2>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Ruler className="h-5 w-5" aria-hidden="true" />
+          Common Sizes
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Full HD:', '1920 × 1080 px.')}
+          {guideItem('Link preview:', '1200 × 630 px.')}
+          {guideItem('Square post:', '1080 × 1080 px.')}
+          {guideItem('Video thumbnail:', '1280 × 720 px.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Link2 className="h-5 w-5" aria-hidden="true" />
+          Keeping Proportions
+        </h3>
+        <p className="mt-0 text-sm leading-relaxed text-gray-300">
+          With the lock on, changing one side updates the other. Turn it off to set both sides freely, but a different
+          ratio stretches the image because nothing is cropped. Scaling down stays sharp, scaling up beyond 2x looks
+          soft.
+        </p>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <FileImage className="h-5 w-5" aria-hidden="true" />
+          The Result
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Format:', 'always JPG at 90% quality.')}
+          {guideItem('Transparency:', 'transparent areas become white.')}
+          {guideItem('GIFs:', 'only the first frame is kept.')}
+          {guideItem('Limit:', 'up to 16,384 px per side.')}
+        </ul>
+      </section>
+    </div>
+  </div>
+);
 
 const ImageResizer = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -40,12 +110,18 @@ const ImageResizer = () => {
   const [resizedSize, setResizedSize] = useState({ width: 0, height: 0 });
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
-  // Bumped on every new file / reset so in-flight work for the previous file is ignored
+  const [showResult, setShowResult] = useState(false);
+  const resizedBytes = useMemo(
+    () => (resizedImageUrl ? dataURItoBlob(resizedImageUrl).size : null),
+    [resizedImageUrl]
+  );
+  // Bumped on every new file, reset or size change so in-flight work is ignored
   const fileGenRef = useRef(0);
 
   const processImageFile = (file: File) => {
     const gen = ++fileGenRef.current;
     setResizedImageUrl(null);
+    setShowResult(false);
     const reader = new FileReader();
     reader.onerror = () => {
       if (gen === fileGenRef.current) toast.error('Failed to read the image file');
@@ -118,7 +194,10 @@ const ImageResizer = () => {
                 reject(new Error(`Your browser could not create a ${canvas.width}×${canvas.height} image. Try smaller dimensions.`));
                 return;
               }
-              if (gen === fileGenRef.current) setResizedImageUrl(resizedDataUrl);
+              if (gen === fileGenRef.current) {
+                setResizedImageUrl(resizedDataUrl);
+                setShowResult(true);
+              }
               resolve();
             } catch (error) {
               URL.revokeObjectURL(objectUrl);
@@ -150,29 +229,47 @@ const ImageResizer = () => {
     );
   };
 
+  const handleOpenInNewTab = () => {
+    if (!resizedImageUrl) return;
+    // Browsers block top-level navigation to data: URLs; use a blob URL
+    const url = URL.createObjectURL(dataURItoBlob(resizedImageUrl));
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
 
+  // The result only matches the size it was made for
+  const changeSize = (size: { width: number; height: number }) => {
+    fileGenRef.current++;
+    setResizedSize(size);
+    setResizedImageUrl(null);
+    setShowResult(false);
+  };
 
   const handleWidthChange = (value: number) => {
     if (maintainAspectRatio && originalSize.width > 0) {
       const ratio = originalSize.height / originalSize.width;
-      setResizedSize({
+      changeSize({
         width: clampDimension(value),
         height: clampDimension(clampDimension(value) * ratio)
       });
     } else {
-      setResizedSize(prev => ({ ...prev, width: clampDimension(value) }));
+      changeSize({ ...resizedSize, width: clampDimension(value) });
     }
   };
 
   const handleHeightChange = (value: number) => {
     if (maintainAspectRatio && originalSize.height > 0) {
       const ratio = originalSize.width / originalSize.height;
-      setResizedSize({
+      changeSize({
         width: clampDimension(clampDimension(value) * ratio),
         height: clampDimension(value)
       });
     } else {
-      setResizedSize(prev => ({ ...prev, height: clampDimension(value) }));
+      changeSize({ ...resizedSize, height: clampDimension(value) });
     }
   };
 
@@ -181,7 +278,16 @@ const ImageResizer = () => {
     setImageFile(null);
     setPreviewUrl(null);
     setResizedImageUrl(null);
+    setShowResult(false);
   };
+
+  const statItems = imageFile
+    ? [
+        ['Original', `${originalSize.width} × ${originalSize.height} px`],
+        ['Resized', `${resizedSize.width} × ${resizedSize.height} px`],
+        ['File size', resizedBytes === null ? '-' : formatFileSize(resizedBytes)],
+      ]
+    : [];
 
   return (
     <ToolPageLayout
@@ -192,6 +298,7 @@ const ImageResizer = () => {
       pageTitle="Image Resizer | sLixTOOLS"
       pageDescription="Resize your images online for free. Adjust width and height while maintaining aspect ratio. Supports multiple image formats including JPG, PNG, GIF, WebP, and more."
       breadcrumbLabel="Image Resizer"
+      belowTool={seoContent}
       faq={[
         {
           question: 'Will resizing affect image quality?',
@@ -199,247 +306,151 @@ const ImageResizer = () => {
         },
         {
           question: 'Can I keep the aspect ratio?',
-          answer: 'Yes — enable "Maintain aspect ratio" and the height adjusts automatically when you change the width, or vice versa.',
+          answer: 'Yes. The lock next to the size fields is on by default, so the height adjusts automatically when you change the width, or vice versa.',
         },
         {
           question: 'Which formats are supported?',
-          answer: 'JPG, PNG, WebP, GIF, BMP, AVIF and more. The resized image is exported as JPG.',
+          answer: 'JPG, PNG, WebP, GIF, BMP, APNG and AVIF. The resized image is exported as JPG.',
         },
         {
           question: 'Can I preview the image before resizing?',
-          answer: 'Yes — a preview of your uploaded image appears right away, and after resizing you get a result preview you can download or open in a new tab.',
+          answer: 'Yes. Your image appears right away. After resizing you can switch between Original and Resized, then download the result or open it in a new tab.',
         },
       ]}
     >
-      <div className="max-w-2xl mx-auto w-full">
-        <div className="space-y-6">
-          {!imageFile ? (
-            <>
-              <FileUploadArea
-                onFileSelected={processImageFile}
-                acceptedTypes={SUPPORTED_IMAGE_TYPES}
-                maxFileSize={MAX_FILE_SIZE_BYTES}
-                title="Drop your image here"
-                description="or click to browse files (JPG, PNG, WebP, GIF, etc.)"
-                fileCategory="image"
-                showUrlInput={true}
-                onUrlSubmit={handleUrlSubmit}
-                urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
+      <div className={toolWorkspace}>
+        {!imageFile ? (
+          <div className={toolDropzone}>
+            <FileUploadArea
+              fill
+              onFileSelected={processImageFile}
+              acceptedTypes={SUPPORTED_IMAGE_TYPES}
+              maxFileSize={MAX_FILE_SIZE_BYTES}
+              title="Drop your image here"
+              description="or click to browse files (JPG, PNG, WebP, GIF, etc.)"
+              fileCategory="image"
+              showUrlInput={true}
+              onUrlSubmit={handleUrlSubmit}
+              urlPlaceholder={EXTERNAL_URLS.PLACEHOLDERS.IMAGE}
+            />
+          </div>
+        ) : (
+          <>
+            <div className={toolbarRow}>
+              <SourceChip
+                thumbnail={previewUrl}
+                name={imageFile.name}
+                meta={`${originalSize.width} × ${originalSize.height} px · ${formatFileSize(imageFile.size)}`}
+                onRemove={resetImage}
               />
-            </>
-          ) : (
-            <Card className="p-6 border border-gray-700/50 bg-gray-900/20">
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <Image className="h-10 w-10 text-blue-400" />
-                    <div>
-                      <p className="font-medium text-gray-200">{imageFile.name}</p>
-                      <p className="text-sm text-gray-400">
-                        {originalSize.width} × {originalSize.height} px •
-                        {(imageFile.size / 1024).toFixed(2)} KB
-                      </p>
-                    </div>
-                  </div>
+              <ToolbarDivider />
+              <fieldset
+                disabled={isResizing}
+                className="flex min-w-0 grow basis-full flex-wrap items-center gap-x-4 gap-y-2 lg:basis-0"
+              >
+                <SizeFields
+                  width={resizedSize.width}
+                  height={resizedSize.height}
+                  max={MAX_DIMENSION}
+                  locked={maintainAspectRatio}
+                  onWidthChange={handleWidthChange}
+                  onHeightChange={handleHeightChange}
+                  onLockedChange={setMaintainAspectRatio}
+                />
+                <div className="flex items-center gap-1">
                   <button
-                    onClick={resetImage}
-                    className="text-gray-400 hover:text-white transition-colors"
-                    title="Remove image"
-                    aria-label="Remove image"
+                    type="button"
+                    onClick={() =>
+                      changeSize({
+                        width: clampDimension(originalSize.width * 0.5),
+                        height: clampDimension(originalSize.height * 0.5),
+                      })
+                    }
+                    className={chipButton}
                   >
-                    <X className="h-5 w-5" />
+                    50%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      changeSize({
+                        width: clampDimension(originalSize.width),
+                        height: clampDimension(originalSize.height),
+                      })
+                    }
+                    className={chipButton}
+                  >
+                    Reset
                   </button>
                 </div>
-
-                {/* Preview window */}
-                <div className="rounded-lg border border-white/10 bg-black/30 p-3 flex items-center justify-center min-h-[12rem]">
-                  <img
-                    src={previewUrl ?? undefined}
-                    alt="Preview of uploaded image"
-                    className="max-h-64 max-w-full object-contain rounded-md"
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label htmlFor="resize-width" className="text-sm font-medium text-gray-300">Width</label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          id="resize-width"
-                          type="number"
-                          value={resizedSize.width}
-                          onChange={(e) => handleWidthChange(Number(e.target.value))}
-                          className="w-20 px-2 py-1 bg-gray-800/50 border border-gray-700 rounded text-white text-sm text-center"
-                          min="1"
-                          max={MAX_DIMENSION}
-                        />
-                        <span className="text-sm text-gray-400">px</span>
-                      </div>
-                    </div>
-                    <Slider
-                      aria-label="Width"
-                      value={[resizedSize.width]}
-                      onValueChange={([value]) => handleWidthChange(value)}
-                      min={1}
-                      max={Math.min(MAX_DIMENSION, Math.max(originalSize.width * 2, 1000))}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label htmlFor="resize-height" className="text-sm font-medium text-gray-300">Height</label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          id="resize-height"
-                          type="number"
-                          value={resizedSize.height}
-                          onChange={(e) => handleHeightChange(Number(e.target.value))}
-                          className="w-20 px-2 py-1 bg-gray-800/50 border border-gray-700 rounded text-white text-sm text-center"
-                          min="1"
-                          max={MAX_DIMENSION}
-                        />
-                        <span className="text-sm text-gray-400">px</span>
-                      </div>
-                    </div>
-                    <Slider
-                      aria-label="Height"
-                      value={[resizedSize.height]}
-                      onValueChange={([value]) => handleHeightChange(value)}
-                      min={1}
-                      max={Math.min(MAX_DIMENSION, Math.max(originalSize.height * 2, 1000))}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="maintain-ratio"
-                      checked={maintainAspectRatio}
-                      onChange={(e) => setMaintainAspectRatio(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-sky-400 focus:ring-sky-400 focus:ring-offset-gray-900"
-                    />
-                    <label htmlFor="maintain-ratio" className="text-sm text-gray-300">
-                      Maintain aspect ratio
-                    </label>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => {
-                        setResizedSize({
-                          width: clampDimension(originalSize.width * 0.5),
-                          height: clampDimension(originalSize.height * 0.5)
-                        });
-                      }}
-                      className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
-                    >
-                      50%
-                    </button>
-                    <button
-                      onClick={() => {
-                        setResizedSize({
-                          width: clampDimension(originalSize.width),
-                          height: clampDimension(originalSize.height)
-                        });
-                      }}
-                      className="px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <ToolActionButton
-                    icon={SlidersHorizontal}
-                    onClick={handleResize}
-                    disabled={isResizing}
-                    isLoading={isResizing}
-                    loadingText="Resizing..."
-                    fullWidth
-                  >
-                    Resize Image
-                  </ToolActionButton>
-                </div>
-
                 {resizedImageUrl && (
-                  <div className="mt-8 pt-6 border-t border-gray-700/50">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
-                      <Image className="h-5 w-5 text-sky-400" aria-hidden="true" />
-                      Resized Image
-                    </h3>
-                    <div className="bg-gray-900/30 rounded-lg p-4 border border-gray-700/50">
-                      <div className="flex flex-col md:flex-row gap-6">
-                        <div className="flex-1">
-                          <div className="aspect-square bg-gray-800/50 rounded-lg overflow-hidden flex items-center justify-center">
-                            <img
-                              src={resizedImageUrl}
-                              alt="Resized preview"
-                              className="max-w-full max-h-64 object-contain"
-                            />
-                          </div>
-                          <p className="mt-2 text-sm text-center text-gray-400">
-                            {resizedSize.width} × {resizedSize.height} px
-                          </p>
-                        </div>
-                        <div className="flex flex-col justify-center space-y-3">
-                          <ToolActionButton
-                            icon={Download}
-                            onClick={handleDownload}
-                          >
-                            Download
-                          </ToolActionButton>
-                          <button
-                            onClick={() => {
-                              // Browsers block top-level navigation to data: URLs; use a blob URL
-                              const url = URL.createObjectURL(dataURItoBlob(resizedImageUrl));
-                              const link = document.createElement('a');
-                              link.href = url;
-                              link.target = '_blank';
-                              link.rel = 'noopener noreferrer';
-                              link.click();
-                              setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                            }}
-                            className="bg-gray-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-600 transition-colors"
-                          >
-                            <Image className="h-5 w-5" />
-                            <span>Open in new tab</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                  <div role="group" aria-label="Preview" className={segmentGroup}>
+                    {PREVIEW_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={showResult === (mode === 'Resized')}
+                        onClick={() => setShowResult(mode === 'Resized')}
+                        className={segmentButton}
+                      >
+                        {mode}
+                      </button>
+                    ))}
                   </div>
                 )}
+              </fieldset>
+              <div className="flex items-center gap-1 lg:ml-auto">
+                <button
+                  type="button"
+                  onClick={handleResize}
+                  disabled={isResizing || !!resizedImageUrl}
+                  className={primaryButton}
+                >
+                  {isResizing ? 'Resizing...' : 'Resize'}
+                </button>
+                <Tooltip label="Download" hint="Saves the resized image as JPG." side="bottom">
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={!resizedImageUrl}
+                    aria-label="Download resized image"
+                    className={toolButton}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Open in new tab" side="bottom">
+                  <button
+                    type="button"
+                    onClick={handleOpenInNewTab}
+                    disabled={!resizedImageUrl}
+                    aria-label="Open resized image in new tab"
+                    className={toolButton}
+                  >
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
-            </Card>
-          )}
+            </div>
 
-          <Divider className="mt-8 mb-6" />
-          <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-gray-200 flex items-center">
-              <SlidersHorizontal className="mr-2 h-5 w-5 text-sky-400" />
-              How to use
-            </h3>
-            <ol className="space-y-2 text-sm text-gray-300 list-decimal list-inside">
-              <li>Upload an image by clicking the area above or dragging and dropping</li>
-              <li>Adjust the width and height sliders to your desired dimensions</li>
-              <li>Toggle "Maintain aspect ratio" to keep proportions when resizing</li>
-              <li>Click "Resize Image" to apply the changes</li>
-              <li>Download your resized image</li>
-            </ol>
-            <p className="mt-4 text-xs text-gray-500 flex items-start gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-sky-400/70" aria-hidden="true" />
-              <span><span className="font-semibold">Note:</span> All processing happens in your browser. Your images are never uploaded to any server.</span>
-            </p>
-          </div>
-        </div>
+            <div className="relative min-h-[40dvh] flex-1 lg:min-h-0">
+              <img
+                src={(showResult ? resizedImageUrl : previewUrl) ?? undefined}
+                alt={showResult ? 'Resized preview' : 'Preview of uploaded image'}
+                className="absolute inset-0 h-full w-full object-contain p-4"
+              />
+            </div>
+
+            <dl className={statusRow}>
+              {statItems.map(([label, value]) => (
+                <div key={label} className="flex gap-1.5">
+                  <dt>{label}:</dt>
+                  <dd className="tabular-nums text-slate-200">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
       </div>
     </ToolPageLayout>
   );

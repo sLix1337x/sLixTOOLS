@@ -1,21 +1,82 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { FileText, Copy, Trash2, Download, Upload, CheckCircle, AlertCircle, ListChecks, Check } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { AlertCircle, Bug, CheckCircle, Copy, Download, FileCode2, ShieldCheck, Trash2, Upload, WrapText } from 'lucide-react';
 import ToolPageLayout from '@/components/ToolPageLayout';
-import Divider from '@/components/ui/divider';
-import '@/styles/xml-editor.css';
+import CodeEditor from '@/components/tools/CodeEditor';
+import { ToolbarDivider } from '@/components/tools/ToolBar';
+import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import {
+  chipButton,
+  errorRow,
+  guideCard,
+  guideHeading,
+  primaryButton,
+  statusRow,
+  toolButton,
+  toolWorkspace,
+  toolbarRow,
+} from '@/styles/constants';
 import { formatXmlString } from '@/utils/xmlFormat';
 import { downloadBlob } from '@/utils/download';
+import { formatFileSize } from '@/utils/formatters';
+
+const guideItem = (term: string, text: string) => (
+  <li key={term}>
+    <strong className="text-white">{term}</strong> {text}
+  </li>
+);
+
+const seoContent = (
+  <div className="max-w-6xl mx-auto px-4 space-y-6">
+    <h2 className="text-2xl font-bold text-white flex items-center justify-center gap-2.5">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-400/10 text-sky-400">
+        <FileCode2 className="h-5 w-5" aria-hidden="true" />
+      </span>
+      Working with XML
+    </h2>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+          What Is Checked
+        </h3>
+        <p className="mt-0 text-sm leading-relaxed text-gray-300">
+          The editor checks that the document is well-formed: every tag closes, tags nest correctly and there is one
+          root element. It does not validate against an XSD or DTD, so a required element that is missing still counts
+          as valid.
+        </p>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <Bug className="h-5 w-5" aria-hidden="true" />
+          Common Errors
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Raw & or <:', 'write &amp; and &lt; in text and attributes.')}
+          {guideItem('Mismatched tags:', 'names are case-sensitive, <Item> needs </Item>.')}
+          {guideItem('Unquoted attributes:', 'write id="1", not id=1.')}
+          {guideItem('Two root elements:', 'wrap them in a single parent.')}
+        </ul>
+      </section>
+      <section className={guideCard}>
+        <h3 className={guideHeading}>
+          <WrapText className="h-5 w-5" aria-hidden="true" />
+          Format and Minify
+        </h3>
+        <ul className="space-y-1.5 text-sm text-gray-300">
+          {guideItem('Format:', 'indents with 2 spaces. Text, comments, CDATA and xml:space="preserve" stay unchanged.')}
+          {guideItem('Minify:', 'removes all whitespace between tags. Avoid it if a space between inline tags matters.')}
+        </ul>
+      </section>
+    </div>
+  </div>
+);
 
 const XmlEditor = () => {
   const [xmlContent, setXmlContent] = useState<string>('');
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [validationError, setValidationError] = useState<string>('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const lineNumbersRef = useRef<HTMLDivElement>(null);
 
   const validateXml = useCallback((xml: string) => {
     if (!xml.trim()) {
@@ -31,7 +92,8 @@ const XmlEditor = () => {
 
       if (parserError) {
         setIsValid(false);
-        setValidationError(parserError.textContent || 'Invalid XML format');
+        // Chrome surrounds the message with text about page rendering; the div holds only the error
+        setValidationError(parserError.querySelector('div')?.textContent || parserError.textContent || 'Invalid XML format');
       } else {
         setIsValid(true);
         setValidationError('');
@@ -46,34 +108,6 @@ const XmlEditor = () => {
     setXmlContent(value);
     validateXml(value);
   }, [validateXml]);
-
-  const updateLineNumbers = useCallback(() => {
-    if (!lineNumbersRef.current || !textareaRef.current) return;
-
-    const lines = xmlContent.split('\n').length;
-    const lineNumbers = Array.from({ length: lines }, (_, i) => i + 1);
-
-    lineNumbersRef.current.innerHTML = lineNumbers
-      .map(num => `<div class="line-number">${num}</div>`)
-      .join('');
-  }, [xmlContent]);
-
-  const handleScroll = useCallback(() => {
-    if (!lineNumbersRef.current || !textareaRef.current) return;
-    lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-  }, []);
-
-  useEffect(() => {
-    updateLineNumbers();
-  }, [updateLineNumbers]);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    textarea.addEventListener('scroll', handleScroll);
-    return () => textarea.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
 
   const formatXml = useCallback(() => {
     if (!xmlContent.trim()) {
@@ -183,23 +217,33 @@ const XmlEditor = () => {
     toast.success('Sample XML loaded!');
   }, [validateXml]);
 
+  const statItems = [
+    ['Lines', xmlContent.split('\n').length.toLocaleString()],
+    ['Size', formatFileSize(new Blob([xmlContent]).size)],
+  ];
+
   return (
     <ToolPageLayout
       title="XML Editor"
-      description="Edit, format, validate, and share XML data with syntax highlighting and error detection."
+      description="Edit, format, minify and validate XML with real-time error detection."
       keywords="xml editor, xml formatter, xml validator, xml minifier, xml syntax"
       canonicalUrl="/tools/xml-editor"
       pageTitle="XML Editor - sLixTOOLS"
-      pageDescription="Professional XML editor with formatting, validation, and sharing capabilities. Edit XML data with real-time syntax checking."
+      pageDescription="Free online XML editor. Check documents for errors as you type, pretty-print, minify, upload and download - entirely in your browser."
       breadcrumbLabel="XML Editor"
+      belowTool={seoContent}
       faq={[
         {
           question: 'Does the editor validate my XML?',
           answer: 'Yes, the document is checked in real time and parse errors are reported with line information as you type.',
         },
         {
+          question: 'Does it check against an XSD or DTD?',
+          answer: 'No. It checks that the document is well-formed, not that it follows a schema.',
+        },
+        {
           question: 'Can I format and minify XML?',
-          answer: 'Both — pretty-print with configurable indentation or minify to a single line for production use.',
+          answer: 'Both. Format pretty-prints with 2-space indentation, Minify removes the whitespace between tags.',
         },
         {
           question: 'Is my XML data sent anywhere?',
@@ -207,166 +251,103 @@ const XmlEditor = () => {
         },
       ]}
     >
-      <div className="max-w-6xl mx-auto">
-        <div className="space-y-6">
-          {/* Header with validation status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Label htmlFor="xml-content" className="text-white text-lg font-semibold flex items-center">
-                <FileText className="h-5 w-5 mr-2" />
-                XML Content:
-              </Label>
-              {isValid !== null && (
-                <div className="flex items-center space-x-1">
-                  {isValid ? (
-                    <CheckCircle className="h-4 w-4 text-sky-400" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-400" />
-                  )}
-                  <span className={`text-sm ${isValid ? 'text-sky-400' : 'text-red-400'}`}>
-                    {isValid ? 'Valid XML' : 'Invalid XML'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="file"
-                accept=".xml"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-              />
-              <Button
+      <div className={toolWorkspace}>
+        <div className={toolbarRow}>
+          <input type="file" accept=".xml" onChange={handleFileUpload} className="hidden" id="file-upload" />
+          <div className="flex flex-wrap items-center gap-1">
+            <Tooltip label="Upload file" hint="Opens an .xml file. It stays on your device." side="bottom">
+              <button
+                type="button"
                 onClick={() => document.getElementById('file-upload')?.click()}
-                className="bg-blue-600 hover:bg-blue-700 text-white border-0 h-9"
+                aria-label="Upload XML file"
+                className={toolButton}
               >
-                <Upload className="h-4 w-4 mr-1" />
-                Upload
-              </Button>
-              <Button
-                onClick={loadSampleXml}
-                className="bg-purple-600 hover:bg-purple-700 text-white border-0 h-9"
-              >
-                Load Sample
-              </Button>
-            </div>
-          </div>
-
-          {/* Error message */}
-          {validationError && (
-            <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-              <p className="text-red-400 text-sm">{validationError}</p>
-            </div>
-          )}
-
-          {/* XML Editor with Line Numbers */}
-          <div className="relative">
-            <div className="flex border border-white/20 rounded-lg overflow-hidden" style={{ backgroundColor: '#171714' }}>
-              {/* Line Numbers */}
-              <div
-                ref={lineNumbersRef}
-                className="flex flex-col text-gray-500 text-sm font-mono bg-gray-800/50 border-r border-white/10 px-2 py-3 select-none overflow-hidden"
-                style={{
-                  minWidth: '50px',
-                  maxHeight: '400px',
-                  lineHeight: '1.5rem'
-                }}
-              >
-                <div className="line-number">1</div>
-              </div>
-
-              {/* Textarea */}
-              <Textarea
-                ref={textareaRef}
-                id="xml-content"
-                placeholder="Enter your XML content here or upload an XML file..."
-                value={xmlContent}
-                onChange={(e) => handleXmlChange(e.target.value)}
-                wrap="off"
-                className="flex-1 min-h-[400px] whitespace-pre overflow-x-auto border-0 text-white placeholder-gray-400 resize-none text-sm font-mono bg-transparent focus:ring-0 focus:outline-none"
-                style={{
-                  lineHeight: '1.5rem',
-                  paddingLeft: '12px',
-                  paddingTop: '12px',
-                  paddingBottom: '12px'
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-            <Button
-              onClick={formatXml}
-              disabled={!xmlContent.trim() || !isValid}
-              className="bg-primary-action hover:bg-primary-action/90 shadow-[0_0_15px_rgba(56,189,248,0.5)] hover:shadow-[0_0_25px_rgba(56,189,248,0.7)] transition-shadow duration-300 text-white border-0 h-9"
-            >
+                <Upload className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <button type="button" onClick={loadSampleXml} className={chipButton}>
+              Load sample
+            </button>
+            <ToolbarDivider />
+            <button type="button" onClick={formatXml} disabled={!xmlContent.trim() || !isValid} className={primaryButton}>
               Format
-            </Button>
-
-            <Button
-              onClick={minifyXml}
-              disabled={!xmlContent.trim()}
-              className="bg-orange-600 hover:bg-orange-700 text-white border-0 h-9"
-            >
+            </button>
+            <button type="button" onClick={minifyXml} disabled={!xmlContent.trim()} className={cn(chipButton, 'ml-1')}>
               Minify
-            </Button>
-
-            <Button
-              onClick={copyToClipboard}
-              disabled={!xmlContent.trim()}
-              className="bg-blue-600 hover:bg-blue-700 text-white border-0 h-9"
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              Copy
-            </Button>
-
-            <Button
-              onClick={downloadXml}
-              disabled={!xmlContent.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white border-0 h-9"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Download
-            </Button>
-
-            <Button
-              onClick={clearContent}
-              disabled={!xmlContent.trim()}
-              className="bg-red-600 hover:bg-red-700 text-white border-0 h-9"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
+            </button>
+            <ToolbarDivider />
+            <Tooltip label="Copy" side="bottom">
+              <button
+                type="button"
+                onClick={copyToClipboard}
+                disabled={!xmlContent.trim()}
+                aria-label="Copy XML"
+                className={toolButton}
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Download" hint="Saves as document.xml." side="bottom">
+              <button
+                type="button"
+                onClick={downloadXml}
+                disabled={!xmlContent.trim()}
+                aria-label="Download XML"
+                className={toolButton}
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Clear" side="bottom">
+              <button
+                type="button"
+                onClick={clearContent}
+                disabled={!xmlContent.trim()}
+                aria-label="Clear editor"
+                className={toolButton}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
-
-          {/* Features Info */}
-          <Divider className="my-4" />
-          <div className="bg-gray-900/50 border border-white/10 rounded-lg p-4">
-            <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-sky-400" aria-hidden="true" />
-              Features:
-            </h3>
-            <ul className="text-gray-300 text-sm space-y-1.5">
-              {[
-                'Real-time XML validation with error detection',
-                'Format XML with proper indentation',
-                'Minify XML to reduce file size',
-                'Upload XML files from your computer',
-                'Download edited XML as a file',
-                'Copy XML content to clipboard',
-                'Load sample XML for testing',
-              ].map((item) => (
-                <li key={item} className="flex gap-2.5">
-                  <Check className="h-3.5 w-3.5 text-sky-400 mt-1 flex-shrink-0" aria-hidden="true" />
-                  <span>{item}</span>
-                </li>
+          <p aria-live="polite" className="mt-0 flex items-center gap-1.5 text-sm lg:ml-auto">
+            {isValid !== null &&
+              (isValid ? (
+                <>
+                  <CheckCircle className="h-4 w-4 text-sky-400" aria-hidden="true" />
+                  <span className="text-sky-400">Valid XML</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-red-400" aria-hidden="true" />
+                  <span className="text-red-400">Invalid XML</span>
+                </>
               ))}
-            </ul>
-          </div>
+          </p>
         </div>
+
+        {validationError && (
+          <div className={errorRow}>
+            <p className="mt-0 min-w-0 break-words">{validationError}</p>
+          </div>
+        )}
+
+        <CodeEditor
+          id="xml-content"
+          label="XML content"
+          placeholder="Enter your XML content here or upload an XML file..."
+          value={xmlContent}
+          onChange={handleXmlChange}
+        />
+
+        <dl className={statusRow}>
+          {statItems.map(([label, value]) => (
+            <div key={label} className="flex gap-1.5">
+              <dt>{label}:</dt>
+              <dd className="tabular-nums text-slate-200">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </ToolPageLayout>
   );

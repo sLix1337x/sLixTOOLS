@@ -1,42 +1,77 @@
 
-import React from 'react';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
+import React, { useEffect, useState } from 'react';
+import SettingSlider from '@/components/tools/SettingSlider';
+import { config } from '@/config';
+import { cn } from '@/lib/utils';
+import { fieldClass, sectionLabel } from '@/styles/constants';
 import type { ConversionOptions } from '@/types';
 import { formatDuration, formatFileSize } from '@/utils/formatters';
-import { Settings, Clock } from 'lucide-react';
+import { convertVideoToGif } from '@/utils/gifConverter';
 
 interface ConversionOptionsProps {
+  videoFile: File;
   options: ConversionOptions;
   onChange: (options: ConversionOptions) => void;
-  videoFile: File | null;
   videoDuration?: number; // Add video duration prop
+  disabled?: boolean;
 }
 
-const estimateGifSize = (width: number, height: number, fps: number, duration: number, quality: number): number => {
-  // Rough estimation formula for GIF file size
-  const frames = fps * duration;
-  const pixelsPerFrame = width * height;
-  const bytesPerPixel = Math.max(0.1, 1 - (quality / 20)); // Quality affects compression
-  return frames * pixelsPerFrame * bytesPerPixel;
+// Frames encoded for the size estimate
+const SAMPLE_FRAMES = 12;
+
+/** GIF size depends on the picture, so encode a few frames from the middle of the clip and scale up. */
+const useGifSizeEstimate = (videoFile: File, options: ConversionOptions, videoDuration: number, paused: boolean) => {
+  const [estimate, setEstimate] = useState<number | null>(null);
+  const { fps, quality, width = 0, height = 0, startTime } = options;
+  const endTime = Math.min(options.endTime || videoDuration, videoDuration);
+
+  useEffect(() => {
+    if (paused) return;
+    const clip = endTime - startTime;
+    if (clip <= 0) {
+      setEstimate(null);
+      return;
+    }
+    const sample = Math.min(clip, SAMPLE_FRAMES / fps);
+    let stale = false;
+    // ponytail: gif.js has no abort, so samples can overlap when settings change mid-run
+    const timer = setTimeout(async () => {
+      try {
+        const blob = await convertVideoToGif(videoFile, {
+          fps,
+          quality,
+          width,
+          height,
+          startTime: startTime + (clip - sample) / 2,
+          duration: sample,
+          trimEnabled: true,
+        });
+        if (!stale) setEstimate(blob.size * (clip / sample));
+      } catch {
+        if (!stale) setEstimate(null);
+      }
+    }, 500);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [videoFile, fps, quality, width, height, startTime, endTime, paused]);
+
+  return estimate;
 };
 
-const ConversionOptionsForm = ({ options, onChange, videoFile, videoDuration = 0 }: ConversionOptionsProps) => {
-  // Calculate estimated file size
-  const getEstimatedSize = () => {
-    const width = options.width || 480;
-    const height = options.height || 360;
-    const duration = options.endTime ? (options.endTime - (options.startTime || 0)) : (options.duration || videoDuration || 5);
-    return estimateGifSize(width, height, options.fps || 10, duration, options.quality || 10);
-  };
-  const handleFpsChange = (value: number[]) => {
-    onChange({ ...options, fps: value[0] });
-  };
+const NumberField = ({ id, label, ...props }: { id: string; label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div>
+    <label htmlFor={id} className="mb-1 block text-xs text-slate-400">
+      {label}
+    </label>
+    <input id={id} type="number" className={fieldClass} {...props} />
+  </div>
+);
 
-  const handleQualityChange = (value: number[]) => {
-    onChange({ ...options, quality: value[0] });
-  };
+/** Settings for a settings column; the fragment keeps the column's spacing. */
+const ConversionOptionsForm = ({ videoFile, options, onChange, videoDuration = 0, disabled = false }: ConversionOptionsProps) => {
+  const estimatedSize = useGifSizeEstimate(videoFile, options, videoDuration, disabled);
 
   const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,8 +96,6 @@ const ConversionOptionsForm = ({ options, onChange, videoFile, videoDuration = 0
     });
   };
 
-  // Removed unused handleDurationChange function
-
   const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     const newOptions = { ...options };
@@ -76,141 +109,83 @@ const ConversionOptionsForm = ({ options, onChange, videoFile, videoDuration = 0
     onChange(newOptions);
   };
 
-
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <Settings className="w-6 h-6 mr-2 text-sky-400" />
-          <h3 className="text-2xl font-bold">CONVERSION OPTIONS</h3>
+    <>
+      <SettingSlider
+        label="Frame rate"
+        value={options.fps || 10}
+        valueText={`${options.fps} fps`}
+        onChange={(fps) => onChange({ ...options, fps })}
+        min={1}
+        max={30}
+        step={1}
+        hint="Higher = smoother animation, larger file"
+        disabled={disabled}
+      />
+      <SettingSlider
+        label="Quality"
+        value={options.quality || 10}
+        valueText={String(options.quality)}
+        onChange={(quality) => onChange({ ...options, quality })}
+        min={1}
+        max={20}
+        step={1}
+        hint="Lower = better colors, slower conversion"
+        disabled={disabled}
+      />
+      <div className="space-y-2">
+        <p className={cn(sectionLabel, 'mt-0')}>Clip</p>
+        <div className="grid grid-cols-2 gap-3">
+          <NumberField
+            id="startTime"
+            label="Start (seconds)"
+            min="0"
+            step="0.1"
+            value={options.startTime || ''}
+            onChange={handleStartTimeChange}
+            placeholder="0"
+          />
+          <NumberField
+            id="endTime"
+            label="End (seconds)"
+            min="0.1"
+            step="0.1"
+            value={options.endTime || ''}
+            onChange={handleEndTimeChange}
+            placeholder="Video end"
+          />
         </div>
-        {videoFile && (
-          <div className="text-sm text-gray-400">
-            Original Size: <span className="text-blue-400 font-semibold">{formatFileSize(videoFile.size)}</span>
-          </div>
-        )}
+        <p className="mt-0 text-xs text-slate-400">
+          {videoDuration > 0 && `Video length: ${formatDuration(videoDuration)}. `}
+          GIFs can be up to {config.gif.maxDuration} seconds long.
+        </p>
       </div>
-
-      <div className="space-y-6">
-        <div className="space-y-2 bg-black/50 p-4 border border-gray-600/50">
-          <div className="flex justify-between mb-2">
-            <Label htmlFor="fps" className="text-sky-300 text-lg">
-              FRAMES PER SECOND:
-            </Label>
-            <span className="text-blue-400 font-bold">{options.fps} FPS</span>
-          </div>
-          <div className="px-2">
-            <Slider
-              aria-label="Frame rate"
-              id="fps"
-              min={1}
-              max={30}
-              step={1}
-              value={[options.fps || 10]}
-              onValueChange={handleFpsChange}
-              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-sky-900/50 [&>span:first-child_span]:bg-sky-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-sky-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5"
-            />
-          </div>
-          <p className="text-sm text-sky-300/80 mt-2">HIGHER FPS = SMOOTHER ANIMATION BUT LARGER FILE SIZE</p>
+      <div className="space-y-2">
+        <p className={cn(sectionLabel, 'mt-0')}>Size</p>
+        <div className="grid grid-cols-2 gap-3">
+          <NumberField
+            id="width"
+            name="width"
+            label="Width (px)"
+            placeholder="Auto"
+            value={options.width || ''}
+            onChange={handleSizeChange}
+          />
+          <NumberField
+            id="height"
+            name="height"
+            label="Height (px)"
+            placeholder="Auto"
+            value={options.height || ''}
+            onChange={handleSizeChange}
+          />
         </div>
-
-        <div className="space-y-2 bg-black/50 p-4 border border-gray-600/50">
-          <div className="flex justify-between mb-2">
-            <Label htmlFor="quality" className="text-sky-300 text-lg">
-              QUALITY: {options.quality}
-            </Label>
-            <span className="text-yellow-400 font-semibold text-sm">EST. SIZE: {formatFileSize(getEstimatedSize())}</span>
-          </div>
-          <div className="px-2">
-            <Slider
-              aria-label="Quality"
-              id="quality"
-              min={1}
-              max={20}
-              step={1}
-              value={[options.quality || 10]}
-              onValueChange={handleQualityChange}
-              className="cursor-pointer [&>span:first-child]:h-2 [&>span:first-child]:bg-sky-900/50 [&>span:first-child_span]:bg-sky-400 [&>span:first-child_span]:border-2 [&>span:first-child_span]:border-sky-400 [&>span:first-child_span]:w-5 [&>span:first-child_span]:h-5 [&>span:first-child_span]:-mt-1.5"
-            />
-          </div>
-          <p className="text-sm text-sky-300/80 mt-2">LOWER VALUES = BETTER QUALITY BUT LARGER FILE SIZE</p>
-        </div>
-
-        <div className="space-y-4 bg-black/50 p-4 border border-gray-600/50">
-          <h4 className="text-sky-300 text-lg font-semibold flex items-center gap-2">
-            <Clock className="h-4 w-4" aria-hidden="true" />
-            TIME CONTROLS:
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startTime" className="text-sky-300 text-sm">
-                START TIME (SECONDS):
-              </Label>
-              <Input
-                id="startTime"
-                type="number"
-                min="0"
-                step="0.1"
-                value={options.startTime || ''}
-                onChange={handleStartTimeChange}
-                className="bg-black/50 border border-gray-600/50 text-sky-300 focus:border-sky-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime" className="text-sky-300 text-sm">
-                END TIME (SECONDS):
-              </Label>
-              <Input
-                id="endTime"
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={options.endTime || ''}
-                onChange={handleEndTimeChange}
-                className="bg-black/50 border border-gray-600/50 text-sky-300 focus:border-sky-400 focus-visible:ring-0 focus-visible:ring-offset-0"
-                placeholder="Full video length"
-              />
-            </div>
-          </div>
-
-          {videoDuration > 0 && (
-            <div className="text-sm text-sky-300/80 italic">
-              VIDEO DURATION: {formatDuration(videoDuration)}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
-          <div>
-            <Label htmlFor="width" className="text-gray-300 mb-1 block">Width (px)</Label>
-            <Input
-              id="width"
-              name="width"
-              type="number"
-              placeholder="Auto"
-              value={options.width || ''}
-              onChange={handleSizeChange}
-              className="bg-gray-800/50 border-gray-700 text-gray-200"
-            />
-          </div>
-          <div>
-            <Label htmlFor="height" className="text-gray-300 mb-1 block">Height (px)</Label>
-            <Input
-              id="height"
-              name="height"
-              type="number"
-              placeholder="Auto"
-              value={options.height || ''}
-              onChange={handleSizeChange}
-              className="bg-gray-800/50 border-gray-700 text-gray-200"
-            />
-          </div>
-          <p className="text-xs text-gray-400 col-span-2">Smaller dimensions = faster conversion & smaller file size</p>
-        </div>
+        <p className="mt-0 text-xs text-slate-400">Smaller dimensions = faster conversion, smaller file</p>
       </div>
-    </div>
+      <p className="mt-0 text-xs text-slate-400">
+        Estimated size: <span className="tabular-nums text-slate-200">{estimatedSize === null ? '-' : `~${formatFileSize(estimatedSize)}`}</span>
+      </p>
+    </>
   );
 };
 
