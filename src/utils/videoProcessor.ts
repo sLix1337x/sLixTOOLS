@@ -205,13 +205,11 @@ const compressVideoWithFFmpeg = async (
     // Codec selection based on format; quality is a CRF passed straight through
     const crf = String(Math.round(options.quality));
     if (options.format === 'webm') {
-      args.push('-c:v', 'libvpx-vp9');
-      // VP9 constant-quality mode needs -b:v 0 for -crf to apply
-      args.push('-crf', crf, '-b:v', '0');
-      // VP9 memory optimizations for WASM
-      args.push('-deadline', 'realtime'); // Faster encoding, less memory
-      args.push('-cpu-used', '8'); // Maximum speed, minimum memory
-      args.push('-row-mt', '0'); // Disable row-based multithreading (saves memory)
+      // ponytail: VP8, libvpx-vp9 in core 0.12.6 crashes on the first inter frame; retry VP9 on a newer core
+      args.push('-c:v', 'libvpx');
+      // -crf sets the quality, -b:v is only its ceiling
+      args.push('-crf', crf, '-b:v', '8M');
+      args.push('-deadline', 'realtime', '-cpu-used', '8'); // Fastest settings for WASM
       args.push('-c:a', 'libopus');
     } else {
       // MP4 (default), MOV and AVI all use H.264 + AAC
