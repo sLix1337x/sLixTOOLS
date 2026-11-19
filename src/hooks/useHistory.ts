@@ -10,8 +10,9 @@ interface History<T> {
   future: T[];
 }
 
-/** Undo/redo stack. Pass coalesce to merge rapid commits (typing, dragging) into one step. */
-export function useHistory<T>(init: () => T) {
+/** Undo/redo stack. Pass coalesce to merge rapid commits (typing, dragging) into one step.
+ *  Lower limit for large states (audio buffers). */
+export function useHistory<T>(init: () => T, limit = HISTORY_LIMIT) {
   const [history, setHistory] = useState<History<T>>(() => ({ past: [], present: init(), future: [] }));
   const lastCoalesceAt = useRef(0);
 
@@ -23,12 +24,12 @@ export function useHistory<T>(init: () => T) {
       next === h.present
         ? h
         : {
-            past: merge ? h.past : [...h.past, h.present].slice(-HISTORY_LIMIT),
+            past: merge ? h.past : [...h.past, h.present].slice(-limit),
             present: next,
             future: [],
           }
     );
-  }, []);
+  }, [limit]);
 
   const undo = useCallback(() => {
     lastCoalesceAt.current = 0;

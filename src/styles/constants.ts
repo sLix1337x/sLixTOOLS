@@ -26,8 +26,13 @@ export const primaryButton =
 
 // Full-width tool page frame
 export const toolWorkspace = 'flex flex-col lg:h-[calc(100dvh-3rem)]';
+/** Editors: framed panel with a gutter to the window edges (3rem header + 0.5rem margins) */
+export const editorWorkspace =
+  'mx-3 my-2 flex flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] sm:mx-4 lg:mx-6 lg:h-[calc(100dvh-4rem)]';
 export const toolbarRow = 'flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/10 px-4 py-2';
-export const toolDropzone = 'mx-auto flex min-h-[50dvh] w-full max-w-4xl flex-1 flex-col p-4';
+export const editorFeatures = 'mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-400 [&>li]:rounded-full [&>li]:border [&>li]:border-white/10 [&>li]:bg-white/[0.04] [&>li]:px-2.5 [&>li]:py-1';
+/** Empty tool state: compact drop card, the guide flows on below (drop the workspace's full height too) */
+export const toolDropzone = 'mx-auto w-full max-w-2xl px-4 py-8 lg:py-12';
 export const settingsGrid = 'grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_24rem]';
 export const settingsColumn = 'space-y-5 border-t border-white/10 p-4 lg:overflow-y-auto lg:border-l lg:border-t-0';
 export const statusRow =

@@ -9,7 +9,7 @@ const VIEWPORT_MARGIN = 8
 interface TooltipProps {
   label: string
   hint?: string | undefined
-  shortcut?: string
+  shortcut?: string | undefined
   side?: "top" | "bottom"
   /** A single element, because the wrapper has no box of its own and measures this one. */
   children: React.ReactElement

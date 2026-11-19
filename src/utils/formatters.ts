@@ -45,6 +45,14 @@ export const formatDuration = (seconds: NonNegativeNumber): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+/** Editor timecode with tenths, e.g. 75.25 → "1:15.2" */
+export const formatTimecode = (seconds: number): string => {
+  const tenths = Math.floor(Math.max(0, seconds) * 10 + 1e-6);
+  const mins = Math.floor(tenths / 600);
+  const secs = (tenths % 600) / 10;
+  return `${mins}:${secs.toFixed(1).padStart(4, '0')}`;
+};
+
 /**
  * Formats duration in seconds to human-readable format with hours
  * @param seconds - Duration in seconds (must be non-negative)

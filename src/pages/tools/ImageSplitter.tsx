@@ -703,7 +703,7 @@ const ImageSplitter = () => {
       />
 
       <div
-        className={toolWorkspace}
+        className={bitmap ? toolWorkspace : undefined}
         onDragOver={(e) => {
           e.preventDefault();
           setWsDragging(true);
@@ -827,7 +827,7 @@ const ImageSplitter = () => {
             }}
             aria-label="Upload an image by dropping a file here or pressing Enter to browse"
             className={cn(
-              'mx-auto my-4 flex min-h-[50dvh] w-[calc(100%-2rem)] max-w-[54rem] flex-1 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 text-center cursor-pointer transition-colors',
+              'mx-auto my-8 flex w-[calc(100%-2rem)] max-w-2xl flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-12 text-center cursor-pointer transition-colors lg:my-12',
               wsDragging
                 ? 'border-sky-400 bg-sky-400/10'
                 : 'border-white/10 bg-white/[0.02] hover:border-sky-400/40 hover:bg-white/[0.04]'

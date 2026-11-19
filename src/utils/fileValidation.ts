@@ -15,7 +15,9 @@ const MAX_FILE_SIZES = {
 };
 
 // Browsers report '' or vendor MIMEs for many video containers, so videos are validated by extension
-const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mpeg', 'mpg', 'mkv', 'flv', 'ogg', 'ogv', 'mov', 'm4v', 'wmv', 'asf', '3gp', '3gpp'];
+export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'avi', 'mpeg', 'mpg', 'mkv', 'flv', 'ogg', 'ogv', 'mov', 'm4v', 'wmv', 'asf', '3gp', '3gpp'];
+
+export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'oga', 'opus', 'flac', 'm4a', 'aac', 'weba', 'webm'];
 
 // File validation options interface with strict typing
 export interface FileValidationOptions {

@@ -24,6 +24,8 @@ const XmlEditor = lazy(() => import('./pages/tools/XmlEditor'));
 const JsonValidator = lazy(() => import('./pages/tools/JsonValidator'));
 const PdfEditor = lazy(() => import('./pages/tools/PdfEditor'));
 const ColorSchemeDesigner = lazy(() => import('./pages/tools/ColorSchemeDesigner'));
+const VideoEditor = lazy(() => import('./pages/tools/VideoEditor'));
+const AudioEditor = lazy(() => import('./pages/tools/AudioEditor'));
 
 // Lazy load info pages
 const About = lazy(() => import('./pages/About'));
@@ -84,6 +86,8 @@ const lazyRoutes: LazyRouteConfig[] = [
   { path: '/tools/json-validator', Component: JsonValidator, fallbackText: 'Loading JSON Validator...' },
   { path: '/tools/pdf-editor', Component: PdfEditor, fallbackText: 'Loading PDF Editor...' },
   { path: '/tools/color-scheme-designer', Component: ColorSchemeDesigner, fallbackText: 'Loading Color Scheme Designer...' },
+  { path: '/tools/video-editor', Component: VideoEditor, fallbackText: 'Loading Video Editor...' },
+  { path: '/tools/audio-editor', Component: AudioEditor, fallbackText: 'Loading Audio Editor...' },
   { path: '/about', Component: About },
   { path: '/contact', Component: Contact },
   { path: '/features', Component: Features },

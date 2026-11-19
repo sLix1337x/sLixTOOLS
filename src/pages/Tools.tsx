@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
   Search, ShieldCheck, CloudOff, Infinity as InfinityIcon, Lock, X,
-  Video, FileImage, FileText, Type, Music, FolderOpen, Hourglass, LayoutGrid, Palette,
-  type LucideIcon,
+  Hourglass, LayoutGrid,
 } from 'lucide-react';
 import ToolListItem from '@/components/common/ToolListItem';
 import ToolsDescription from '@/components/common/ToolsDescription';
 import {
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
   getAvailableTools,
   getComingSoonTools,
   type ToolConfig,
@@ -14,28 +16,6 @@ import {
 import { SEO } from '@/components/SEO';
 import { EXTERNAL_URLS, siteUrl } from '@/config/externalUrls';
 import { cn } from '@/lib/utils';
-
-const CATEGORY_ORDER: ToolConfig['category'][] = ['video', 'image', 'document', 'text', 'design'];
-
-const CATEGORY_LABELS: Record<ToolConfig['category'], string> = {
-  video: 'Video & GIF',
-  image: 'Image',
-  document: 'Documents',
-  text: 'Text',
-  design: 'Design',
-  audio: 'Audio',
-  other: 'Other',
-};
-
-const CATEGORY_ICONS: Record<ToolConfig['category'], LucideIcon> = {
-  video: Video,
-  image: FileImage,
-  document: FileText,
-  text: Type,
-  design: Palette,
-  audio: Music,
-  other: FolderOpen,
-};
 
 const TRUST_ITEMS = [
   { icon: ShieldCheck, label: '100% client-side' },

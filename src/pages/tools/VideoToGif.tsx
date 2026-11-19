@@ -15,6 +15,7 @@ import { downloadBlobWithGeneratedName } from '@/utils/download';
 import { formatFileSize } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { config } from '@/config';
+import { useHandoff } from '@/utils/handoff';
 import {
   chipButton,
   guideCard,
@@ -211,6 +212,8 @@ const VideoToGif = () => {
     [handleError]
   );
 
+  useHandoff(handleFileSelected);
+
   // Use centralized URL file loader
   const { loadFromUrl } = useUrlFileLoader({
     expectedType: 'video',
@@ -338,7 +341,7 @@ const VideoToGif = () => {
         },
       ]}
     >
-      <div className={toolWorkspace}>
+      <div className={videoFile ? toolWorkspace : undefined}>
         {!videoFile ? (
           <div className={toolDropzone}>
             <FileUploadArea

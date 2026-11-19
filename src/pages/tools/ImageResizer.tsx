@@ -318,7 +318,7 @@ const ImageResizer = () => {
         },
       ]}
     >
-      <div className={toolWorkspace}>
+      <div className={imageFile ? toolWorkspace : undefined}>
         {!imageFile ? (
           <div className={toolDropzone}>
             <FileUploadArea

@@ -1,4 +1,7 @@
-import { FileVideo, FileImage, FileText, Music, Type, Code, Scissors, LayoutGrid, Braces, Palette } from 'lucide-react';
+import {
+  FileVideo, FileImage, FileText, Type, Code, Scissors, LayoutGrid, Braces, Palette, Clapperboard, AudioWaveform,
+  Video, Music, FolderOpen,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getLocalAssetPath } from '@/config/externalUrls';
 
@@ -21,6 +24,28 @@ export interface ToolConfig {
  * Centralized tools configuration
  * Single source of truth for all tool metadata
  */
+export const CATEGORY_ORDER: ToolConfig['category'][] = ['video', 'audio', 'image', 'document', 'text', 'design'];
+
+export const CATEGORY_LABELS: Record<ToolConfig['category'], string> = {
+  video: 'Video & GIF',
+  image: 'Image',
+  document: 'Documents',
+  text: 'Text',
+  design: 'Design',
+  audio: 'Audio',
+  other: 'Other',
+};
+
+export const CATEGORY_ICONS: Record<ToolConfig['category'], LucideIcon> = {
+  video: Video,
+  image: FileImage,
+  document: FileText,
+  text: Type,
+  design: Palette,
+  audio: Music,
+  other: FolderOpen,
+};
+
 export const TOOLS: ToolConfig[] = [
   // Featured/Available Tools
   {
@@ -101,6 +126,26 @@ export const TOOLS: ToolConfig[] = [
     featured: true,
   },
   {
+    title: 'Video Editor',
+    description: 'Trim, split and combine videos',
+    tooltip: 'Trim, split and combine videos, change speed, rotate, fade and export to MP4 or WebM',
+    icon: Clapperboard,
+    path: '/tools/video-editor',
+    fullWidth: true,
+    category: 'video',
+    featured: true,
+  },
+  {
+    title: 'Audio Editor',
+    description: 'Cut, merge and convert audio files',
+    tooltip: 'Cut, trim, merge, fade and normalize audio, then export as MP3, WAV, OGG, FLAC or M4A',
+    icon: AudioWaveform,
+    path: '/tools/audio-editor',
+    fullWidth: true,
+    category: 'audio',
+    featured: true,
+  },
+  {
     title: 'Convert Case Tool',
     iconImage: getLocalAssetPath('images/Convert-Case-Tool.svg'),
     description: 'Transform text between different cases',
@@ -160,14 +205,6 @@ export const TOOLS: ToolConfig[] = [
     tooltip: 'Reduce PDF file size while preserving document quality and readability',
     icon: FileText,
     category: 'document',
-    comingSoon: true,
-  },
-  {
-    title: 'Audio Converter',
-    description: 'Convert audio files between formats',
-    tooltip: 'Convert audio files between different formats (MP3, WAV, FLAC, AAC) with quality options',
-    icon: Music,
-    category: 'audio',
     comingSoon: true,
   },
 ];

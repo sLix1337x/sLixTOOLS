@@ -347,7 +347,7 @@ const ImageConverter = () => {
         },
       ]}
     >
-      <div className={toolWorkspace}>
+      <div className={items.length > 0 ? toolWorkspace : undefined}>
         {items.length === 0 ? (
           <div className={toolDropzone}>
             <FileUploadArea

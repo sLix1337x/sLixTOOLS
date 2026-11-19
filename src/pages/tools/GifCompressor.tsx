@@ -189,7 +189,7 @@ function GifCompressor() {
         },
       ]}
     >
-      <div className={toolWorkspace}>
+      <div className={file ? toolWorkspace : undefined}>
         {!file ? (
           <div className={toolDropzone}>
             <FileUploadArea

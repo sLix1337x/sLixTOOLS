@@ -12,6 +12,8 @@ import SourceChip from '@/components/tools/SourceChip';
 import { ToolbarDivider } from '@/components/tools/ToolBar';
 import { toast } from 'sonner';
 import { downloadBlobWithGeneratedName } from '@/utils/download';
+import { toFile, useHandoff } from '@/utils/handoff';
+import SendToButtons from '@/components/tools/SendToButtons';
 import { cn } from '@/lib/utils';
 import {
   chipButton,
@@ -104,9 +106,7 @@ const VideoConverter = () => {
     quality: 23,
     maxWidth: 1920,
     maxHeight: 1080,
-    codec: 'h264',
     fps: 30,
-    bitrate: 1000,
     maintainAspectRatio: true
   });
   const convertedUrl = useObjectUrl(convertedVideo);
@@ -126,6 +126,8 @@ const VideoConverter = () => {
       toast.error('File validation error: ' + error.message);
     }
   });
+
+  useHandoff(handleFileSelect);
 
   const removeFile = () => {
     clearFile();
@@ -209,7 +211,7 @@ const VideoConverter = () => {
         },
       ]}
     >
-      <div className={toolWorkspace}>
+      <div className={videoFile ? toolWorkspace : undefined}>
         {!videoFile ? (
           <div className={toolDropzone}>
             <FileUploadArea
@@ -259,6 +261,14 @@ const VideoConverter = () => {
                   <Wand2 className="h-4 w-4" aria-hidden="true" />
                   {isConverting ? 'Converting...' : 'Convert'}
                 </button>
+                <SendToButtons
+                  getFile={() => (convertedVideo ? toFile(convertedVideo, videoFile.name, convertedFormat, 'converted') : videoFile)}
+                  disabled={isConverting}
+                  targets={[
+                    { label: 'Edit', path: '/tools/video-editor' },
+                    { label: 'GIF', path: '/tools/video-to-gif' },
+                  ]}
+                />
                 {convertedVideo && (
                   <button type="button" onClick={handleDownload} className={primaryButton}>
                     <Download className="h-4 w-4" aria-hidden="true" />

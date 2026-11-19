@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatFileSize,
   formatDuration,
+  formatTimecode,
   formatDurationLong,
   formatPercentage,
   bytesToMB,
@@ -116,5 +117,13 @@ describe('formatSizeChange', () => {
   it('treats tiny changes and empty input as the same size', () => {
     expect(formatSizeChange(1000, 1001)).toBe('Same size');
     expect(formatSizeChange(0, 100)).toBe('Same size');
+  });
+});
+
+describe('formatTimecode', () => {
+  it('formats minutes, seconds and tenths', () => {
+    expect(formatTimecode(0)).toBe('0:00.0');
+    expect(formatTimecode(75.25)).toBe('1:15.2');
+    expect(formatTimecode(-3)).toBe('0:00.0');
   });
 });
