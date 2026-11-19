@@ -22,16 +22,6 @@ const clamp = (pcm: Pcm, start: number, end: number): [number, number] => {
   return [s, e];
 };
 
-const concat = (parts: Float32Array<ArrayBuffer>[]) => {
-  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
-  let offset = 0;
-  for (const p of parts) {
-    out.set(p, offset);
-    offset += p.length;
-  }
-  return out;
-};
-
 /** Upmixes by repeating the last channel (mono → stereo duplicates it). */
 const withChannels = (pcm: Pcm, count: number): Pcm =>
   pcm.channels.length >= count
@@ -41,21 +31,6 @@ const withChannels = (pcm: Pcm, count: number): Pcm =>
 export const keepRange = (pcm: Pcm, start: number, end: number): Pcm => {
   const [s, e] = clamp(pcm, start, end);
   return { ...pcm, channels: pcm.channels.map((ch) => ch.slice(s, e)) };
-};
-
-export const deleteRange = (pcm: Pcm, start: number, end: number): Pcm => {
-  const [s, e] = clamp(pcm, start, end);
-  return { ...pcm, channels: pcm.channels.map((ch) => concat([ch.subarray(0, s), ch.subarray(e)])) };
-};
-
-/** Inserts other at sample position at. Both must share the sample rate. */
-export const insertAt = (pcm: Pcm, other: Pcm, at: number): Pcm => {
-  if (other.sampleRate !== pcm.sampleRate) throw new Error('Sample rates differ');
-  const count = Math.max(pcm.channels.length, other.channels.length);
-  const a = withChannels(pcm, count);
-  const b = withChannels(other, count);
-  const [pos] = clamp(a, at, at);
-  return { ...a, channels: a.channels.map((ch, c) => concat([ch.subarray(0, pos), b.channels[c], ch.subarray(pos)])) };
 };
 
 /** Applies fn(sample, indexInRange, rangeLength) to every sample in the range. */
@@ -106,6 +81,150 @@ export const reverse = (pcm: Pcm, start: number, end: number): Pcm => {
       return out;
     }),
   };
+};
+
+export interface EqGains {
+  low: number;
+  mid: number;
+  high: number;
+}
+/** Band frequencies in Hz: low shelf, peaking mid, high shelf */
+export const EQ_FREQS: EqGains = { low: 200, mid: 1000, high: 4000 };
+
+/** RBJ cookbook biquad for a band and gain in dB, normalized to [b0, b1, b2, a1, a2]. */
+const biquad = (band: keyof EqGains, db: number, sampleRate: number) => {
+  const A = 10 ** (db / 40);
+  const w = (2 * Math.PI * Math.min(EQ_FREQS[band], sampleRate * 0.45)) / sampleRate;
+  const cos = Math.cos(w);
+  const sin = Math.sin(w);
+  if (band === 'mid') {
+    const alpha = sin / 1.8; // Q 0.9
+    const a0 = 1 + alpha / A;
+    return [(1 + alpha * A) / a0, (-2 * cos) / a0, (1 - alpha * A) / a0, (-2 * cos) / a0, (1 - alpha / A) / a0];
+  }
+  // Shelf slope 1. The high shelf is the low shelf mirrored around Nyquist: cos negated, odd coefficients flipped.
+  const c = band === 'low' ? cos : -cos;
+  const sign = band === 'low' ? 1 : -1;
+  const k = Math.sqrt(2 * A) * sin;
+  const a0 = A + 1 + (A - 1) * c + k;
+  return [
+    (A * (A + 1 - (A - 1) * c + k)) / a0,
+    (sign * 2 * A * (A - 1 - (A + 1) * c)) / a0,
+    (A * (A + 1 - (A - 1) * c - k)) / a0,
+    (sign * -2 * (A - 1 + (A + 1) * c)) / a0,
+    (A + 1 + (A - 1) * c - k) / a0,
+  ];
+};
+
+/** 3-band EQ on the range, with short crossfades at its edges so it joins the untouched audio without clicks. */
+export const equalize = (pcm: Pcm, start: number, end: number, gains: EqGains): Pcm => {
+  const bands = (Object.keys(EQ_FREQS) as (keyof EqGains)[]).filter((b) => gains[b] !== 0);
+  const filters = bands.map((b) => biquad(b, gains[b], pcm.sampleRate));
+  const [s, e] = clamp(pcm, start, end);
+  const ramp = Math.min(Math.floor((e - s) / 2), Math.round(pcm.sampleRate * 0.005));
+  return {
+    ...pcm,
+    channels: pcm.channels.map((ch) => {
+      const out = ch.slice();
+      const wet = out.subarray(s, e);
+      for (const [b0, b1, b2, a1, a2] of filters) {
+        let x1 = 0;
+        let x2 = 0;
+        let y1 = 0;
+        let y2 = 0;
+        for (let i = 0; i < wet.length; i++) {
+          const x = wet[i];
+          const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+          x2 = x1;
+          x1 = x;
+          y2 = y1;
+          y1 = y;
+          wet[i] = y;
+        }
+      }
+      for (let i = 0; i < ramp; i++) {
+        const j = wet.length - 1 - i;
+        wet[i] = ch[s + i] + (wet[i] - ch[s + i]) * (i / ramp);
+        wet[j] = ch[s + j] + (wet[j] - ch[s + j]) * (i / ramp);
+      }
+      return out;
+    }),
+  };
+};
+
+// ---- tracks ----
+// A track holds clips; a clip places a piece of audio at sample `at` of the timeline.
+// Clips may overlap and gaps between them are silent. All clips share the project's sample rate.
+
+export interface Clip {
+  at: number;
+  pcm: Pcm;
+}
+export interface Track {
+  id: number;
+  clips: Clip[];
+}
+
+export const clipEnd = (clip: Clip) => clip.at + pcmLength(clip.pcm);
+export const trackStart = (track: Track) => (track.clips.length ? Math.min(...track.clips.map((c) => c.at)) : 0);
+export const trackEnd = (track: Track) => Math.max(0, ...track.clips.map(clipEnd));
+export const tracksLength = (tracks: Track[]) => Math.max(0, ...tracks.map(trackEnd));
+const overlaps = (clip: Clip, start: number, end: number) => clip.at < end && clipEnd(clip) > start;
+
+/** Sums the clips into one buffer covering timeline samples [start, end), upmixed to the widest clip. */
+export const renderClips = (clips: Clip[], sampleRate: number, start: number, end: number): Pcm => {
+  const count = Math.max(1, ...clips.map((c) => c.pcm.channels.length));
+  const channels = Array.from({ length: count }, () => new Float32Array(Math.max(0, end - start)));
+  for (const clip of clips) {
+    const from = Math.max(start, clip.at);
+    const to = Math.min(end, clipEnd(clip));
+    if (to <= from) continue;
+    const src = withChannels(clip.pcm, count).channels;
+    channels.forEach((out, c) => {
+      for (let i = from; i < to; i++) out[i - start] += src[c][i - clip.at];
+    });
+  }
+  return { sampleRate, channels };
+};
+
+/** Removes [start, end) from the clips, splitting the ones that straddle it. Nothing moves. */
+export const cutClips = (clips: Clip[], start: number, end: number): Clip[] =>
+  clips.flatMap((clip) => {
+    if (!overlaps(clip, start, end)) return [clip];
+    const parts: Clip[] = [];
+    if (clip.at < start) parts.push({ at: clip.at, pcm: keepRange(clip.pcm, 0, start - clip.at) });
+    if (clipEnd(clip) > end) parts.push({ at: end, pcm: keepRange(clip.pcm, end - clip.at, Infinity) });
+    return parts;
+  });
+
+/** Replaces [start, end) of the track with fn applied to its mixed content, as one clip. Empty ranges are left alone. */
+export const editTrackRange = (track: Track, sampleRate: number, start: number, end: number, fn: (pcm: Pcm) => Pcm): Track => {
+  const hit = track.clips.filter((c) => overlaps(c, start, end));
+  if (!hit.length) return track;
+  return { ...track, clips: [...cutClips(track.clips, start, end), { at: start, pcm: fn(renderClips(hit, sampleRate, start, end)) }] };
+};
+
+/** Cuts [start, end) out of the track and closes the gap. */
+export const deleteTrackRange = (track: Track, start: number, end: number): Track => ({
+  ...track,
+  clips: cutClips(track.clips, start, end).map((c) => (c.at >= end ? { ...c, at: c.at - (end - start) } : c)),
+});
+
+/** Inserts pcm at sample `at`, pushing everything after it later. */
+export const insertIntoTrack = (track: Track, at: number, pcm: Pcm): Track => {
+  const n = pcmLength(pcm);
+  return { ...track, clips: [...cutClips(track.clips, at, at).map((c) => (c.at >= at ? { ...c, at: c.at + n } : c)), { at, pcm }] };
+};
+
+/** Lifts [start, end) off track `from` and drops it on track `to` at sample `at`, leaving silence behind. */
+export const moveRange = (tracks: Track[], sampleRate: number, from: number, start: number, end: number, to: number, at: number): Track[] => {
+  const lifted = tracks.find((t) => t.id === from)?.clips.filter((c) => overlaps(c, start, end));
+  if (!lifted?.length) return tracks;
+  const part: Clip = { at: Math.max(0, Math.round(at)), pcm: renderClips(lifted, sampleRate, start, end) };
+  return tracks.map((t) => {
+    const clips = t.id === from ? cutClips(t.clips, start, end) : t.clips;
+    return t.id === to ? { ...t, clips: [...clips, part] } : clips === t.clips ? t : { ...t, clips };
+  });
 };
 
 /** Min/max per bucket across all channels, for drawing a waveform: [min0, max0, min1, max1, ...]. */
