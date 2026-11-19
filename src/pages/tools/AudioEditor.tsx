@@ -35,6 +35,8 @@ import {
   Zap,
   ZoomIn,
   ZoomOut,
+  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { toast } from 'sonner';
@@ -106,9 +108,6 @@ import {
   sectionLabel,
   segmentButton,
   segmentGroup,
-  settingsColumn,
-  settingsGrid,
-  statusRow,
   toolButton,
   toolDropzone,
   editorFeatures,
@@ -265,9 +264,9 @@ const listSlider = (label: string, list: number[], value: number, onChange: (v: 
   />
 );
 
-/** Collapsible panel section */
+/** Collapsible panel section, one open at a time */
 const fxGroup = (title: string, note: string, children: React.ReactNode) => (
-  <details className="group [&>summary::-webkit-details-marker]:hidden">
+  <details name="fx" className="group [&>summary::-webkit-details-marker]:hidden">
     <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2">
       <span className={cn(sectionLabel, 'mt-0 inline-flex items-center gap-1')}>
         <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" aria-hidden="true" />
@@ -278,6 +277,39 @@ const fxGroup = (title: string, note: string, children: React.ReactNode) => (
     <div className="space-y-2 pt-2">{children}</div>
   </details>
 );
+
+const panelSection = (title: string, note: string, children: React.ReactNode) => (
+  <section className="space-y-2">
+    <div className="flex items-baseline justify-between gap-2">
+      <p className={cn(sectionLabel, 'mt-0')}>{title}</p>
+      <span className="text-[11px] text-slate-500">{note}</span>
+    </div>
+    {children}
+  </section>
+);
+
+const sidePanel = 'min-w-0 space-y-5 border-t border-white/10 p-4 lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:border-l lg:border-t-0';
+
+/** Panel shown or hidden, remembered per browser */
+const usePanel = (key: string) => {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(key) !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () =>
+    setOpen((o) => {
+      try {
+        localStorage.setItem(key, o ? '0' : '1');
+      } catch {
+        // storage blocked: the choice lasts for this visit
+      }
+      return !o;
+    });
+  return [open, toggle] as const;
+};
 
 const guideItem = (term: string, text: string) => (
   <li key={term}>
@@ -519,7 +551,10 @@ const AudioEditor = () => {
   // Effects work on the selection, or on the whole active track when nothing is selected
   const range = (): [number, number] =>
     hasSelection ? [toSample(selection.start), toSample(selection.end)] : active ? [trackStart(active), trackEnd(active)] : [0, 0];
-  const scope = hasSelection ? 'on the selection' : 'on the whole track';
+  const [showLeft, toggleLeft] = usePanel('audio-editor:project-panel');
+  const [showRight, toggleRight] = usePanel('audio-editor:sound-panel');
+  const [sideTab, setSideTab] = useState<'project' | 'sound'>('sound');
+  const headerRef = useRef<HTMLDivElement>(null);
 
   // What plays and exports: every unmuted track summed, through the glue compressor when it's on
   const { mix, reduction } = useMemo(() => {
@@ -1197,6 +1232,11 @@ const AudioEditor = () => {
               {iconBtn('Redo', redo, Redo2, { disabled: !canRedo || busy, shortcut: 'Ctrl+Y' })}
             </div>
             <div className="flex items-center gap-2 lg:ml-auto">
+              <div className="hidden items-center gap-1 xl:flex">
+                {iconBtn(showLeft ? 'Hide project panel' : 'Show project panel', toggleLeft, PanelLeft, { pressed: showLeft })}
+                {iconBtn(showRight ? 'Hide sound panel' : 'Show sound panel', toggleRight, PanelRight, { pressed: showRight })}
+              </div>
+              {progress !== null && <Progress value={progress * 100} aria-label="Export progress" className="h-1.5 w-24" />}
               <button type="button" onClick={() => void exportAudio()} disabled={busy} className={primaryButton}>
                 <Download className="h-4 w-4" aria-hidden="true" />
                 {progress !== null ? 'Exporting...' : takes > 1 ? `Export ${takes} × ${format.toUpperCase()}` : `Export ${format.toUpperCase()}`}
@@ -1204,228 +1244,175 @@ const AudioEditor = () => {
             </div>
           </div>
 
-          <div className={settingsGrid}>
-            <div className="flex min-h-[22rem] min-w-0 flex-col lg:min-h-0">
-              <div className="relative min-h-0 flex-1 bg-black/30">
-                <div
-                  ref={viewRef}
-                  className="h-full overflow-auto"
-                  onDragOver={onDragOver}
-                  onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropAt(null)}
-                  onDrop={onDrop}
-                >
-                  <div ref={contentRef} className="relative" style={{ width: canvasWidth }}>
-                    {/* Ruler: click to move the cursor */}
-                    <div
-                      className="sticky top-0 z-30 cursor-pointer select-none overflow-hidden border-b border-white/10 bg-slate-950"
-                      style={{ height: RULER_H }}
-                      onPointerDown={(e) => e.button === 0 && seek(timeAt(e.clientX))}
-                      aria-hidden="true"
-                    >
-                      {ticks.map((t) => (
-                        <div key={t} className="absolute inset-y-0" style={{ left: pct(t) }}>
-                          <span className="absolute left-1 top-1 whitespace-nowrap font-mono text-[10px] text-slate-500">{tickLabel(t)}</span>
-                          <span className="absolute bottom-0 left-0 h-2 w-px bg-white/25" />
-                        </div>
-                      ))}
-                      <div className="absolute bottom-0 h-3 w-0.5 -translate-x-1/2 bg-amber-300" style={{ left: pct(playhead) }} />
-                    </div>
-
-                    <div
-                      ref={lanesRef}
-                      className={cn('relative touch-none select-none', move ? 'cursor-grabbing' : 'cursor-text')}
-                      onPointerDown={onPointerDown}
-                      onPointerMove={onPointerMove}
-                      onPointerUp={onPointerUp}
-                      onPointerCancel={() => {
-                        dragRef.current = null;
-                        setMove(null);
-                        setFadeDraft(null);
-                      }}
-                      onPointerLeave={() => setHoverTime(null)}
-                      onDoubleClick={onDoubleClick}
-                      role="group"
-                      aria-label="Tracks: click to place the cursor, drag to select, drag a selection to move it"
-                    >
-                      {tracks.map((track, i) => {
-                        const isMuted = muted.includes(track.id);
-                        const selected = hasSelection && track.id === selection.track;
-                        const shown = fadeDraft?.track === track.id ? withFade(track, fadeDraft.clip, fadeDraft.edge, fadeDraft.fade).clips : track.clips;
-                        return (
-                          <div
-                            key={track.id}
-                            className={cn('relative border-b border-white/10', track === active && tracks.length > 1 && 'bg-white/[0.03]')}
-                            style={{ height: laneHeight }}
-                          >
-                            <LaneCanvas
-                              clips={shown}
-                              sampleRate={sampleRate}
-                              span={span}
-                              width={canvasWidth}
-                              height={laneHeight}
-                              muted={isMuted}
-                              selStart={selected ? selection.start : 0}
-                              selEnd={selected ? selection.end : 0}
-                            />
-                            {/* Track header stays at the left edge while scrolling */}
-                            <div
-                              className="sticky left-0 z-20 flex w-fit cursor-default items-center gap-0.5 px-1 pb-1 pt-3.5"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onDoubleClick={(e) => e.stopPropagation()}
-                            >
-                              <span className="rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-slate-300">Track {i + 1}</span>
-                              <Tooltip label={isMuted ? 'Unmute track' : 'Mute track'}>
-                                <button
-                                  type="button"
-                                  aria-label={isMuted ? `Unmute track ${i + 1}` : `Mute track ${i + 1}`}
-                                  aria-pressed={isMuted}
-                                  onClick={() => toggleMute(track.id)}
-                                  className={cn(
-                                    'inline-flex h-6 w-6 items-center justify-center rounded bg-black/60 hover:bg-white/15',
-                                    isMuted ? 'text-amber-300' : 'text-slate-300'
-                                  )}
-                                >
-                                  {isMuted ? <VolumeX className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
-                                </button>
-                              </Tooltip>
-                              {tracks.length > 1 && (
-                                <Tooltip label="Remove track">
-                                  <button
-                                    type="button"
-                                    aria-label={`Remove track ${i + 1}`}
-                                    disabled={busy}
-                                    onClick={() => removeTrack(track.id)}
-                                    className="inline-flex h-6 w-6 items-center justify-center rounded bg-black/60 text-slate-300 hover:bg-white/15"
-                                  >
-                                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                                  </button>
-                                </Tooltip>
-                              )}
-                            </div>
-                            {selected && (
-                              <>
-                                <div
-                                  className={cn('absolute inset-y-0 bg-sky-400/10 ring-1 ring-inset ring-sky-300/60', move ? 'opacity-40' : 'cursor-grab')}
-                                  style={{
-                                    left: pct(selection.start),
-                                    width: pct(selection.end - selection.start),
-                                  }}
-                                />
-                                {(['start', 'end'] as const).map((edge) => (
-                                  <div
-                                    key={edge}
-                                    className="group absolute inset-y-0 z-10 w-3 -translate-x-1/2 cursor-ew-resize"
-                                    style={{ left: pct(selection[edge]) }}
-                                    onPointerDown={(e) => onHandleDown(e, edge)}
-                                  >
-                                    <div className="absolute left-1/2 top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-200 shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-transform group-hover:scale-y-125" />
-                                  </div>
-                                ))}
-                              </>
-                            )}
-                            {move?.track === track.id && (
-                              <div
-                                className="pointer-events-none absolute inset-y-1 rounded border-2 border-dashed border-sky-300 bg-sky-400/20"
-                                style={{
-                                  left: pct(move.at),
-                                  width: pct(selection.end - selection.start),
-                                }}
-                              />
-                            )}
-                            {shown.flatMap((clip, ci) =>
-                              (['in', 'out'] as const).flatMap((edge) => {
-                                const f = clip[fadeKey(edge)];
-                                const len = f?.length ?? 0;
-                                const at = (edge === 'in' ? clip.at + len : clipEnd(clip) - len) / sampleRate;
-                                const mid = (edge === 'in' ? clip.at + len / 2 : clipEnd(clip) - len / 2) / sampleRate;
-                                const name = edge === 'in' ? 'Fade in' : 'Fade out';
-                                const dragging = fadeDraft?.track === track.id && fadeDraft.clip === ci && fadeDraft.edge === edge;
-                                const handle = 'absolute z-30 h-3 w-3 border border-amber-300 bg-slate-950/80 hover:bg-amber-300';
-                                return [
-                                  <div
-                                    key={`${ci}${edge}`}
-                                    title={`${name}: drag sideways`}
-                                    className={cn(handle, 'top-0 cursor-ew-resize rounded-sm', edge === 'out' && '-translate-x-full')}
-                                    style={{ left: pct(at) }}
-                                    onPointerDown={(e) => onFadeDown(e, track.id, ci, edge, 'length')}
-                                    onDoubleClick={(e) => e.stopPropagation()}
-                                  />,
-                                  f && len > 0 && (
-                                    <div
-                                      key={`${ci}${edge}c`}
-                                      title={`${name} curve: drag up or down, double-click to straighten`}
-                                      className={cn(handle, '-translate-x-1/2 -translate-y-1/2 cursor-ns-resize rounded-full')}
-                                      style={{
-                                        left: pct(mid),
-                                        top: `${(1 - fadeCurve(0.5, f.curve)) * 100}%`,
-                                      }}
-                                      onPointerDown={(e) => onFadeDown(e, track.id, ci, edge, 'curve')}
-                                      onDoubleClick={(e) => {
-                                        e.stopPropagation();
-                                        if (f.curve) setFade(track.id, ci, edge, { ...f, curve: 0 });
-                                      }}
-                                    />
-                                  ),
-                                  dragging && (
-                                    <div
-                                      key={`${ci}${edge}l`}
-                                      className="pointer-events-none absolute top-4 z-30 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 font-mono text-[11px] text-amber-200"
-                                      style={{ left: pct(mid) }}
-                                    >
-                                      {Math.round((len / sampleRate) * 1000)} ms
-                                      {f?.curve ? ` · curve ${signed(Math.round(f.curve * 100), '%')}` : ''}
-                                    </div>
-                                  ),
-                                ];
-                              })
-                            )}
-                          </div>
-                        );
-                      })}
-                      {dropAt && (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 z-40 border-2 border-dashed border-emerald-300 bg-emerald-400/15"
-                          style={{
-                            top: (dropAt.track === null ? tracks.length : tracks.findIndex((t) => t.id === dropAt.track)) * laneHeight,
-                            height: dropAt.track === null ? ADD_ROW_H : laneHeight,
-                          }}
-                        >
-                          <div className="absolute inset-y-0 w-0.5 bg-emerald-300" style={{ left: pct(dropAt.at) }}>
-                            <span className="absolute left-1.5 top-1 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[11px] text-emerald-200">
-                              {dropAt.track === null ? 'New track' : `Track ${tracks.findIndex((t) => t.id === dropAt.track) + 1}`} at{' '}
-                              {formatTimecode(dropAt.at)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {hoverTime !== null && (
-                        <div className="pointer-events-none absolute inset-y-0 w-px bg-white/30" style={{ left: pct(hoverTime) }}>
-                          <span className="absolute left-1 top-1 rounded bg-black/70 px-1 font-mono text-[10px] text-slate-200">
-                            {formatTimecode(move ? move.at : hoverTime)}
-                          </span>
-                        </div>
-                      )}
-                      <div
-                        className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.7)]"
-                        style={{ left: pct(playhead) }}
-                      />
-                    </div>
-
-                    <div className="sticky left-0 flex w-fit items-center p-1.5" style={{ height: ADD_ROW_H }}>
-                      <button type="button" onClick={addTrack} disabled={busy} className={cn(chipButton, 'h-7 text-xs')}>
-                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                        Add track
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/60 px-3 py-1 text-xs text-slate-300">
-                  {hasSelection ? 'Drag the selection to move it, also onto another track' : 'Drag across a track to select, double-click selects a clip'}
-                </p>
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            {/* Project panel: arrangement and output */}
+            <fieldset
+              disabled={busy}
+              className={cn(
+                sidePanel,
+                'lg:order-last xl:order-none xl:border-l-0 xl:border-r',
+                sideTab !== 'project' && 'lg:hidden',
+                showLeft ? 'xl:block' : 'xl:hidden'
+              )}
+            >
+              <div role="group" aria-label="Side panel" className={cn(segmentGroup, 'hidden w-full lg:flex xl:hidden')}>
+                {(['project', 'sound'] as const).map((t) => (
+                  <button key={t} type="button" aria-pressed={sideTab === t} onClick={() => setSideTab(t)} className={cn(segmentButton, 'flex-1 capitalize')}>
+                    {t}
+                  </button>
+                ))}
               </div>
+              <section className="space-y-2">
+                <p className={cn(sectionLabel, 'mt-0')}>Edit</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {actionBtn('Trim', trimToSelection, Crop, !hasSelection, 'Keep only the selected time, on every track')}
+                  {actionBtn('Delete', deleteSelection, Scissors, !hasSelection, 'Cut the selection out of its track (Del)')}
+                  {actionBtn('Silence', () => requireSelection() && effect(silence), VolumeX, !hasSelection, 'Mute the selection')}
+                  {actionBtn('Trim silence', trimSilence, Eraser, false, 'Cut the silence before the first and after the last sound of the mix')}
+                </div>
+                {!hasSelection && <p className="text-xs text-slate-500">Drag across a track to trim, delete or silence a part.</p>}
+              </section>
 
+              <section className="space-y-2">
+                <p className={cn(sectionLabel, 'mt-0')}>Add audio</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {actionBtn('At cursor', () => pickFile('cursor'), Plus, false, 'Insert another file into this track at the cursor')}
+                  {actionBtn('At the end', () => pickFile('end'), Plus, false, 'Append another file to this track')}
+                  {actionBtn('New track', () => pickFile('track'), Layers, false, 'Put another file on its own track, starting at the cursor')}
+                  {actionBtn('1 s silence', insertSilence, Plus, false, 'Insert one second of silence at the cursor')}
+                </div>
+                <p className="text-xs text-slate-500">Or drop files onto a track, or below the last track to add a new one.</p>
+              </section>
+
+              {panelSection(
+                'Generate',
+                'new track at the cursor',
+                <>
+                  <div role="group" aria-label="Noise color" className={segmentGroup}>
+                    {NOISE_COLORS.map((c) => (
+                      <button key={c} type="button" aria-pressed={fx.noiseColor === c} onClick={() => setFx({ noiseColor: c })} className={segmentButton}>
+                        {c[0].toUpperCase() + c.slice(1)} noise
+                      </button>
+                    ))}
+                  </div>
+                  <SettingSlider
+                    label="Length"
+                    value={fx.noiseLen}
+                    valueText={`${fx.noiseLen.toFixed(2)} s`}
+                    onChange={(v) => setFx({ noiseLen: v })}
+                    min={0.05}
+                    max={3}
+                    step={0.05}
+                    disabled={busy}
+                  />
+                  {actionBtn(
+                    'Add noise burst',
+                    addNoise,
+                    Wind,
+                    false,
+                    'Noise with a fast fade-out: layer it under hits, or filter it into whooshes and explosions'
+                  )}
+                </>
+              )}
+
+              <section className="space-y-3 border-t border-white/10 pt-4">
+                <p className={cn(sectionLabel, 'mt-0')}>Export</p>
+                <div role="group" aria-label="Export format" className={segmentGroup}>
+                  {FORMATS.map(({ value, label }) => (
+                    <button key={value} type="button" aria-pressed={format === value} onClick={() => setFormat(value)} className={segmentButton}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {lossy && (
+                  <div role="group" aria-label="Bitrate" className={segmentGroup}>
+                    {BITRATES.map((b) => (
+                      <button key={b} type="button" aria-pressed={kbps === b} onClick={() => setKbps(b)} className={segmentButton}>
+                        {b} kbps
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <label className={cn('flex items-center gap-2 text-sm text-slate-200', !hasSelection && 'opacity-50')}>
+                  <input
+                    type="checkbox"
+                    checked={selectionOnly && hasSelection}
+                    disabled={!hasSelection}
+                    onChange={(e) => setSelectionOnly(e.target.checked)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Export only the selected time
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <input type="checkbox" checked={matchLoudness} onChange={(e) => setMatchLoudness(e.target.checked)} className="h-4 w-4 accent-sky-400" />
+                  Match loudness
+                  {mixLufs !== null && (
+                    <span className="ml-auto font-mono text-[11px] tabular-nums text-slate-400" title="Loudness of the whole mix now">
+                      {Number.isFinite(mixLufs) ? `now ${mixLufs.toFixed(1)} LUFS` : 'silent'}
+                    </span>
+                  )}
+                </label>
+                {matchLoudness && (
+                  <>
+                    <div role="group" aria-label="Target loudness in LUFS" className={segmentGroup}>
+                      {LUFS_TARGETS.map((t) => (
+                        <button key={t} type="button" aria-pressed={targetLufs === t} onClick={() => setTargetLufs(t)} className={segmentButton}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500">Target in LUFS, so every sound in a game plays equally loud. A limiter keeps peaks under -1 dB.</p>
+                  </>
+                )}
+                <SettingSlider
+                  label="Variations"
+                  value={takes}
+                  valueText={takes === 1 ? 'Off' : `${takes} files (ZIP)`}
+                  onChange={setTakes}
+                  min={1}
+                  max={10}
+                  step={1}
+                  disabled={busy}
+                  hint="Export several takes with random pitch and volume, so repeated sounds don't feel identical"
+                />
+                {takes > 1 && (
+                  <>
+                    <SettingSlider
+                      label="Random pitch"
+                      value={varyPitch}
+                      valueText={`± ${varyPitch} semitones`}
+                      onChange={setVaryPitch}
+                      min={0}
+                      max={6}
+                      step={0.5}
+                      disabled={busy}
+                    />
+                    <SettingSlider
+                      label="Random volume"
+                      value={varyVolume}
+                      valueText={`0 to -${varyVolume} dB`}
+                      onChange={setVaryVolume}
+                      min={0}
+                      max={12}
+                      step={1}
+                      disabled={busy}
+                    />
+                  </>
+                )}
+                {muted.length > 0 && <p className="text-xs text-slate-500">Muted tracks are left out of the export.</p>}
+                {estimate !== null && !Number.isNaN(estimate) && <p className="text-xs text-slate-500">Estimated size: ~{formatFileSize(estimate)}</p>}
+              </section>
+
+              <p className="border-t border-white/10 pt-3 font-mono text-[11px] text-slate-500">
+                {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'} · {sampleRate} Hz{' '}
+                {mixChannels === 1 ? 'mono' : mixChannels === 2 ? 'stereo' : `${mixChannels} ch`}
+              </p>
+            </fieldset>
+
+            {/* Timeline */}
+            <div className="order-first flex h-[26rem] min-w-0 flex-none flex-col lg:order-none lg:h-auto lg:min-h-0 lg:flex-1">
               {/* Transport */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/10 px-3 py-2">
                 <div className="flex items-center gap-1">
                   {iconBtn('Jump to start', () => seek(0), SkipBack, { shortcut: 'Home' })}
                   <Tooltip label={playing ? 'Pause' : 'Play'} shortcut="Space">
@@ -1483,25 +1470,285 @@ const AudioEditor = () => {
                   {iconBtn('Show everything', () => zoomTo(1), Shrink, { disabled: zoom <= 1 })}
                 </div>
               </div>
+              <div className="relative flex min-h-0 flex-1 bg-black/30">
+                {/* Track column: scrolls with the lanes vertically, stays put horizontally */}
+                <div className="relative w-32 shrink-0 border-r border-white/10 bg-slate-950/60">
+                  <div ref={headerRef} className="absolute inset-0 overflow-hidden">
+                    <div className="border-b border-white/10" style={{ height: RULER_H }} />
+                    {tracks.map((track, i) => {
+                      const isMuted = muted.includes(track.id);
+                      const current = track === active && tracks.length > 1;
+                      return (
+                        <div
+                          key={track.id}
+                          className={cn('flex items-start gap-0.5 border-b border-white/10 p-1', current && 'bg-white/[0.05]')}
+                          style={{ height: laneHeight }}
+                        >
+                          <Tooltip label="Apply effects to this track">
+                            <button
+                              type="button"
+                              aria-pressed={track === active}
+                              onClick={() => setSelection({ track: track.id, start: playhead, end: playhead })}
+                              className={cn(
+                                'h-6 min-w-0 flex-1 truncate rounded px-1.5 text-left text-xs hover:bg-white/10',
+                                current ? 'font-medium text-white' : 'text-slate-400'
+                              )}
+                            >
+                              Track {i + 1}
+                            </button>
+                          </Tooltip>
+                          <Tooltip label={isMuted ? 'Unmute track' : 'Mute track'}>
+                            <button
+                              type="button"
+                              aria-label={isMuted ? `Unmute track ${i + 1}` : `Mute track ${i + 1}`}
+                              aria-pressed={isMuted}
+                              onClick={() => toggleMute(track.id)}
+                              className={cn(
+                                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded hover:bg-white/10',
+                                isMuted ? 'text-amber-300' : 'text-slate-400'
+                              )}
+                            >
+                              {isMuted ? <VolumeX className="h-3.5 w-3.5" aria-hidden="true" /> : <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                            </button>
+                          </Tooltip>
+                          {tracks.length > 1 && (
+                            <Tooltip label="Remove track">
+                              <button
+                                type="button"
+                                aria-label={`Remove track ${i + 1}`}
+                                disabled={busy}
+                                onClick={() => removeTrack(track.id)}
+                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-white/10"
+                              >
+                                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </Tooltip>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center px-1" style={{ height: ADD_ROW_H }}>
+                      <button type="button" onClick={addTrack} disabled={busy} className={cn(chipButton, 'h-7 w-full justify-center text-xs')}>
+                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        Add track
+                      </button>
+                    </div>
+                    {/* Room for the lanes' horizontal scrollbar */}
+                    <div className="h-5" />
+                  </div>
+                </div>
+                <div className="relative min-w-0 flex-1">
+                  <div
+                    ref={viewRef}
+                    className="h-full overflow-auto"
+                    onDragOver={onDragOver}
+                    onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropAt(null)}
+                    onDrop={onDrop}
+                    onScroll={(e) => headerRef.current && (headerRef.current.scrollTop = e.currentTarget.scrollTop)}
+                  >
+                    <div ref={contentRef} className="relative" style={{ width: canvasWidth }}>
+                      {/* Ruler: click to move the cursor */}
+                      <div
+                        className="sticky top-0 z-30 cursor-pointer select-none overflow-hidden border-b border-white/10 bg-slate-950"
+                        style={{ height: RULER_H }}
+                        onPointerDown={(e) => e.button === 0 && seek(timeAt(e.clientX))}
+                        aria-hidden="true"
+                      >
+                        {ticks.map((t) => (
+                          <div key={t} className="absolute inset-y-0" style={{ left: pct(t) }}>
+                            <span className="absolute left-1 top-1 whitespace-nowrap font-mono text-[10px] text-slate-500">{tickLabel(t)}</span>
+                            <span className="absolute bottom-0 left-0 h-2 w-px bg-white/25" />
+                          </div>
+                        ))}
+                        <div className="absolute bottom-0 h-3 w-0.5 -translate-x-1/2 bg-amber-300" style={{ left: pct(playhead) }} />
+                      </div>
+
+                      <div
+                        ref={lanesRef}
+                        className={cn('relative touch-none select-none', move ? 'cursor-grabbing' : 'cursor-text')}
+                        onPointerDown={onPointerDown}
+                        onPointerMove={onPointerMove}
+                        onPointerUp={onPointerUp}
+                        onPointerCancel={() => {
+                          dragRef.current = null;
+                          setMove(null);
+                          setFadeDraft(null);
+                        }}
+                        onPointerLeave={() => setHoverTime(null)}
+                        onDoubleClick={onDoubleClick}
+                        role="group"
+                        aria-label="Tracks: click to place the cursor, drag to select, drag a selection to move it"
+                      >
+                        {tracks.map((track) => {
+                          const isMuted = muted.includes(track.id);
+                          const selected = hasSelection && track.id === selection.track;
+                          const shown = fadeDraft?.track === track.id ? withFade(track, fadeDraft.clip, fadeDraft.edge, fadeDraft.fade).clips : track.clips;
+                          return (
+                            <div
+                              key={track.id}
+                              className={cn('relative border-b border-white/10', track === active && tracks.length > 1 && 'bg-white/[0.03]')}
+                              style={{ height: laneHeight }}
+                            >
+                              <LaneCanvas
+                                clips={shown}
+                                sampleRate={sampleRate}
+                                span={span}
+                                width={canvasWidth}
+                                height={laneHeight}
+                                muted={isMuted}
+                                selStart={selected ? selection.start : 0}
+                                selEnd={selected ? selection.end : 0}
+                              />
+                              {selected && (
+                                <>
+                                  <div
+                                    className={cn('absolute inset-y-0 bg-sky-400/10 ring-1 ring-inset ring-sky-300/60', move ? 'opacity-40' : 'cursor-grab')}
+                                    style={{
+                                      left: pct(selection.start),
+                                      width: pct(selection.end - selection.start),
+                                    }}
+                                  />
+                                  {(['start', 'end'] as const).map((edge) => (
+                                    <div
+                                      key={edge}
+                                      className="group absolute inset-y-0 z-10 w-3 -translate-x-1/2 cursor-ew-resize"
+                                      style={{ left: pct(selection[edge]) }}
+                                      onPointerDown={(e) => onHandleDown(e, edge)}
+                                    >
+                                      <div className="absolute left-1/2 top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-200 shadow-[0_0_8px_rgba(56,189,248,0.8)] transition-transform group-hover:scale-y-125" />
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                              {move?.track === track.id && (
+                                <div
+                                  className="pointer-events-none absolute inset-y-1 rounded border-2 border-dashed border-sky-300 bg-sky-400/20"
+                                  style={{
+                                    left: pct(move.at),
+                                    width: pct(selection.end - selection.start),
+                                  }}
+                                />
+                              )}
+                              {shown.flatMap((clip, ci) =>
+                                (['in', 'out'] as const).flatMap((edge) => {
+                                  const f = clip[fadeKey(edge)];
+                                  const len = f?.length ?? 0;
+                                  const at = (edge === 'in' ? clip.at + len : clipEnd(clip) - len) / sampleRate;
+                                  const mid = (edge === 'in' ? clip.at + len / 2 : clipEnd(clip) - len / 2) / sampleRate;
+                                  const name = edge === 'in' ? 'Fade in' : 'Fade out';
+                                  const dragging = fadeDraft?.track === track.id && fadeDraft.clip === ci && fadeDraft.edge === edge;
+                                  const handle = 'absolute z-30 h-3 w-3 border border-amber-300 bg-slate-950/80 hover:bg-amber-300';
+                                  return [
+                                    <div
+                                      key={`${ci}${edge}`}
+                                      title={`${name}: drag sideways`}
+                                      className={cn(handle, 'top-0 cursor-ew-resize rounded-sm', edge === 'out' && '-translate-x-full')}
+                                      style={{ left: pct(at) }}
+                                      onPointerDown={(e) => onFadeDown(e, track.id, ci, edge, 'length')}
+                                      onDoubleClick={(e) => e.stopPropagation()}
+                                    />,
+                                    f && len > 0 && (
+                                      <div
+                                        key={`${ci}${edge}c`}
+                                        title={`${name} curve: drag up or down, double-click to straighten`}
+                                        className={cn(handle, '-translate-x-1/2 -translate-y-1/2 cursor-ns-resize rounded-full')}
+                                        style={{
+                                          left: pct(mid),
+                                          top: `${(1 - fadeCurve(0.5, f.curve)) * 100}%`,
+                                        }}
+                                        onPointerDown={(e) => onFadeDown(e, track.id, ci, edge, 'curve')}
+                                        onDoubleClick={(e) => {
+                                          e.stopPropagation();
+                                          if (f.curve) setFade(track.id, ci, edge, { ...f, curve: 0 });
+                                        }}
+                                      />
+                                    ),
+                                    dragging && (
+                                      <div
+                                        key={`${ci}${edge}l`}
+                                        className="pointer-events-none absolute top-4 z-30 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 font-mono text-[11px] text-amber-200"
+                                        style={{ left: pct(mid) }}
+                                      >
+                                        {Math.round((len / sampleRate) * 1000)} ms
+                                        {f?.curve ? ` · curve ${signed(Math.round(f.curve * 100), '%')}` : ''}
+                                      </div>
+                                    ),
+                                  ];
+                                })
+                              )}
+                            </div>
+                          );
+                        })}
+                        {dropAt && (
+                          <div
+                            className="pointer-events-none absolute inset-x-0 z-40 border-2 border-dashed border-emerald-300 bg-emerald-400/15"
+                            style={{
+                              top: (dropAt.track === null ? tracks.length : tracks.findIndex((t) => t.id === dropAt.track)) * laneHeight,
+                              height: dropAt.track === null ? ADD_ROW_H : laneHeight,
+                            }}
+                          >
+                            <div className="absolute inset-y-0 w-0.5 bg-emerald-300" style={{ left: pct(dropAt.at) }}>
+                              <span className="absolute left-1.5 top-1 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[11px] text-emerald-200">
+                                {dropAt.track === null ? 'New track' : `Track ${tracks.findIndex((t) => t.id === dropAt.track) + 1}`} at{' '}
+                                {formatTimecode(dropAt.at)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {hoverTime !== null && (
+                          <div className="pointer-events-none absolute inset-y-0 w-px bg-white/30" style={{ left: pct(hoverTime) }}>
+                            <span className="absolute left-1 top-1 rounded bg-black/70 px-1 font-mono text-[10px] text-slate-200">
+                              {formatTimecode(move ? move.at : hoverTime)}
+                            </span>
+                          </div>
+                        )}
+                        <div
+                          className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-amber-300 shadow-[0_0_6px_rgba(252,211,77,0.7)]"
+                          style={{ left: pct(playhead) }}
+                        />
+                      </div>
+
+                      <div className="sticky left-0 flex items-center gap-3 overflow-hidden px-3" style={{ height: ADD_ROW_H, width: viewSize.width }}>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-white/15 px-3 py-1 text-xs text-slate-500">
+                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                          Drop audio files here for a new track
+                        </span>
+                        <span className="truncate text-xs text-slate-500">
+                          {hasSelection
+                            ? 'Drag the selection to move it, also onto another track'
+                            : 'Drag across a track to select, double-click selects a clip'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <fieldset disabled={busy} className={cn(settingsColumn, 'min-w-0')}>
-              <section className="space-y-2">
-                <p className={cn(sectionLabel, 'mt-0')}>Cut</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {actionBtn('Trim', trimToSelection, Crop, !hasSelection, 'Keep only the selected time, on every track')}
-                  {actionBtn('Delete', deleteSelection, Scissors, !hasSelection, 'Cut the selection out of its track (Del)')}
-                  {actionBtn('Silence', () => requireSelection() && effect(silence), VolumeX, !hasSelection, 'Mute the selection')}
-                  {actionBtn('Trim silence', trimSilence, Eraser, false, 'Cut the silence before the first and after the last sound of the mix')}
+            {/* Sound panel: processes the selection, or the whole track */}
+            <fieldset disabled={busy} className={cn(sidePanel, sideTab !== 'sound' && 'lg:hidden', showRight ? 'xl:block' : 'xl:hidden')}>
+              <div className="-mx-4 -mt-4 space-y-2 border-b border-white/10 bg-slate-950 px-4 py-3 lg:sticky lg:-top-4 lg:z-10">
+                <div role="group" aria-label="Side panel" className={cn(segmentGroup, 'hidden w-full lg:flex xl:hidden')}>
+                  {(['project', 'sound'] as const).map((t) => (
+                    <button key={t} type="button" aria-pressed={sideTab === t} onClick={() => setSideTab(t)} className={cn(segmentButton, 'flex-1 capitalize')}>
+                      {t}
+                    </button>
+                  ))}
                 </div>
-                {!hasSelection && <p className="text-xs text-slate-500">Drag across a track to trim, delete or silence a part.</p>}
-              </section>
-
+                <p className="text-[11px] uppercase tracking-wider text-slate-500">Applies to</p>
+                <p className="text-sm text-slate-200">
+                  {hasSelection ? (
+                    <span className="font-mono tabular-nums text-sky-200">
+                      {formatTimecode(selection.start)} – {formatTimecode(selection.end)}
+                    </span>
+                  ) : (
+                    'Whole track'
+                  )}
+                  <span className="text-slate-500"> · Track {tracks.indexOf(active) + 1}</span>
+                </p>
+              </div>
               <section className="space-y-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className={cn(sectionLabel, 'mt-0')}>Effects</p>
-                  <span className="text-[11px] text-slate-500">{scope}</span>
-                </div>
+                <p className={cn(sectionLabel, 'mt-0')}>Basics</p>
                 <div className="grid grid-cols-2 gap-2">
                   {actionBtn('Fade in', () => effect((p, s, e) => fade(p, s, e, 'in')), TrendingUp)}
                   {actionBtn('Fade out', () => effect((p, s, e) => fade(p, s, e, 'out')), TrendingDown)}
@@ -1554,7 +1801,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Punch',
-                scope,
+                '',
                 <>
                   <SettingSlider
                     label="Attack"
@@ -1605,7 +1852,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Lo-fi',
-                scope,
+                '',
                 <>
                   <SettingSlider
                     label="Bit depth"
@@ -1637,7 +1884,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Filters',
-                scope,
+                '',
                 <>
                   {listSlider(
                     'Low cut',
@@ -1667,7 +1914,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Equalizer',
-                scope,
+                '',
                 <>
                   {EQ_BANDS.map(([band, label, freq]) => (
                     <SettingSlider
@@ -1691,7 +1938,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Reverb',
-                scope,
+                '',
                 <>
                   <SettingSlider
                     label="Decay"
@@ -1725,7 +1972,7 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Loop',
-                scope,
+                '',
                 <>
                   {listSlider(
                     'Crossfade',
@@ -1825,160 +2072,8 @@ const AudioEditor = () => {
                   )}
                 </>
               )}
-
-              {fxGroup(
-                'Generate',
-                'new track at the cursor',
-                <>
-                  <div role="group" aria-label="Noise color" className={segmentGroup}>
-                    {NOISE_COLORS.map((c) => (
-                      <button key={c} type="button" aria-pressed={fx.noiseColor === c} onClick={() => setFx({ noiseColor: c })} className={segmentButton}>
-                        {c[0].toUpperCase() + c.slice(1)} noise
-                      </button>
-                    ))}
-                  </div>
-                  <SettingSlider
-                    label="Length"
-                    value={fx.noiseLen}
-                    valueText={`${fx.noiseLen.toFixed(2)} s`}
-                    onChange={(v) => setFx({ noiseLen: v })}
-                    min={0.05}
-                    max={3}
-                    step={0.05}
-                    disabled={busy}
-                  />
-                  {actionBtn(
-                    'Add noise burst',
-                    addNoise,
-                    Wind,
-                    false,
-                    'Noise with a fast fade-out: layer it under hits, or filter it into whooshes and explosions'
-                  )}
-                </>
-              )}
-
-              <section className="space-y-2">
-                <p className={cn(sectionLabel, 'mt-0')}>Add audio</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {actionBtn('At cursor', () => pickFile('cursor'), Plus, false, 'Insert another file into this track at the cursor')}
-                  {actionBtn('At the end', () => pickFile('end'), Plus, false, 'Append another file to this track')}
-                  {actionBtn('New track', () => pickFile('track'), Layers, false, 'Put another file on its own track, starting at the cursor')}
-                  {actionBtn('1 s silence', insertSilence, Plus, false, 'Insert one second of silence at the cursor')}
-                </div>
-                <p className="text-xs text-slate-500">Or drop files onto a track, or below the last track to add a new one.</p>
-              </section>
-
-              <section className="space-y-3 border-t border-white/10 pt-4">
-                <p className={cn(sectionLabel, 'mt-0')}>Export</p>
-                <div role="group" aria-label="Export format" className={segmentGroup}>
-                  {FORMATS.map(({ value, label }) => (
-                    <button key={value} type="button" aria-pressed={format === value} onClick={() => setFormat(value)} className={segmentButton}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {lossy && (
-                  <div role="group" aria-label="Bitrate" className={segmentGroup}>
-                    {BITRATES.map((b) => (
-                      <button key={b} type="button" aria-pressed={kbps === b} onClick={() => setKbps(b)} className={segmentButton}>
-                        {b} kbps
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <label className={cn('flex items-center gap-2 text-sm text-slate-200', !hasSelection && 'opacity-50')}>
-                  <input
-                    type="checkbox"
-                    checked={selectionOnly && hasSelection}
-                    disabled={!hasSelection}
-                    onChange={(e) => setSelectionOnly(e.target.checked)}
-                    className="h-4 w-4 accent-sky-400"
-                  />
-                  Export only the selected time
-                </label>
-                <label className="flex items-center gap-2 text-sm text-slate-200">
-                  <input type="checkbox" checked={matchLoudness} onChange={(e) => setMatchLoudness(e.target.checked)} className="h-4 w-4 accent-sky-400" />
-                  Match loudness
-                  {mixLufs !== null && (
-                    <span className="ml-auto font-mono text-[11px] tabular-nums text-slate-400" title="Loudness of the whole mix now">
-                      {Number.isFinite(mixLufs) ? `now ${mixLufs.toFixed(1)} LUFS` : 'silent'}
-                    </span>
-                  )}
-                </label>
-                {matchLoudness && (
-                  <>
-                    <div role="group" aria-label="Target loudness in LUFS" className={segmentGroup}>
-                      {LUFS_TARGETS.map((t) => (
-                        <button key={t} type="button" aria-pressed={targetLufs === t} onClick={() => setTargetLufs(t)} className={segmentButton}>
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-slate-500">Target in LUFS, so every sound in a game plays equally loud. A limiter keeps peaks under -1 dB.</p>
-                  </>
-                )}
-                <SettingSlider
-                  label="Variations"
-                  value={takes}
-                  valueText={takes === 1 ? 'Off' : `${takes} files (ZIP)`}
-                  onChange={setTakes}
-                  min={1}
-                  max={10}
-                  step={1}
-                  disabled={busy}
-                  hint="Export several takes with random pitch and volume, so repeated sounds don't feel identical"
-                />
-                {takes > 1 && (
-                  <>
-                    <SettingSlider
-                      label="Random pitch"
-                      value={varyPitch}
-                      valueText={`± ${varyPitch} semitones`}
-                      onChange={setVaryPitch}
-                      min={0}
-                      max={6}
-                      step={0.5}
-                      disabled={busy}
-                    />
-                    <SettingSlider
-                      label="Random volume"
-                      value={varyVolume}
-                      valueText={`0 to -${varyVolume} dB`}
-                      onChange={setVaryVolume}
-                      min={0}
-                      max={12}
-                      step={1}
-                      disabled={busy}
-                    />
-                  </>
-                )}
-                {muted.length > 0 && <p className="text-xs text-slate-500">Muted tracks are left out of the export.</p>}
-                {estimate !== null && !Number.isNaN(estimate) && <p className="text-xs text-slate-500">Estimated size: ~{formatFileSize(estimate)}</p>}
-              </section>
             </fieldset>
           </div>
-
-          <dl className={statusRow}>
-            {[
-              ['Length', formatTimecode(duration)],
-              ['Tracks', String(tracks.length)],
-              ['Format', `${sampleRate} Hz, ${mixChannels === 1 ? 'mono' : mixChannels === 2 ? 'stereo' : `${mixChannels} ch`}`],
-            ].map(([label, value]) => (
-              <div key={label} className="flex gap-1.5">
-                <dt>{label}:</dt>
-                <dd className="tabular-nums text-slate-200">{value}</dd>
-              </div>
-            ))}
-            {progress !== null && (
-              <div className="flex items-center gap-1.5">
-                <dt>Exporting:</dt>
-                <dd className="flex items-center gap-2 tabular-nums text-slate-200">
-                  <Progress value={progress * 100} aria-label="Export progress" className="h-1.5 w-32" />
-                  {Math.round(progress * 100)}%
-                </dd>
-              </div>
-            )}
-          </dl>
         </div>
       )}
     </ToolPageLayout>
