@@ -1,6 +1,6 @@
 import {
   FileVideo, FileImage, FileText, Type, Code, Scissors, LayoutGrid, Braces, Palette, Clapperboard, AudioWaveform,
-  Video, Music, FolderOpen,
+  Video, Music, FolderOpen, FilePen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { getLocalAssetPath } from '@/config/externalUrls';
@@ -143,6 +143,16 @@ export const TOOLS: ToolConfig[] = [
     path: '/tools/audio-editor',
     fullWidth: true,
     category: 'audio',
+    featured: true,
+  },
+  {
+    title: 'File Renamer',
+    description: 'Batch rename files with rules',
+    tooltip: 'Remove words, find and replace, snake_case or kebab-case and numbers like _001, then rename a folder in place or download a ZIP',
+    icon: FilePen,
+    path: '/tools/file-renamer',
+    fullWidth: true,
+    category: 'document',
     featured: true,
   },
   {

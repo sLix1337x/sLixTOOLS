@@ -30,6 +30,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 | 🎥 **Video Converter** | Convert video formats right in the browser via ffmpeg.wasm |
 | ✂️ **Video Editor** | Trim, split and combine clips; speed, rotation, fades; export MP4/WebM or the soundtrack as MP3 |
 | 🎚️ **Audio Editor** | Cut, combine and fade audio on a zoomable waveform; normalize, reverse, export MP3/WAV/OGG/FLAC/M4A |
+| 🏷️ **File Renamer** | Batch rename with rules (remove words, replace, snake_case, _001 numbering); rename a folder in place, ZIP or script |
 | 🔄 **Image Converter** | Batch-convert many images between PNG / JPG / WebP — quality slider, per-file or ZIP download |
 | 🧩 **Image Splitter** | Slice one image into a grid of tiles with view presets |
 | 🔤 **Convert Case** | 7 instant case styles (Sentence, Title, camelCase, aLtErNaTiNg…) |
@@ -46,7 +47,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 * 🧳 **Lean First Load** — every route and heavy library (like `ffmpeg.wasm`) is code-split and loaded on demand
 * 🎨 **Dual Identity** — an indie-glitch aesthetic on the home page, a graphite + azure "pro" theme across the tools
 * 📱 **Installable** — ships a web app manifest, so it installs to your home screen like a native app
-* 🧪 **Tested** — 133 unit tests via Vitest, strict TypeScript, ESLint-clean
+* 🧪 **Tested** — 148 unit tests via Vitest, strict TypeScript, ESLint-clean
 
 ---
 
@@ -94,7 +95,7 @@ The build splits vendor chunks (`framer-motion`, `react`, ffmpeg…). `public/40
 ### Tests & Lint
 
 ```bash
-npm test          # Vitest — 133 tests
+npm test          # Vitest — 148 tests
 npm run lint      # ESLint
 ```
 
