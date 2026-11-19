@@ -1,22 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import {
+  audibleRange,
+  bitcrush,
   computePeaks,
+  cutFilter,
   cutClips,
   deleteTrackRange,
   editTrackRange,
   encodeWav,
   equalize,
+  fadeCurve,
   fade,
   gain,
+  glue,
   insertIntoTrack,
   keepRange,
+  limit,
+  loudness,
+  makeLoop,
   moveRange,
+  noise,
   normalize,
+  pitchShift,
   pcmLength,
   renderClips,
+  reverb,
   reverse,
+  saturate,
   silence,
   tracksLength,
+  transient,
   type Clip,
   type Pcm,
   type Track,
@@ -63,6 +76,26 @@ describe('audioEdit', () => {
     expect(values(equalize(dc, 0, n, { low: 0, mid: 0, high: 0 }))).toEqual(values(dc));
   });
 
+  it('pitch-shifts by semitones and keeps the length', () => {
+    const n = 16000;
+    const sine = mono(...Array.from({ length: n }, (_, i) => 0.5 * Math.sin((2 * Math.PI * 500 * i) / 8000)));
+    // Upward zero crossings in the middle second ≈ frequency in Hz
+    const hz = (p: Pcm) => {
+      const x = p.channels[0];
+      let count = 0;
+      for (let i = 4000; i < 12000; i++) if (x[i - 1] < 0 && x[i] >= 0) count++;
+      return count;
+    };
+    const up = pitchShift(sine, 0, n, 12);
+    expect(pcmLength(up)).toBe(n);
+    expect(hz(up)).toBeGreaterThan(970);
+    expect(hz(up)).toBeLessThan(1030);
+    const down = pitchShift(sine, 0, n, -12);
+    expect(hz(down)).toBeGreaterThan(242);
+    expect(hz(down)).toBeLessThan(258);
+    expect(pitchShift(sine, 0, n, 0)).toBe(sine);
+  });
+
   describe('tracks', () => {
     const clip = (at: number, ...v: number[]): Clip => ({ at, pcm: mono(...v) });
     const flat = (t: Track) => values(renderClips(t.clips, 8000, 0, tracksLength([t])));
@@ -86,9 +119,105 @@ describe('audioEdit', () => {
       const t = track(clip(0, 1, 1, 1, 1));
       expect(flat(editTrackRange(t, 8000, 1, 3, (p) => silence(p, 0, 2)))).toEqual([1, 0, 0, 1]);
       expect(editTrackRange(t, 8000, 5, 6, (p) => p)).toBe(t);
-      const [a, b] = moveRange([t, { id: 2, clips: [] }], 8000, 1, 1, 3, 2, 5);
+      const [a, b] = moveRange([t, { id: 2, clips: [] }], 1, 1, 3, 2, 5);
       expect(flat(a)).toEqual([1, 0, 0, 1]);
       expect(values(renderClips(b.clips, 8000, 0, 7))).toEqual([0, 0, 0, 0, 0, 1, 1]);
+    });
+
+    it('applies clip fades, keeps whole fades through cuts and moves, bakes cut ones', () => {
+      expect([fadeCurve(0.5, 0), fadeCurve(0.5, 1), fadeCurve(0.5, -1)]).toEqual([0.5, 0.9375, 0.0625]);
+      const faded: Clip = { ...clip(0, 1, 1, 1, 1, 1, 1), fadeIn: { length: 2, curve: 0 }, fadeOut: { length: 2, curve: 0 } };
+      const t = track(faded);
+      expect(flat(t)).toEqual([0, 0.5, 1, 1, 0.5, 0]);
+      const gap = { ...t, clips: cutClips(t.clips, 3, 4) };
+      expect(flat(gap)).toEqual([0, 0.5, 1, 0, 0.5, 0]);
+      expect(gap.clips.map((c) => [c.fadeIn?.length, c.fadeOut?.length])).toEqual([[2, undefined], [undefined, 2]]);
+      const baked = cutClips(t.clips, 1, 2);
+      expect(values(renderClips(baked, 8000, 0, 6))).toEqual([0, 0, 1, 1, 0.5, 0]);
+      expect(baked[0].fadeIn).toBeUndefined();
+      const [, moved] = moveRange([t, { id: 2, clips: [] }], 1, 0, 6, 2, 3);
+      expect(moved.clips[0]).toMatchObject({ at: 3, fadeIn: faded.fadeIn, fadeOut: faded.fadeOut });
+    });
+  });
+
+  it('glue-compresses above the threshold, with makeup and dry/wet', () => {
+    const loud = mono(...Array<number>(4000).fill(0.5)); // about -6 dBFS
+    const settings = { threshold: -20, ratio: 4, attack: 1, release: 100, makeup: 0, mix: 1 };
+    const { pcm, reduction } = glue(loud, settings);
+    const less = (20 * Math.log10(0.5) + 20) * 0.75; // reduction: dB over threshold × (1 - 1/4)
+    expect(reduction).toBeCloseTo(less, 2);
+    expect(pcm.channels[0][3999]).toBeCloseTo(0.5 * 10 ** (-less / 20), 3);
+    expect(glue(loud, { ...settings, makeup: less }).pcm.channels[0][3999]).toBeCloseTo(0.5, 3);
+    expect(values(glue(loud, { ...settings, mix: 0 }).pcm)).toEqual(values(loud));
+    expect(glue(loud, { ...settings, threshold: 0 }).reduction).toBe(0);
+  });
+
+  describe('sfx', () => {
+    const n = 8000;
+    const dc = mono(...Array<number>(n).fill(0.1));
+    const nyquist = mono(...Array.from({ length: n }, (_, i) => (i % 2 ? -0.1 : 0.1)));
+    const settled = (p: Pcm) => Math.abs(p.channels[0][n - 100]);
+    const peak = (p: Pcm) => Math.max(...p.channels.flatMap((ch) => Array.from(ch, Math.abs)));
+
+    it('low cut removes bass, high cut removes treble', () => {
+      expect(settled(cutFilter(dc, 0, n, { lowCut: 100, highCut: 0 }))).toBeLessThan(0.001);
+      expect(settled(cutFilter(nyquist, 0, n, { lowCut: 0, highCut: 1000 }))).toBeLessThan(0.001);
+      expect(settled(cutFilter(dc, 0, n, { lowCut: 0, highCut: 1000 }))).toBeCloseTo(0.1, 3);
+      expect(cutFilter(dc, 0, n, { lowCut: 0, highCut: 0 })).toBe(dc);
+    });
+
+    it('saturates with tanh and bitcrushes with quantize and hold', () => {
+      const loud = mono(...Array<number>(400).fill(0.9));
+      expect(saturate(loud, 0, 400, 12).channels[0][200]).toBeCloseTo(Math.tanh(0.9 * 10 ** (12 / 20)), 5);
+      expect(saturate(loud, 0, 400, 0)).toBe(loud);
+      const crushed = bitcrush(mono(...Array.from({ length: 200 }, (_, i) => (i % 2 ? 0.1 : 0.3))), 0, 200, 2, 4000);
+      expect(values(crushed).slice(100, 104)).toEqual([0.5, 0.5, 0.5, 0.5]);
+    });
+
+    it('shapes transients: attack boosts the onset, sustain scales the body', () => {
+      const hit = mono(...Array.from({ length: n }, (_, i) => (i < 2000 ? 0 : 0.5)));
+      expect(transient(hit, 0, n, 12, 0).channels[0][2020]).toBeGreaterThan(1);
+      expect(transient(hit, 0, n, 12, 0).channels[0][7000]).toBeCloseTo(0.5, 2);
+      expect(transient(hit, 0, n, 0, -12).channels[0][7000]).toBeCloseTo(0.5 * 10 ** (-12 / 20), 2);
+    });
+
+    it('measures LUFS and limits to a ceiling', () => {
+      const sine = (amp: number): Pcm => ({
+        sampleRate: 48000,
+        channels: [Float32Array.from({ length: 96000 }, (_, i) => amp * Math.sin((2 * Math.PI * 1000 * i) / 48000))],
+      });
+      expect(loudness(sine(1))).toBeCloseTo(-3.01, 1);
+      expect(loudness(sine(0.5))).toBeCloseTo(-9.03, 1);
+      expect(loudness(mono(0, 0, 0))).toBe(-Infinity);
+      const mixed = mono(...Array.from({ length: 4000 }, (_, i) => (i < 2000 ? 0.1 : i % 2 ? -0.9 : 0.9)));
+      const limited = limit(mixed, -1, 6);
+      expect(peak(limited)).toBeLessThanOrEqual(10 ** (-1 / 20) + 1e-6);
+      expect(limited.channels[0][1000]).toBeCloseTo(0.1 * 10 ** (6 / 20), 4);
+    });
+
+    it('finds the audible range, generates noise, loops seamlessly', () => {
+      expect(audibleRange(mono(0, 0, 0.5, 0, 0.2, 0, 0))).toEqual([2, 5]);
+      expect(audibleRange(mono(0, 0))).toEqual([0, 0]);
+      for (const color of ['white', 'pink', 'brown'] as const) {
+        const burst = noise(8000, 0.1, color);
+        expect(pcmLength(burst)).toBe(800);
+        expect(peak(burst)).toBeCloseTo(0.9, 5);
+      }
+      const loop = makeLoop(mono(0, 1, 2, 3, 4, 5, 6, 7, 8, 9), 3);
+      expect(values(loop)).toHaveLength(7);
+      expect(loop.channels[0][0]).toBeCloseTo(7, 5); // the start continues the dropped end
+      expect(values(loop).slice(3)).toEqual([3, 4, 5, 6]);
+    });
+
+    it('adds a decaying reverb tail', () => {
+      const impulse = mono(1, ...Array<number>(799).fill(0));
+      const wet = reverb(impulse, 0.5, 0.5);
+      expect(pcmLength(wet)).toBe(800 + 4000);
+      expect(wet.channels[0][0]).toBe(1);
+      const energy = (from: number, to: number) => values(wet).slice(from, to).reduce((a, v) => a + v * v, 0);
+      expect(energy(800, 1800)).toBeGreaterThan(10 * energy(3800, 4800));
+      expect(energy(3800, 4800)).toBeGreaterThan(0);
+      expect(reverb(impulse, 0.5, 0)).toBe(impulse);
     });
   });
 

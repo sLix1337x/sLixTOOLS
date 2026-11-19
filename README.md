@@ -29,7 +29,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 | 📐 **Image Resizer** | Resize images by pixels or percentage, bulk-ready |
 | 🎥 **Video Converter** | Convert video formats right in the browser via ffmpeg.wasm |
 | ✂️ **Video Editor** | Trim, split and combine clips; speed, rotation, fades; export MP4/WebM or the soundtrack as MP3 |
-| 🎚️ **Audio Editor** | Multitrack: cut, move parts between tracks, fade, EQ, normalize, reverse; export MP3/WAV/OGG/FLAC/M4A |
+| 🎚️ **Audio Editor** | Multitrack with drag-and-drop files: cut, move parts, fade curves, EQ, filters, glue compressor, transient shaper, saturation/bitcrush, reverb tail, pitch shift, seamless loops, noise bursts, trim silence; export MP3/WAV/OGG/FLAC/M4A with LUFS match and random variations (ZIP) |
 | 🏷️ **File Renamer** | Batch rename with rules (remove words, replace, snake_case, _001 numbering); rename a folder in place, ZIP or script |
 | 🔄 **Image Converter** | Batch-convert many images between PNG / JPG / WebP — quality slider, per-file or ZIP download |
 | 🧩 **Image Splitter** | Slice one image into a grid of tiles with view presets |
@@ -47,7 +47,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 * 🧳 **Lean First Load** — every route and heavy library (like `ffmpeg.wasm`) is code-split and loaded on demand
 * 🎨 **Dual Identity** — an indie-glitch aesthetic on the home page, a graphite + azure "pro" theme across the tools
 * 📱 **Installable** — ships a web app manifest, so it installs to your home screen like a native app
-* 🧪 **Tested** — 151 unit tests via Vitest, strict TypeScript, ESLint-clean
+* 🧪 **Tested** — 160 unit tests via Vitest, strict TypeScript, ESLint-clean
 
 ---
 
@@ -95,7 +95,7 @@ The build splits vendor chunks (`framer-motion`, `react`, ffmpeg…). `public/40
 ### Tests & Lint
 
 ```bash
-npm test          # Vitest — 151 tests
+npm test          # Vitest — 160 tests
 npm run lint      # ESLint
 ```
 
