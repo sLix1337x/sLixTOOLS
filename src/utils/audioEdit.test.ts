@@ -3,6 +3,7 @@ import {
   audibleRange,
   bitcrush,
   computePeaks,
+  copyRange,
   cutFilter,
   cutClips,
   deleteTrackRange,
@@ -18,12 +19,18 @@ import {
   limit,
   loudness,
   makeLoop,
+  moveClips,
   moveRange,
   noise,
+  NO_FX,
   normalize,
   pitchShift,
+  pan,
+  pasteClips,
   pcmLength,
+  processTrack,
   renderClips,
+  resizeClip,
   reverb,
   reverse,
   saturate,
@@ -122,6 +129,49 @@ describe('audioEdit', () => {
       const [a, b] = moveRange([t, { id: 2, clips: [] }], 1, 1, 3, 2, 5);
       expect(flat(a)).toEqual([1, 0, 0, 1]);
       expect(values(renderClips(b.clips, 8000, 0, 7))).toEqual([0, 0, 0, 0, 0, 1, 1]);
+    });
+
+    it('copies a range, pastes it over what was there, and copy-moves', () => {
+      const t = track(clip(0, 1, 2, 3, 4));
+      const parts = copyRange(t.clips, 1, 3);
+      expect(values(renderClips(parts, 8000, 0, 2))).toEqual([2, 3]);
+      expect(flat(pasteClips(t, parts, 2, 2))).toEqual([1, 2, 2, 3]);
+      const [a] = moveRange([t], 1, 0, 2, 1, 2, true);
+      expect(flat(a)).toEqual([1, 2, 4, 6]);
+    });
+
+    it('trims a clip edge and drags it back out, also after a cut', () => {
+      const c = clip(2, 1, 2, 3, 4);
+      const short = resizeClip(c, 'end', 4);
+      expect(values(short.pcm)).toEqual([1, 2]);
+      expect(values(resizeClip(short, 'end', 99).pcm)).toEqual([1, 2, 3, 4]);
+      const late = resizeClip(c, 'start', 4);
+      expect([late.at, ...values(late.pcm)]).toEqual([4, 3, 4]);
+      expect(resizeClip(late, 'start', 0).at).toBe(2);
+      const [right] = cutClips([c], 0, 4);
+      expect(values(resizeClip(right, 'start', 0).pcm)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('applies clip gain and pans', () => {
+      expect(values(renderClips([{ ...clip(0, 0.5), gain: -6 }], 8000, 0, 1)).map((v) => Math.round(v * 100))).toEqual([25]);
+      const left = pan(mono(1), -1);
+      expect([values(left, 0), values(left, 1)]).toEqual([[1], [0]]);
+    });
+
+    it('moves picked clips across tracks together', () => {
+      const a = clip(0, 1);
+      const b = clip(3, 2);
+      const { tracks, moved } = moveClips([track(a, b), { id: 2, clips: [] }], [a, b], 1, 2);
+      expect(tracks[0].clips).toEqual([]);
+      expect(tracks[1].clips.map((c) => c.at)).toEqual([2, 5]);
+      expect(moved).toHaveLength(2);
+      expect(moveClips([track(a)], [a], 0, 1, true).tracks[0].clips).toHaveLength(2);
+    });
+
+    it('runs a neutral effect chain as a no-op and applies volume', () => {
+      const p = mono(0.5, -0.5);
+      expect(processTrack(p, NO_FX)).toBe(p);
+      expect(values(processTrack(p, { ...NO_FX, volume: -6 })).map((v) => Math.round(v * 100))).toEqual([25, -25]);
     });
 
     it('applies clip fades, keeps whole fades through cuts and moves, bakes cut ones', () => {

@@ -517,6 +517,11 @@ export interface Clip {
   pcm: Pcm;
   fadeIn?: Fade;
   fadeOut?: Fade;
+  /** clip gain, dB */
+  gain?: number;
+  /** The untrimmed audio pcm is a window of, starting `offset` samples in; lets a trimmed edge be dragged back out */
+  src?: Pcm;
+  offset?: number;
 }
 
 /** Rising fade gain at t in [0, 1]; fade-outs use it mirrored. */
@@ -540,9 +545,12 @@ const sliceClip = (clip: Clip, from: number, to: number): Clip => {
   const keepOut = to === n && n - (clip.fadeOut?.length ?? 0) >= from;
   const bakeIn = keepIn ? undefined : clip.fadeIn;
   const bakeOut = keepOut ? undefined : clip.fadeOut;
+  const baked = Boolean(bakeIn || bakeOut);
+  // Unbaked parts stay windows into the source, so their edges can be dragged back out
   const channels = clip.pcm.channels.map((ch) => {
+    if (!baked) return ch.subarray(from, to);
     const out = ch.slice(from, to);
-    if (bakeIn || bakeOut) for (let i = 0; i < out.length; i++) out[i] *= fadeGain(n, from + i, bakeIn, bakeOut);
+    for (let i = 0; i < out.length; i++) out[i] *= fadeGain(n, from + i, bakeIn, bakeOut);
     return out;
   });
   return {
@@ -550,11 +558,38 @@ const sliceClip = (clip: Clip, from: number, to: number): Clip => {
     pcm: { ...clip.pcm, channels },
     ...(keepIn && clip.fadeIn && { fadeIn: clip.fadeIn }),
     ...(keepOut && clip.fadeOut && { fadeOut: clip.fadeOut }),
+    ...(clip.gain && { gain: clip.gain }),
+    ...(!baked && { src: clip.src ?? clip.pcm, offset: (clip.offset ?? 0) + from }),
   };
 };
+
+/** Moves one edge of a clip to timeline sample `to`: inward trims, outward brings back trimmed audio up to the source's end. */
+export const resizeClip = (clip: Clip, edge: 'start' | 'end', to: number): Clip => {
+  const src = clip.src ?? clip.pcm;
+  const zero = clip.at - (clip.offset ?? 0); // where the source's first sample sits
+  let a = clip.at;
+  let b = clipEnd(clip);
+  if (edge === 'start') a = Math.max(0, zero, Math.min(b - 1, Math.round(to)));
+  else b = Math.min(zero + pcmLength(src), Math.max(a + 1, Math.round(to)));
+  const len = b - a;
+  const fadeIn = clip.fadeIn && { ...clip.fadeIn, length: Math.min(len, clip.fadeIn.length) };
+  const fadeOut = clip.fadeOut && { ...clip.fadeOut, length: Math.min(len - (fadeIn?.length ?? 0), clip.fadeOut.length) };
+  return {
+    ...clip,
+    at: a,
+    pcm: { ...src, channels: src.channels.map((ch) => ch.subarray(a - zero, b - zero)) },
+    src,
+    offset: a - zero,
+    ...(fadeIn && { fadeIn }),
+    ...(fadeOut && { fadeOut }),
+  };
+};
+
 export interface Track {
   id: number;
   clips: Clip[];
+  /** live effect chain */
+  fx?: TrackFx;
 }
 
 export const clipEnd = (clip: Clip) => clip.at + pcmLength(clip.pcm);
@@ -574,10 +609,11 @@ export const renderClips = (clips: Clip[], sampleRate: number, start: number, en
     const src = withChannels(clip.pcm, count).channels;
     const n = pcmLength(clip.pcm);
     const faded = clip.fadeIn || clip.fadeOut;
+    const g = clip.gain ? 10 ** (clip.gain / 20) : 1;
     channels.forEach((out, c) => {
       for (let i = from; i < to; i++) {
         const k = i - clip.at;
-        out[i - start] += faded ? src[c][k] * fadeGain(n, k, clip.fadeIn, clip.fadeOut) : src[c][k];
+        out[i - start] += (faded ? src[c][k] * fadeGain(n, k, clip.fadeIn, clip.fadeOut) : src[c][k]) * g;
       }
     });
   }
@@ -613,19 +649,132 @@ export const insertIntoTrack = (track: Track, at: number, pcm: Pcm): Track => {
   return { ...track, clips: [...cutClips(track.clips, at, at).map((c) => (c.at >= at ? { ...c, at: c.at + n } : c)), { at, pcm }] };
 };
 
-/** Lifts [start, end) off track `from` and drops it on track `to` at sample `at`, leaving silence behind. */
-export const moveRange = (tracks: Track[], from: number, start: number, end: number, to: number, at: number): Track[] => {
-  const lifted = tracks.find((t) => t.id === from)?.clips.filter((c) => overlaps(c, start, end));
-  if (!lifted?.length) return tracks;
-  const shift = Math.max(0, Math.round(at)) - start;
-  const parts = lifted.map((c) => {
-    const part = sliceClip(c, Math.max(0, start - c.at), Math.min(pcmLength(c.pcm), end - c.at));
-    return { ...part, at: part.at + shift };
-  });
+/** The parts of the clips inside [start, end), shifted so `start` lands at 0. */
+export const copyRange = (clips: Clip[], start: number, end: number): Clip[] =>
+  clips
+    .filter((c) => overlaps(c, start, end))
+    .map((c) => {
+      const part = sliceClip(c, Math.max(0, start - c.at), Math.min(pcmLength(c.pcm), end - c.at));
+      return { ...part, at: part.at - start };
+    });
+
+/** Puts copied clips (from copyRange, `length` samples long) at sample `at`, replacing what was there. */
+export const pasteClips = (track: Track, parts: Clip[], length: number, at: number): Track => ({
+  ...track,
+  clips: [...cutClips(track.clips, at, at + length), ...parts.map((c) => ({ ...c, at: c.at + at }))],
+});
+
+/** Lifts [start, end) off track `from` and drops it on track `to` at sample `at`, leaving silence behind (or the original, with copy). */
+export const moveRange = (tracks: Track[], from: number, start: number, end: number, to: number, at: number, copy = false): Track[] => {
+  const parts = copyRange(tracks.find((t) => t.id === from)?.clips ?? [], start, end);
+  if (!parts.length) return tracks;
+  const shift = Math.max(0, Math.round(at));
   return tracks.map((t) => {
-    const clips = t.id === from ? cutClips(t.clips, start, end) : t.clips;
-    return t.id === to ? { ...t, clips: [...clips, ...parts] } : clips === t.clips ? t : { ...t, clips };
+    const clips = t.id === from && !copy ? cutClips(t.clips, start, end) : t.clips;
+    return t.id === to ? { ...t, clips: [...clips, ...parts.map((c) => ({ ...c, at: c.at + shift }))] } : clips === t.clips ? t : { ...t, clips };
   });
+};
+
+/** Moves (or copies) the picked clips `lanes` tracks down and `shift` samples later; callers keep both in range. */
+export const moveClips = (tracks: Track[], picked: Clip[], lanes: number, shift: number, copy = false): { tracks: Track[]; moved: Clip[] } => {
+  const pick = new Set(picked);
+  const moved: Clip[] = [];
+  const adds = tracks.map((): Clip[] => []);
+  tracks.forEach((t, i) =>
+    t.clips.forEach((c) => {
+      if (!pick.has(c)) return;
+      const m = { ...c, at: c.at + shift };
+      adds[Math.max(0, Math.min(tracks.length - 1, i + lanes))].push(m);
+      moved.push(m);
+    })
+  );
+  return {
+    tracks: tracks.map((t, i) => {
+      const keep = copy ? t.clips : t.clips.filter((c) => !pick.has(c));
+      return keep.length === t.clips.length && !adds[i].length ? t : { ...t, clips: [...keep, ...adds[i]] };
+    }),
+    moved,
+  };
+};
+
+/** Balance: -1 hard left, 1 hard right; the output is stereo. */
+export const pan = (pcm: Pcm, amount: number): Pcm => {
+  const [l, r = l] = pcm.channels;
+  return { ...pcm, channels: [l.map((v) => v * Math.min(1, 1 - amount)), r.map((v) => v * Math.min(1, 1 + amount))] };
+};
+
+/** A track's live effect chain. Every stage at its neutral value is skipped. */
+export interface TrackFx {
+  /** dB */
+  volume: number;
+  /** -1 left .. 1 right */
+  pan: number;
+  semitones: number;
+  /** transient shaper, dB */
+  attack: number;
+  sustain: number;
+  /** saturation drive, dB; 0 = off */
+  drive: number;
+  /** 16 bits with rate 0 = off */
+  bits: number;
+  /** Hz; 0 = full rate */
+  rate: number;
+  /** Hz; 0 = off */
+  lowCut: number;
+  highCut: number;
+  eq: EqGains;
+  /** reverb tail, seconds */
+  decay: number;
+  /** reverb wet amount 0..1; 0 = off */
+  reverb: number;
+}
+export const NO_FX: TrackFx = {
+  volume: 0,
+  pan: 0,
+  semitones: 0,
+  attack: 0,
+  sustain: 0,
+  drive: 0,
+  bits: 16,
+  rate: 0,
+  lowCut: 0,
+  highCut: 0,
+  eq: { low: 0, mid: 0, high: 0 },
+  decay: 1,
+  reverb: 0,
+};
+export const fxActive = (fx: TrackFx) =>
+  Boolean(
+    fx.volume ||
+      fx.pan ||
+      fx.semitones ||
+      fx.attack ||
+      fx.sustain ||
+      fx.drive ||
+      fx.bits < 16 ||
+      fx.rate ||
+      fx.lowCut ||
+      fx.highCut ||
+      fx.eq.low ||
+      fx.eq.mid ||
+      fx.eq.high ||
+      fx.reverb
+  );
+
+/** Runs the effect chain over a whole track's audio; a reverb makes it longer by its tail. */
+export const processTrack = (pcm: Pcm, fx: TrackFx): Pcm => {
+  const n = pcmLength(pcm);
+  let p = pcm;
+  if (fx.semitones) p = pitchShift(p, 0, n, fx.semitones);
+  if (fx.attack || fx.sustain) p = transient(p, 0, n, fx.attack, fx.sustain);
+  if (fx.drive) p = saturate(p, 0, n, fx.drive);
+  if (fx.bits < 16 || fx.rate) p = bitcrush(p, 0, n, fx.bits, fx.rate || p.sampleRate);
+  if (fx.lowCut || fx.highCut) p = cutFilter(p, 0, n, { lowCut: fx.lowCut, highCut: fx.highCut });
+  if (fx.eq.low || fx.eq.mid || fx.eq.high) p = equalize(p, 0, n, fx.eq);
+  if (fx.reverb) p = reverb(p, fx.decay, fx.reverb);
+  if (fx.volume) p = gain(p, 0, pcmLength(p), 10 ** (fx.volume / 20));
+  if (fx.pan) p = pan(p, fx.pan);
+  return p;
 };
 
 export interface GlueSettings {
