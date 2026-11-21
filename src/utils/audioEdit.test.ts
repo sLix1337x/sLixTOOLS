@@ -10,6 +10,7 @@ import {
   editTrackRange,
   encodeWav,
   equalize,
+  eqResponse,
   fadeCurve,
   fade,
   gain,
@@ -81,6 +82,14 @@ describe('audioEdit', () => {
     expect(settled(equalize(dc, 0, n, { low: 0, mid: 6, high: 6 }))).toBeCloseTo(0.1, 3);
     expect(settled(equalize(nyquist, 0, n, { low: 0, mid: 0, high: 6 }))).toBeCloseTo(plus6, 3);
     expect(values(equalize(dc, 0, n, { low: 0, mid: 0, high: 0 }))).toEqual(values(dc));
+  });
+
+  it('draws the EQ curve: full gain at a moved mid band, none far from it', () => {
+    const gains = { low: 0, mid: 9, high: 0 };
+    const freqs = { low: 200, mid: 3000, high: 4000 };
+    expect(eqResponse(gains, freqs, 0.9, 3000)).toBeCloseTo(9, 3);
+    expect(Math.abs(eqResponse(gains, freqs, 0.9, 30))).toBeLessThan(0.1);
+    expect(eqResponse({ low: 6, mid: 0, high: 0 }, freqs, 0.9, 20)).toBeCloseTo(6, 1);
   });
 
   it('pitch-shifts by semitones and keeps the length', () => {

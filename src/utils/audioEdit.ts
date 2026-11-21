@@ -91,14 +91,17 @@ export interface EqGains {
 /** Band frequencies in Hz: low shelf, peaking mid, high shelf */
 export const EQ_FREQS: EqGains = { low: 200, mid: 1000, high: 4000 };
 
-/** RBJ cookbook biquad for a band and gain in dB, normalized to [b0, b1, b2, a1, a2]. */
-const biquad = (band: keyof EqGains, db: number, sampleRate: number) => {
+/** Default width of the mid band */
+export const EQ_Q = 0.9;
+
+/** RBJ cookbook biquad for a band and gain in dB, normalized to [b0, b1, b2, a1, a2]. q only shapes the mid band. */
+const biquad = (band: keyof EqGains, db: number, sampleRate: number, freq = EQ_FREQS[band], q = EQ_Q) => {
   const A = 10 ** (db / 40);
-  const w = (2 * Math.PI * Math.min(EQ_FREQS[band], sampleRate * 0.45)) / sampleRate;
+  const w = (2 * Math.PI * Math.min(freq, sampleRate * 0.45)) / sampleRate;
   const cos = Math.cos(w);
   const sin = Math.sin(w);
   if (band === 'mid') {
-    const alpha = sin / 1.8; // Q 0.9
+    const alpha = sin / (2 * q);
     const a0 = 1 + alpha / A;
     return [(1 + alpha * A) / a0, (-2 * cos) / a0, (1 - alpha * A) / a0, (-2 * cos) / a0, (1 - alpha / A) / a0];
   }
@@ -233,10 +236,31 @@ const runBiquad = (x: Float32Array, [b0, b1, b2, a1, a2]: number[]) => {
 };
 
 /** 3-band EQ on the range, with short crossfades at its edges so it joins the untouched audio without clicks. */
-export const equalize = (pcm: Pcm, start: number, end: number, gains: EqGains): Pcm => {
+export const equalize = (
+  pcm: Pcm,
+  start: number,
+  end: number,
+  gains: EqGains,
+  freqs: EqGains = EQ_FREQS,
+  q = EQ_Q
+): Pcm => {
   const bands = (Object.keys(EQ_FREQS) as (keyof EqGains)[]).filter((b) => gains[b] !== 0);
-  const filters = bands.map((b) => biquad(b, gains[b], pcm.sampleRate));
+  const filters = bands.map((b) => biquad(b, gains[b], pcm.sampleRate, freqs[b], q));
   return processRange(pcm, start, end, (wet) => filters.forEach((f) => runBiquad(wet, f)));
+};
+
+/** The EQ's total boost or cut at freq Hz, in dB, for drawing its curve. */
+export const eqResponse = (gains: EqGains, freqs: EqGains, q: number, freq: number, sampleRate = 48000) => {
+  const w = (2 * Math.PI * freq) / sampleRate;
+  const [c1, s1, c2, s2] = [Math.cos(w), Math.sin(w), Math.cos(2 * w), Math.sin(2 * w)];
+  const mag = (x0: number, x1: number, x2: number) => Math.hypot(x0 + x1 * c1 + x2 * c2, x1 * s1 + x2 * s2);
+  let db = 0;
+  for (const b of Object.keys(EQ_FREQS) as (keyof EqGains)[]) {
+    if (!gains[b]) continue;
+    const [b0, b1, b2, a1, a2] = biquad(b, gains[b], sampleRate, freqs[b], q);
+    db += 20 * Math.log10(mag(b0, b1, b2) / mag(1, a1, a2));
+  }
+  return db;
 };
 
 /** RBJ high- or low-pass biquad. */
@@ -723,6 +747,10 @@ export interface TrackFx {
   lowCut: number;
   highCut: number;
   eq: EqGains;
+  /** Hz per band */
+  eqFreq: EqGains;
+  /** mid band width */
+  eqQ: number;
   /** reverb tail, seconds */
   decay: number;
   /** reverb wet amount 0..1; 0 = off */
@@ -740,6 +768,8 @@ export const NO_FX: TrackFx = {
   lowCut: 0,
   highCut: 0,
   eq: { low: 0, mid: 0, high: 0 },
+  eqFreq: EQ_FREQS,
+  eqQ: EQ_Q,
   decay: 1,
   reverb: 0,
 };
@@ -770,7 +800,7 @@ export const processTrack = (pcm: Pcm, fx: TrackFx): Pcm => {
   if (fx.drive) p = saturate(p, 0, n, fx.drive);
   if (fx.bits < 16 || fx.rate) p = bitcrush(p, 0, n, fx.bits, fx.rate || p.sampleRate);
   if (fx.lowCut || fx.highCut) p = cutFilter(p, 0, n, { lowCut: fx.lowCut, highCut: fx.highCut });
-  if (fx.eq.low || fx.eq.mid || fx.eq.high) p = equalize(p, 0, n, fx.eq);
+  if (fx.eq.low || fx.eq.mid || fx.eq.high) p = equalize(p, 0, n, fx.eq, fx.eqFreq, fx.eqQ);
   if (fx.reverb) p = reverb(p, fx.decay, fx.reverb);
   if (fx.volume) p = gain(p, 0, pcmLength(p), 10 ** (fx.volume / 20));
   if (fx.pan) p = pan(p, fx.pan);

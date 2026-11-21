@@ -47,6 +47,7 @@ import { toast } from 'sonner';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import SettingSlider from '@/components/tools/SettingSlider';
+import EqCurve from '@/components/tools/EqCurve';
 import SourceChip from '@/components/tools/SourceChip';
 import { ToolbarDivider } from '@/components/tools/ToolBar';
 import { Progress } from '@/components/ui/progress';
@@ -129,11 +130,6 @@ const FORMATS: { value: AudioFormat; label: string }[] = [
 ];
 const BITRATES = [128, 192, 256, 320];
 const LOSSY: AudioFormat[] = ['mp3', 'ogg', 'm4a'];
-const EQ_BANDS = [
-  ['low', 'Bass', '200 Hz'],
-  ['mid', 'Mids', '1 kHz'],
-  ['high', 'Treble', '4 kHz'],
-] as const;
 const GLUE_DEFAULT: GlueSettings = {
   threshold: -18,
   ratio: 4,
@@ -212,6 +208,8 @@ type Drag =
       y: number;
       moved: boolean;
       clips?: Clip[] | undefined;
+      /** Ctrl was held on the header: a click without moving picks or unpicks this clip */
+      toggle?: Clip | undefined;
       items: MoveItem[];
       lane0: number;
       start: number;
@@ -224,7 +222,9 @@ type Drag =
   | { mode: 'gain'; track: number; index: number; y: number; db: number }
   | { mode: 'marquee'; t0: number; y0: number }
   | { mode: 'loop'; part: 'start' | 'end' | 'body'; grab: number }
-  | { mode: 'marker'; index: number; x: number; moved: boolean };
+  | { mode: 'marker'; index: number; x: number; moved: boolean }
+  /** Ruler held and dragged up or down: zooms around focus (seconds), kept at anchor px in the view */
+  | { mode: 'zoom'; y: number; zoom: number; focus: number; anchor: number };
 /** Copied audio: clips relative to the copied range's start */
 interface Clipboard {
   clips: Clip[];
@@ -525,7 +525,7 @@ const seoContent = (
           )}
           {guideItem(
             'Move:',
-            'drag a clip by its header strip, or drag a selection, to slide it in time or onto another track. Hold Ctrl when dropping to copy.'
+            'drag a clip by its header strip, or drag a selection, to slide it in time or onto another track. Hold Ctrl while dragging to drop a copy instead.'
           )}
           {guideItem(
             'Several clips:',
@@ -580,7 +580,10 @@ const seoContent = (
             'Fades, normalize, reverse:',
             'the toolbar buttons process the selection, or the whole track when nothing is selected.'
           )}
-          {guideItem('Equalizer:', 'raise or cut bass, mids and treble by up to 12 dB.')}
+          {guideItem(
+            'Equalizer:',
+            'drag the Low, Mid and High dots: sideways sets the frequency, up or down boosts or cuts by up to 12 dB. Click anywhere on the graph to pull the nearest dot there, scroll on the Mid dot to make it wider or narrower, double-click a dot to reset it. Arrow keys work too.'
+          )}
           {guideItem(
             'Clip fades:',
             'drag the small squares at the top corners of a clip to fade it in or out, and the dot to bend the curve. Double-click the dot to make it straight again.'
@@ -631,7 +634,7 @@ const seoContent = (
           </li>
           <li>Focus mode: the mouse wheel drives the timeline and the page stays put</li>
           <li>
-            <kbd className={guideKey}>Ctrl</kbd> + mouse wheel zoom,{' '}
+            <kbd className={guideKey}>Ctrl</kbd> + mouse wheel zoom, or hold the ruler and drag down or up,{' '}
             <kbd className={guideKey}>Shift</kbd> + wheel scrolls sideways
           </li>
           <li>
@@ -1436,15 +1439,13 @@ const AudioEditor = () => {
     const index =
       e.clientY - lanesTop - lane * laneHeight < CLIP_HEAD_H ? clipIndexAt(tracks[lane], t) : -1;
     const clip = index >= 0 ? tracks[lane].clips[index] : undefined;
-    if (e.ctrlKey || e.metaKey) {
-      // Ctrl+click a header picks or unpicks that clip, Ctrl+drag elsewhere draws a box
-      if (clip) setPicked((p) => (p.includes(clip) ? p.filter((c) => c !== clip) : [...p, clip]));
-      else {
-        const y = e.clientY - lanesTop;
-        dragRef.current = { mode: 'marquee', t0: t, y0: y };
-        setMarquee({ t0: t, t1: t, y0: y, y1: y });
-        setPicked([]);
-      }
+    const ctrl = e.ctrlKey || e.metaKey;
+    // Ctrl+drag off a header draws a box
+    if (ctrl && !clip) {
+      const y = e.clientY - lanesTop;
+      dragRef.current = { mode: 'marquee', t0: t, y0: y };
+      setMarquee({ t0: t, t1: t, y0: y, y1: y });
+      setPicked([]);
       return;
     }
     const grabbing = (items: MoveItem[], clips?: Clip[]) => {
@@ -1457,6 +1458,7 @@ const AudioEditor = () => {
         y: e.clientY,
         moved: false,
         clips,
+        toggle: ctrl ? clip : undefined,
         items,
         lane0: lane,
         start,
@@ -1603,6 +1605,10 @@ const AudioEditor = () => {
     if (d.moved) {
       if (d.clips) moveGroup(d.clips, d.lanes, toSample(d.at) - toSample(d.start), copyDrop);
       else moveSelection(tracks[d.lane0 + d.lanes].id, d.at, copyDrop);
+    } else if (d.toggle) {
+      // Ctrl+click a header picks or unpicks that clip
+      const c = d.toggle;
+      setPicked((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c]));
     } else if (d.clips) {
       // A click on a header selects that one clip
       const tr = tracks[d.lane0];
@@ -1701,9 +1707,31 @@ const AudioEditor = () => {
     rulerRef.current?.setPointerCapture(e.pointerId);
     dragRef.current = { mode: 'marker', index, x: e.clientX, moved: false };
   };
+  /** Ruler: a click moves the cursor; holding and dragging up or down zooms around that spot */
+  const onRulerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const t = timeAt(e.clientX);
+    seek(t);
+    const view = viewRef.current;
+    if (!view) return;
+    rulerRef.current?.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      mode: 'zoom',
+      y: e.clientY,
+      zoom,
+      focus: t,
+      anchor: e.clientX - view.getBoundingClientRect().left,
+    };
+  };
   const onRulerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     const t = timeAt(e.clientX);
+    if (d?.mode === 'zoom') {
+      // Down zooms in, up zooms out: every 60 px doubles or halves. A few px of wobble on a click is ignored
+      if (Math.abs(e.clientY - d.y) < 4) return;
+      zoomTo(d.zoom * 2 ** ((e.clientY - d.y) / 60), d.focus, d.anchor);
+      return;
+    }
     if (d?.mode === 'marker') {
       d.moved ||= Math.abs(e.clientX - d.x) > 3;
       if (d.moved) setMarkerDraft({ index: d.index, t: snapTo(t, e.altKey, { marker: d.index }) });
@@ -1724,6 +1752,10 @@ const AudioEditor = () => {
   };
   const onRulerUp = (e: React.PointerEvent) => {
     const d = dragRef.current;
+    if (d?.mode === 'zoom') {
+      dragRef.current = null;
+      return;
+    }
     if (d?.mode === 'marker') {
       dragRef.current = null;
       setMarkerDraft(null);
@@ -2616,7 +2648,7 @@ const AudioEditor = () => {
                         ref={rulerRef}
                         className="sticky top-0 z-30 cursor-pointer select-none overflow-hidden border-b border-white/10 bg-slate-950"
                         style={{ height: RULER_H }}
-                        onPointerDown={(e) => e.button === 0 && seek(timeAt(e.clientX))}
+                        onPointerDown={onRulerDown}
                         onPointerMove={onRulerMove}
                         onPointerUp={onRulerUp}
                         onPointerCancel={onRulerUp}
@@ -2626,10 +2658,7 @@ const AudioEditor = () => {
                         {loopRegion && (
                           <div
                             title="Loop: drag to move, drag the ends to resize, double-click the ruler to switch it on or off"
-                            className={cn(
-                              'absolute top-0 z-10 h-2.5 cursor-grab rounded-b-sm',
-                              loop ? 'bg-amber-300/80' : 'bg-slate-500/50'
-                            )}
+                            className="absolute top-0 z-10 h-1.5 cursor-grab"
                             style={{
                               left: pct(loopRegion.start),
                               width: pct(loopRegion.end - loopRegion.start),
@@ -2637,6 +2666,13 @@ const AudioEditor = () => {
                             onPointerDown={(e) => onLoopDown(e, 'body')}
                             onDoubleClick={(e) => e.stopPropagation()}
                           >
+                            {/* Thin visible strip above the tick labels; the parent is the grab area */}
+                            <div
+                              className={cn(
+                                'h-[3px] rounded-b-sm',
+                                loop ? 'bg-amber-300/90' : 'bg-slate-500/60'
+                              )}
+                            />
                             {(['start', 'end'] as const).map((part) => (
                               <div
                                 key={part}
@@ -3185,20 +3221,19 @@ const AudioEditor = () => {
                 'Equalizer',
                 flatEq ? '' : 'on',
                 <>
-                  {EQ_BANDS.map(([band, label, freq]) => (
-                    <SettingSlider
-                      key={band}
-                      label={`${label} (${freq})`}
-                      value={activeFx.eq[band]}
-                      valueText={signed(activeFx.eq[band], 'dB')}
-                      onChange={(v) => setActiveFx({ eq: { ...activeFx.eq, [band]: v } })}
-                      min={-12}
-                      max={12}
-                      step={1}
-                      disabled={busy}
-                    />
-                  ))}
-                  {actionBtn('Flat', () => setActiveFx({ eq: NO_FX.eq }), RotateCcw, flatEq)}
+                  <EqCurve
+                    eq={activeFx.eq}
+                    eqFreq={activeFx.eqFreq}
+                    eqQ={activeFx.eqQ}
+                    onChange={setActiveFx}
+                    disabled={busy}
+                  />
+                  {actionBtn(
+                    'Flat',
+                    () => setActiveFx({ eq: NO_FX.eq, eqFreq: NO_FX.eqFreq, eqQ: NO_FX.eqQ }),
+                    RotateCcw,
+                    flatEq
+                  )}
                 </>
               )}
 
