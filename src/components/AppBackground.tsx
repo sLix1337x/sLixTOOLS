@@ -20,6 +20,17 @@ const glowStyle: React.CSSProperties = {
     'radial-gradient(circle 600px at 50% 80px, rgba(109,62,240,0.35), transparent 70%), radial-gradient(ellipse 700px 420px at 8% 0%, rgba(43,108,255,0.24), transparent 70%), radial-gradient(ellipse 700px 420px at 92% 0%, rgba(56,189,248,0.18), transparent 70%)',
 };
 
+/** Pages that get the glow and grid */
+const GRID_PAGES = new Set([
+  '/tools',
+  '/about',
+  '/features',
+  '/contact',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/impressum',
+]);
+
 const AppBackground = () => {
   const { pathname } = useLocation();
   return (
@@ -47,7 +58,7 @@ const AppBackground = () => {
           opacity: 0.06,
         }}
       />
-      {pathname === '/tools' && (
+      {GRID_PAGES.has(pathname) && (
         <>
           <div style={glowStyle} />
           <div style={gridStyle} />
