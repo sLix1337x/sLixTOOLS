@@ -52,6 +52,14 @@ export const silence = (pcm: Pcm, start: number, end: number) => mapRange(pcm, s
 export const gain = (pcm: Pcm, start: number, end: number, factor: number) =>
   mapRange(pcm, start, end, (v) => Math.max(-1, Math.min(1, v * factor)));
 
+/** All channels averaged into one: how a game plays a sound it places in 3D. */
+export const toMono = (pcm: Pcm): Pcm => {
+  if (pcm.channels.length < 2) return pcm;
+  const out = new Float32Array(pcmLength(pcm));
+  for (const ch of pcm.channels) for (let i = 0; i < out.length; i++) out[i] += ch[i] / pcm.channels.length;
+  return { ...pcm, channels: [out] };
+};
+
 export const fade = (pcm: Pcm, start: number, end: number, direction: 'in' | 'out') =>
   mapRange(pcm, start, end, (v, i, n) => {
     const t = n > 1 ? i / (n - 1) : 1;
@@ -204,6 +212,43 @@ export const pitchShift = (pcm: Pcm, start: number, end: number, semitones: numb
   };
 };
 
+export interface PitchEnvSettings {
+  /** semitones the sound starts away from its pitch; 0 = off */
+  amount: number;
+  /** ms until it is back at its pitch */
+  time: number;
+}
+
+/**
+ * Pitch envelope: the sound starts `amount` semitones off and glides back, fast at first, by playing its start faster
+ * or slower. Begins at the first audible sample. A start above the pitch makes the audio shorter, one below longer.
+ */
+export const pitchEnvelope = (pcm: Pcm, o: PitchEnvSettings): Pcm => {
+  const n = pcmLength(pcm);
+  const span = (o.time / 1000) * pcm.sampleRate;
+  const [from, to] = audibleRange(pcm);
+  if (!o.amount || span < 1 || to <= from) return pcm;
+  // Where in the source every output sample reads. The glide lasts `span` output samples, so that is the most it adds
+  const pos = new Float64Array(n + Math.ceil(span) + 1);
+  let length = 0;
+  for (let p = 0; p <= n - 1; length++) {
+    pos[length] = p;
+    const t = (length - from) / span;
+    p += t < 0 || t >= 1 ? 1 : 2 ** ((o.amount * (1 - t) ** 2) / 12);
+  }
+  return {
+    ...pcm,
+    channels: pcm.channels.map((ch) => {
+      const out = new Float32Array(length);
+      for (let j = 0; j < length; j++) {
+        const i = Math.floor(pos[j]);
+        out[j] = ch[i] + ((ch[i + 1] ?? ch[i]) - ch[i]) * (pos[j] - i);
+      }
+      return out;
+    }),
+  };
+};
+
 /** Runs fn on a copy of each channel's range, then crossfades the range edges back into the dry audio. */
 const processRange = (pcm: Pcm, start: number, end: number, fn: (wet: Float32Array, c: number) => void): Pcm => {
   const [s, e] = clamp(pcm, start, end);
@@ -274,26 +319,50 @@ const passFilter = (type: 'high' | 'low', freq: number, sampleRate: number, q = 
   return [b0 / a0, b1 / a0, b0 / a0, (-2 * cos) / a0, (1 - alpha) / a0];
 };
 
+/** Filter steepness in dB per octave */
+export type Slope = 12 | 24 | 48;
+
 export interface CutSettings {
   /** high-pass cutoff in Hz, 0 = off */
   lowCut: number;
   /** low-pass cutoff in Hz, 0 = off */
   highCut: number;
+  /** default 24 */
+  lowSlope?: Slope;
+  highSlope?: Slope;
+  /** resonance: dB of boost at the cutoff, default 0 */
+  lowRes?: number;
+  highRes?: number;
 }
 
-/** Low cut and high cut at 24 dB/octave (two cascaded Butterworth biquads each). */
-export const cutFilter = (pcm: Pcm, start: number, end: number, { lowCut, highCut }: CutSettings): Pcm => {
+/** Butterworth cascade, one biquad per 12 dB/octave. Resonance raises the Q of the sharpest section. */
+const cutStages = (type: 'high' | 'low', freq: number, sampleRate: number, slope: Slope = 24, res = 0) => {
+  const count = slope / 12;
+  return Array.from({ length: count }, (_, k) => {
+    const q = 1 / (2 * Math.sin(((2 * k + 1) * Math.PI) / (4 * count)));
+    return passFilter(type, freq, sampleRate, k ? q : q * 10 ** (res / 20));
+  });
+};
+
+/** Low cut and high cut: Butterworth at 12, 24 or 48 dB/octave, each with optional resonance. */
+export const cutFilter = (pcm: Pcm, start: number, end: number, o: CutSettings): Pcm => {
   const filters = [
-    ...(lowCut > 0 ? [passFilter('high', lowCut, pcm.sampleRate)] : []),
-    ...(highCut > 0 ? [passFilter('low', highCut, pcm.sampleRate)] : []),
+    ...(o.lowCut > 0 ? cutStages('high', o.lowCut, pcm.sampleRate, o.lowSlope, o.lowRes) : []),
+    ...(o.highCut > 0 ? cutStages('low', o.highCut, pcm.sampleRate, o.highSlope, o.highRes) : []),
   ];
   if (!filters.length) return pcm;
-  return processRange(pcm, start, end, (wet) =>
-    filters.forEach((f) => {
-      runBiquad(wet, f);
-      runBiquad(wet, f);
-    }),
-  );
+  return processRange(pcm, start, end, (wet) => filters.forEach((f) => runBiquad(wet, f)));
+};
+
+/** The cut filters' total gain at freq Hz, in dB, for drawing their curve. */
+export const cutResponse = (o: CutSettings, freq: number, sampleRate = 48000) => {
+  const w = (2 * Math.PI * freq) / sampleRate;
+  const [c1, s1, c2, s2] = [Math.cos(w), Math.sin(w), Math.cos(2 * w), Math.sin(2 * w)];
+  const mag = (x0: number, x1: number, x2: number) => Math.hypot(x0 + x1 * c1 + x2 * c2, x1 * s1 + x2 * s2);
+  return [
+    ...(o.lowCut > 0 ? cutStages('high', o.lowCut, sampleRate, o.lowSlope, o.lowRes) : []),
+    ...(o.highCut > 0 ? cutStages('low', o.highCut, sampleRate, o.highSlope, o.highRes) : []),
+  ].reduce((db, [b0, b1, b2, a1, a2]) => db + 20 * Math.log10(mag(b0, b1, b2) / mag(1, a1, a2) + 1e-9), 0);
 };
 
 /** Soft-clips with tanh after driveDb of gain: rounds off peaks and thickens the sound. */
@@ -301,6 +370,21 @@ export const saturate = (pcm: Pcm, start: number, end: number, driveDb: number):
   if (driveDb <= 0) return pcm;
   const g = 10 ** (driveDb / 20);
   return processRange(pcm, start, end, (wet) => wet.forEach((v, i) => (wet[i] = Math.tanh(g * v))));
+};
+
+export interface ClipperSettings {
+  /** dB of gain into the clipper */
+  drive: number;
+  /** dBFS no sample gets past, 0 or below; 0 with no drive = off */
+  ceiling: number;
+}
+
+/** Hard clipper: gain, then everything past the ceiling is cut flat. Louder and harsher than saturation. */
+export const hardClip = (pcm: Pcm, o: ClipperSettings): Pcm => {
+  if (o.drive <= 0 && o.ceiling >= 0) return pcm;
+  const g = 10 ** (o.drive / 20);
+  const top = 10 ** (Math.min(0, o.ceiling) / 20);
+  return { ...pcm, channels: pcm.channels.map((ch) => ch.map((v) => Math.max(-top, Math.min(top, v * g)))) };
 };
 
 /** Lo-fi: quantizes to `bits` and holds each sample for sampleRate / rate samples. */
@@ -345,6 +429,148 @@ export const transient = (pcm: Pcm, start: number, end: number, attackDb: number
     return 10 ** ((attackDb * a + sustainDb * (1 - a)) / 20);
   });
   return processRange(pcm, s, e, (wet) => wet.forEach((v, i) => (wet[i] = v * gains[i])));
+};
+
+export interface GateSettings {
+  /** dBFS the sound must pass to open the gate; GATE_OFF switches it off */
+  threshold: number;
+  /** ms to open; the gate looks this far ahead, so hits keep their full onset */
+  attack: number;
+  /** ms the gate stays open after the level drops */
+  hold: number;
+  /** ms to close */
+  release: number;
+  /** dB the closed gate turns the sound down */
+  range: number;
+}
+export const GATE_OFF = -80;
+
+/** Volume gate: mutes (by range dB) everything quieter than the threshold. Stereo-linked, 3 dB hysteresis against chatter. */
+export const gate = (pcm: Pcm, o: GateSettings): Pcm => {
+  const n = pcmLength(pcm);
+  if (o.threshold <= GATE_OFF || o.range <= 0 || !n) return pcm;
+  const sr = pcm.sampleRate;
+  const open = 10 ** (o.threshold / 20);
+  const close = open * 10 ** (-3 / 20);
+  const floor = 10 ** (-o.range / 20);
+  const level = envelope(pcm.channels, sr, 0, 5);
+  const look = Math.round((o.attack / 1000) * sr);
+  const hold = Math.round((o.hold / 1000) * sr) + look;
+  const up = (1 - floor) / Math.max(1, look);
+  const release = Math.exp(-1 / Math.max(1, (o.release / 1000) * sr));
+  const gains = new Float32Array(n);
+  // A sound that starts right at the beginning has no room to fade in: start open
+  let g = level.subarray(0, look + 1).some((v) => v > open) ? 1 : floor;
+  let isOpen = false;
+  let held = 0;
+  for (let i = 0; i < n; i++) {
+    const l = level[Math.min(n - 1, i + look)];
+    if (l > open || (isOpen && l > close)) {
+      isOpen = true;
+      held = hold;
+    } else if (held > 0) held--;
+    else isOpen = false;
+    g = isOpen ? Math.min(1, g + up) : floor + (g - floor) * release;
+    gains[i] = g;
+  }
+  return { ...pcm, channels: pcm.channels.map((ch) => ch.map((v, i) => v * gains[i])) };
+};
+
+export interface OverdriveSettings {
+  /** dry/wet 0..1; 0 = off */
+  mix: number;
+  /** dB of gain into the clipper */
+  drive: number;
+  /** Hz: center of the band that gets driven */
+  freq: number;
+  /** width of that band in octaves */
+  width: number;
+  /** -1 dark .. 1 bright, after the clipper */
+  tone: number;
+  /** 0..1: 0 keeps the clipper's squashed level, 1 gives the sound its own dynamics back */
+  dynamics: number;
+}
+
+/** Overdrive: band-pass, drive into a soft clipper, tone shelf, dynamics restore. The wet is matched to the dry peak. */
+export const overdrive = (pcm: Pcm, o: OverdriveSettings): Pcm => {
+  const n = pcmLength(pcm);
+  if (o.mix <= 0 || !n) return pcm;
+  const sr = pcm.sampleRate;
+  const w = (2 * Math.PI * Math.min(o.freq, sr * 0.45)) / sr;
+  const alpha = (Math.sin(w) * (2 ** o.width - 1)) / (2 * Math.sqrt(2 ** o.width)); // sin / 2Q, Q from octaves
+  const band = [alpha, 0, -alpha, -2 * Math.cos(w), 1 - alpha].map((v) => v / (1 + alpha));
+  const shelf = biquad('high', 12 * o.tone, sr, 2000);
+  const g = 10 ** (o.drive / 20);
+  const wets = pcm.channels.map((ch) => {
+    const x = ch.slice();
+    runBiquad(x, band);
+    for (let i = 0; i < n; i++) x[i] = Math.tanh(g * x[i]);
+    if (o.tone) runBiquad(x, shelf);
+    return x;
+  });
+  if (o.dynamics > 0) {
+    const before = envelope(pcm.channels, sr, 1, 50);
+    const after = envelope(wets, sr, 1, 50);
+    for (const x of wets) for (let i = 0; i < n; i++) if (after[i] > 1e-6) x[i] *= Math.min(1, before[i] / after[i]) ** o.dynamics;
+  }
+  const wetPeak = Math.max(...wets.map((x) => x.reduce((m, v) => Math.max(m, Math.abs(v)), 0)));
+  const k = wetPeak > 0 ? (o.mix * peakLevel(pcm, 0, n)) / wetPeak : 0;
+  return { ...pcm, channels: pcm.channels.map((ch, c) => ch.map((v, i) => v * (1 - o.mix) + wets[c][i] * k)) };
+};
+
+export interface LpgSettings {
+  /** 0..1: how far the filter and the level follow the sound's envelope; 0 = off */
+  amount: number;
+  /** ms the gate takes to close after a hit */
+  decay: number;
+  /** Hz the filter closes down to */
+  floor: number;
+  /** 0..1 */
+  resonance: number;
+}
+
+/**
+ * Low pass gate: the sound's own envelope opens a resonant 12 dB/octave low-pass and a VCA, so a hit starts
+ * bright and loud and its tail turns dark and quiet as it dies. The envelope is relative to the loudest moment.
+ */
+export const lowPassGate = (pcm: Pcm, o: LpgSettings): Pcm => {
+  const n = pcmLength(pcm);
+  if (o.amount <= 0 || !n) return pcm;
+  const sr = pcm.sampleRate;
+  const env = envelope(pcm.channels, sr, 0, o.decay);
+  const peak = env.reduce((m, v) => Math.max(m, v), 0);
+  if (!peak) return pcm;
+  const top = Math.min(20000, sr * 0.45);
+  const span = Math.min(1, o.floor / top);
+  const k = Math.SQRT2 * (1 - 0.9 * o.resonance);
+  // Per sample: the filter's tan(pi * cutoff / rate) and the VCA gain
+  const gs = new Float32Array(n);
+  const vca = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const closed = o.amount * (1 - env[i] / peak);
+    gs[i] = Math.tan((Math.PI * top * span ** closed) / sr);
+    vca[i] = (1 - closed) ** 0.5;
+  }
+  return {
+    ...pcm,
+    channels: pcm.channels.map((ch) => {
+      // Trapezoidal state-variable filter: stays stable while its cutoff moves
+      const out = new Float32Array(n);
+      let s1 = 0;
+      let s2 = 0;
+      for (let i = 0; i < n; i++) {
+        const g = gs[i];
+        const a1 = 1 / (1 + g * (g + k));
+        const v3 = ch[i] - s2;
+        const v1 = a1 * (s1 + g * v3);
+        const v2 = s2 + g * v1;
+        s1 = 2 * v1 - s1;
+        s2 = 2 * v2 - s2;
+        out[i] = v2 * vca[i];
+      }
+      return out;
+    }),
+  };
 };
 
 /** BS.1770 K-weighting filters (shelf, then high-pass) for any sample rate, as derived in libebur128. */
@@ -459,6 +685,19 @@ export const noise = (sampleRate: number, seconds: number, color: NoiseColor, ra
   return normalize({ sampleRate, channels: [x] }, 0, x.length, 0.9);
 };
 
+/** Mono sine peaking at 0.9 that glides from `from` to `to` Hz, by the same ratio every instant: the low thump under a hit. */
+export const sweep = (sampleRate: number, seconds: number, from: number, to: number): Pcm => {
+  const n = Math.max(1, Math.round(seconds * sampleRate));
+  const rate = Math.log(to / from);
+  const x = Float32Array.from({ length: n }, (_, i) => {
+    const t = i / n;
+    // Cycles so far: the frequency from * (to / from) ** t, summed up
+    const cycles = (n / sampleRate) * from * (rate ? (Math.exp(rate * t) - 1) / rate : t);
+    return 0.9 * Math.sin(2 * Math.PI * cycles);
+  });
+  return { sampleRate, channels: [x] };
+};
+
 /** Seamless loop: the last xf samples are crossfaded (equal power) into the start and dropped, so the end runs into the start. */
 export const makeLoop = (pcm: Pcm, xf: number): Pcm => {
   const n = pcmLength(pcm);
@@ -477,29 +716,114 @@ export const makeLoop = (pcm: Pcm, xf: number): Pcm => {
   };
 };
 
+export interface DelaySettings {
+  /** wet level 0..1; 0 = off */
+  mix: number;
+  /** delay time in ms: a few ms flanges, tens to hundreds echo */
+  time: number;
+  /** -0.95..0.95; negative flips the phase for a hollow flange */
+  feedback: number;
+  /** ms the LFO sweeps the delay time upward; 0 = a fixed delay */
+  depth: number;
+  /** LFO speed in Hz */
+  rate: number;
+  /** 0..1: how much darker every repeat gets */
+  damp: number;
+}
+
+/**
+ * Modulated feedback delay. Short and swept by the LFO it is a flanger, long and fixed an echo.
+ * The result is longer by its ringing (until the repeats are 60 dB down, 5 s at most).
+ */
+export const delay = (pcm: Pcm, o: DelaySettings): Pcm => {
+  const n = pcmLength(pcm);
+  if (o.mix <= 0 || !n) return pcm;
+  const sr = pcm.sampleRate;
+  const base = (o.time / 1000) * sr;
+  const sweep = (o.depth / 1000) * sr;
+  const fb = Math.max(-0.95, Math.min(0.95, o.feedback));
+  const repeats = fb ? Math.log(0.001) / Math.log(Math.abs(fb)) : 1;
+  const length = n + Math.min(5 * sr, Math.ceil((base + sweep) * repeats));
+  const size = Math.ceil(base + sweep) + 3;
+  return {
+    ...pcm,
+    channels: pcm.channels.map((ch, c) => {
+      const buf = new Float32Array(size);
+      const out = new Float32Array(length);
+      const phase = (c * Math.PI) / 2; // the right channel sweeps a quarter turn ahead: stereo movement
+      let wet = 0;
+      for (let i = 0, w = 0; i < length; i++, w = (w + 1) % size) {
+        const lfo = sweep ? (1 - Math.cos((2 * Math.PI * o.rate * i) / sr + phase)) / 2 : 0;
+        const r = (w - Math.max(1, base + sweep * lfo) + size) % size;
+        const j = Math.floor(r);
+        const y = buf[j] + (buf[(j + 1) % size] - buf[j]) * (r - j);
+        wet = y + o.damp * (wet - y);
+        const x = i < n ? ch[i] : 0;
+        buf[w] = x + wet * fb;
+        out[i] = x + wet * o.mix;
+      }
+      return out;
+    }),
+  };
+};
+
+export interface ReverbSettings {
+  /** wet level against the dry peak, 0..1; 0 = off */
+  mix: number;
+  /** seconds the tail takes to fall 60 dB */
+  decay: number;
+  /** ms of silence before the reverb answers: distance to the nearest wall */
+  preDelay: number;
+  /** room size, 1 = medium: scales the reflection times and the tail's echo density */
+  size: number;
+  /** level of the early reflections (the first distinct echoes off the walls), 0..1 */
+  early: number;
+  /** level of the diffuse tail, 0..1 */
+  tail: number;
+  /** 0..1: how much faster the highs die than the lows */
+  damping: number;
+  /** 0..1: 0 leaves grainy single echoes, 1 smears them into a smooth wash */
+  diffusion: number;
+  /** Hz, 0 = off: filters on the reverb only */
+  lowCut: number;
+  highCut: number;
+  /** 0 mono .. 1 wide; above 0 a mono track comes out stereo */
+  width: number;
+}
+
 const COMBS = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
 const ALLPASSES = [556, 441, 341, 225];
+/** Early reflections in a medium room: ms after the direct sound. Each is quieter the later it arrives. */
+const REFLECTIONS = [5, 9, 14, 19, 26, 31, 39, 47, 58, 67, 79, 89];
 
-/** Freeverb-style reverb. The result is decay seconds longer; amount sets the tail's peak relative to the dry peak. */
-export const reverb = (pcm: Pcm, decay: number, amount: number): Pcm => {
+/**
+ * Reverb: pre-delay, then early reflections (a tapped delay) next to a Freeverb-style tail (damped combs into
+ * allpass diffusers), filtered and narrowed or widened. The result is longer by the pre-delay and the decay.
+ */
+export const reverb = (pcm: Pcm, o: ReverbSettings): Pcm => {
   const n = pcmLength(pcm);
   const sr = pcm.sampleRate;
-  if (amount <= 0 || decay <= 0 || !n) return pcm;
-  const length = n + Math.round(decay * sr);
-  const scale = sr / 44100;
+  if (o.mix <= 0 || o.decay <= 0 || (o.early <= 0 && o.tail <= 0) || !n) return pcm;
+  const pre = Math.round((o.preDelay / 1000) * sr);
+  const taps = REFLECTIONS.map((ms) => ({ at: pre + Math.round((ms / 1000) * o.size * sr), gain: 1 / (1 + ms / 25) }));
+  const length = n + pre + Math.ceil(Math.max(o.decay, 0.09 * o.size) * sr);
+  const scale = (o.size * sr) / 44100;
   const input = new Float32Array(length);
-  for (const ch of pcm.channels) for (let i = 0; i < n; i++) input[i] += ch[i] / pcm.channels.length;
-  const wets = pcm.channels.map((_, c) => {
+  for (const ch of pcm.channels) for (let i = 0; i < n; i++) input[pre + i] += ch[i] / pcm.channels.length;
+  const count = Math.max(pcm.channels.length, o.width > 0 ? 2 : 1);
+  const diffuse = 0.75 * o.diffusion;
+
+  const tails = Array.from({ length: o.tail > 0 ? count : 0 }, (_, c) => {
     const spread = c % 2 ? 23 : 0;
     const out = new Float32Array(length);
     for (const d of COMBS) {
       const size = Math.max(1, Math.round((d + spread) * scale));
-      const g = Math.min(0.98, 10 ** ((-3 * size) / (decay * sr)));
+      const g = Math.min(0.995, 10 ** ((-3 * size) / (o.decay * sr)));
       const buf = new Float32Array(size);
       let filt = 0;
-      for (let i = 0, k = 0; i < length; i++, k = (k + 1) % size) {
+      for (let i = pre, k = 0; i < length; i++, k = (k + 1) % size) {
         const y = buf[k];
-        filt = y * 0.75 + filt * 0.25; // damping
+        filt = y + o.damping * (filt - y);
         buf[k] = input[i] + filt * g;
         out[i] += y;
       }
@@ -507,24 +831,68 @@ export const reverb = (pcm: Pcm, decay: number, amount: number): Pcm => {
     for (const d of ALLPASSES) {
       const size = Math.max(1, Math.round((d + spread) * scale));
       const buf = new Float32Array(size);
-      for (let i = 0, k = 0; i < length; i++, k = (k + 1) % size) {
-        const b = buf[k];
-        buf[k] = out[i] + b * 0.5;
-        out[i] = b - out[i];
+      for (let i = pre, k = 0; i < length; i++, k = (k + 1) % size) {
+        const y = buf[k] - diffuse * out[i];
+        buf[k] = out[i] + diffuse * y;
+        out[i] = y;
       }
     }
     return out;
   });
   const dryPeak = peakLevel(pcm, 0, n);
-  const wetPeak = Math.max(...wets.map((w) => w.reduce((m, v) => Math.max(m, Math.abs(v)), 0)));
-  const k = wetPeak > 0 ? (amount * dryPeak) / wetPeak : 0;
+  const tailPeak = Math.max(0, ...tails.map((w) => w.reduce((m, v) => Math.max(m, Math.abs(v)), 0)));
+  const tailGain = tailPeak > 0 ? (o.tail * dryPeak) / tailPeak : 0;
+
+  const wets = Array.from({ length: count }, (_, c) => {
+    const wet = tails[c] ?? new Float32Array(length);
+    for (let i = 0; i < length; i++) wet[i] *= tailGain;
+    // Reflections alternate sides, so a stereo room has walls left and right
+    if (o.early > 0)
+      taps.forEach(({ at, gain }, t) => {
+        const g = o.early * gain * (count > 1 && t % 2 !== c % 2 ? 0.4 : 1);
+        for (let i = 0; i < n; i++) wet[at + i] += input[pre + i] * g;
+      });
+    if (o.lowCut > 0) runBiquad(wet, passFilter('high', o.lowCut, sr));
+    if (o.highCut > 0) runBiquad(wet, passFilter('low', o.highCut, sr));
+    return wet;
+  });
+  if (count > 1 && o.width < 1) {
+    const [l, r] = wets;
+    for (let i = 0; i < length; i++) {
+      const mid = (l[i] + r[i]) / 2;
+      const side = ((l[i] - r[i]) / 2) * o.width;
+      l[i] = mid + side;
+      r[i] = mid - side;
+    }
+  }
   return {
     ...pcm,
     channels: wets.map((wet, c) => {
-      for (let i = 0; i < length; i++) wet[i] = wet[i] * k + (i < n ? pcm.channels[c][i] : 0);
+      const dry = pcm.channels[Math.min(c, pcm.channels.length - 1)];
+      for (let i = 0; i < length; i++) wet[i] = wet[i] * o.mix + (i < n ? dry[i] : 0);
       return wet;
     }),
   };
+};
+
+/**
+ * The sound heard from further away, `amount` from 0 (as it is) to 1 (far): the air takes the highs, the attack
+ * softens and the surroundings answer more. Longer by the reverb's tail; a mono sound stays mono.
+ */
+export const distance = (pcm: Pcm, amount: number): Pcm => {
+  if (amount <= 0) return pcm;
+  const n = pcmLength(pcm);
+  const highCut = Math.min(20000 * 0.11 ** amount, 0.45 * pcm.sampleRate);
+  const dull = cutFilter(pcm, 0, n, { lowCut: 0, highCut, highSlope: 12 });
+  return reverb(transient(dull, 0, n, -6 * amount, 0), {
+    ...NO_FX.reverb,
+    mix: 0.4 * amount,
+    decay: 1 + amount,
+    size: 2,
+    early: 0.2,
+    damping: 0.5,
+    width: pcm.channels.length > 1 ? 1 : 0,
+  });
 };
 
 // ---- tracks ----
@@ -611,6 +979,8 @@ export const resizeClip = (clip: Clip, edge: 'start' | 'end', to: number): Clip 
 
 export interface Track {
   id: number;
+  /** shown instead of "Track 1" */
+  name?: string;
   clips: Clip[];
   /** live effect chain */
   fx?: TrackFx;
@@ -642,6 +1012,27 @@ export const renderClips = (clips: Clip[], sampleRate: number, start: number, en
     });
   }
   return { sampleRate, channels };
+};
+
+/** `shots` in a row at `rpm` rounds per minute, each one a random take, tails ringing over the next shot: full auto as a game plays it. */
+export const autoFire = (takes: Pcm[], rpm: number, shots: number, random = Math.random): Pcm => {
+  const { sampleRate } = takes[0];
+  const step = Math.round((60 / rpm) * sampleRate);
+  const clips = Array.from({ length: shots }, (_, i) => ({
+    at: i * step,
+    pcm: takes[Math.floor(random() * takes.length)],
+  }));
+  return renderClips(clips, sampleRate, 0, Math.max(...clips.map(clipEnd)));
+};
+
+/** Cuts at the sample positions and trims the silence around every part. Parts with nothing audible are dropped. */
+export const splitAt = (pcm: Pcm, cuts: number[], thresholdDb = -60): Pcm[] => {
+  const edges = [0, ...cuts, pcmLength(pcm)];
+  return edges.slice(1).flatMap((end, i) => {
+    const part = keepRange(pcm, edges[i], end);
+    const [s, e] = audibleRange(part, thresholdDb);
+    return e > s ? [keepRange(part, s, e)] : [];
+  });
 };
 
 /** Removes [start, end) from the clips, splitting the ones that straddle it. Nothing moves. */
@@ -746,15 +1137,25 @@ export interface TrackFx {
   /** Hz; 0 = off */
   lowCut: number;
   highCut: number;
+  /** dB per octave */
+  lowSlope: Slope;
+  highSlope: Slope;
+  /** dB of boost at the cutoff */
+  lowRes: number;
+  highRes: number;
   eq: EqGains;
   /** Hz per band */
   eqFreq: EqGains;
   /** mid band width */
   eqQ: number;
-  /** reverb tail, seconds */
-  decay: number;
-  /** reverb wet amount 0..1; 0 = off */
-  reverb: number;
+  pitchEnv: PitchEnvSettings;
+  gate: GateSettings;
+  overdrive: OverdriveSettings;
+  clipper: ClipperSettings;
+  lpg: LpgSettings;
+  flanger: DelaySettings;
+  delay: DelaySettings;
+  reverb: ReverbSettings;
 }
 export const NO_FX: TrackFx = {
   volume: 0,
@@ -767,17 +1168,42 @@ export const NO_FX: TrackFx = {
   rate: 0,
   lowCut: 0,
   highCut: 0,
+  lowSlope: 24,
+  highSlope: 24,
+  lowRes: 0,
+  highRes: 0,
   eq: { low: 0, mid: 0, high: 0 },
   eqFreq: EQ_FREQS,
   eqQ: EQ_Q,
-  decay: 1,
-  reverb: 0,
+  pitchEnv: { amount: 0, time: 80 },
+  gate: { threshold: GATE_OFF, attack: 1, hold: 20, release: 80, range: 80 },
+  overdrive: { mix: 0, drive: 18, freq: 1200, width: 4, tone: 0, dynamics: 0.5 },
+  clipper: { drive: 0, ceiling: 0 },
+  lpg: { amount: 0, decay: 150, floor: 200, resonance: 0 },
+  flanger: { mix: 0, time: 2, feedback: 0.5, depth: 3, rate: 0.5, damp: 0 },
+  delay: { mix: 0, time: 120, feedback: 0.3, depth: 0, rate: 0, damp: 0.3 },
+  reverb: {
+    mix: 0,
+    decay: 1,
+    preDelay: 0,
+    size: 1,
+    early: 0.5,
+    tail: 1,
+    damping: 0.25,
+    diffusion: 0.65,
+    lowCut: 0,
+    highCut: 0,
+    width: 1,
+  },
 };
 export const fxActive = (fx: TrackFx) =>
   Boolean(
     fx.volume ||
       fx.pan ||
       fx.semitones ||
+      fx.pitchEnv.amount ||
+      fx.clipper.drive ||
+      fx.clipper.ceiling < 0 ||
       fx.attack ||
       fx.sustain ||
       fx.drive ||
@@ -788,20 +1214,43 @@ export const fxActive = (fx: TrackFx) =>
       fx.eq.low ||
       fx.eq.mid ||
       fx.eq.high ||
-      fx.reverb
+      fx.gate.threshold > GATE_OFF ||
+      fx.overdrive.mix ||
+      fx.lpg.amount ||
+      fx.flanger.mix ||
+      fx.delay.mix ||
+      fx.reverb.mix
   );
 
-/** Runs the effect chain over a whole track's audio; a reverb makes it longer by its tail. */
+/** A saved chain laid over the defaults, group by group, so one saved before an effect existed still loads. */
+export const withFxDefaults = (saved: Partial<TrackFx>): TrackFx =>
+  Object.fromEntries(
+    Object.entries(NO_FX).map(([key, neutral]) => {
+      const value = (saved as Record<string, unknown>)[key];
+      return [key, typeof neutral === 'object' ? { ...neutral, ...(value as object) } : (value ?? neutral)];
+    })
+  ) as unknown as TrackFx;
+
+/**
+ * Runs the effect chain over a whole track's audio. Flanger, delay and reverb make it longer by their tails, the
+ * pitch envelope a little longer or shorter.
+ */
 export const processTrack = (pcm: Pcm, fx: TrackFx): Pcm => {
-  const n = pcmLength(pcm);
-  let p = pcm;
-  if (fx.semitones) p = pitchShift(p, 0, n, fx.semitones);
+  let p = fx.semitones ? pitchShift(pcm, 0, pcmLength(pcm), fx.semitones) : pcm;
+  p = pitchEnvelope(p, fx.pitchEnv);
+  const n = pcmLength(p);
+  p = gate(p, fx.gate);
   if (fx.attack || fx.sustain) p = transient(p, 0, n, fx.attack, fx.sustain);
   if (fx.drive) p = saturate(p, 0, n, fx.drive);
+  p = overdrive(p, fx.overdrive);
   if (fx.bits < 16 || fx.rate) p = bitcrush(p, 0, n, fx.bits, fx.rate || p.sampleRate);
-  if (fx.lowCut || fx.highCut) p = cutFilter(p, 0, n, { lowCut: fx.lowCut, highCut: fx.highCut });
+  p = cutFilter(p, 0, n, fx);
   if (fx.eq.low || fx.eq.mid || fx.eq.high) p = equalize(p, 0, n, fx.eq, fx.eqFreq, fx.eqQ);
-  if (fx.reverb) p = reverb(p, fx.decay, fx.reverb);
+  p = hardClip(p, fx.clipper);
+  p = lowPassGate(p, fx.lpg);
+  p = delay(p, fx.flanger);
+  p = delay(p, fx.delay);
+  p = reverb(p, fx.reverb);
   if (fx.volume) p = gain(p, 0, pcmLength(p), 10 ** (fx.volume / 20));
   if (fx.pan) p = pan(p, fx.pan);
   return p;

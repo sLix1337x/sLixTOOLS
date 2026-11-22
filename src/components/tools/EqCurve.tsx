@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { EQ_FREQS, EQ_Q, eqResponse, type EqGains } from '@/utils/audioEdit';
+import { cutResponse, EQ_FREQS, EQ_Q, eqResponse, type CutSettings, type EqGains } from '@/utils/audioEdit';
 
 type Band = keyof EqGains;
 export interface EqPatch {
@@ -36,6 +36,55 @@ const roundF = (f: number) => (f < 1000 ? Math.round(f) : Math.round(f / 10) * 1
 const roundDb = (db: number) => clamp(Math.round(db * 2) / 2, -MAX_DB, MAX_DB);
 const fText = (f: number) => (f >= 1000 ? `${+(f / 1000).toFixed(2)} kHz` : `${f} Hz`);
 const dbText = (db: number) => `${db > 0 ? '+' : ''}${db} dB`;
+
+const FREQ_GRID = GRID_F.map((f) => (
+  <line
+    key={f}
+    x1={xOf(f) * W}
+    x2={xOf(f) * W}
+    y1={0}
+    y2={H}
+    stroke="white"
+    strokeOpacity={f === 100 || f === 1000 || f === 10000 ? 0.1 : 0.05}
+    vectorEffect="non-scaling-stroke"
+  />
+));
+const FREQ_LABELS = [100, 1000, 10000].map((f) => (
+  <span
+    key={f}
+    className="pointer-events-none absolute bottom-0.5 ml-1 font-mono text-[9px] text-slate-500"
+    style={{ left: `${xOf(f) * 100}%` }}
+  >
+    {f >= 1000 ? `${f / 1000}k` : f}
+  </span>
+));
+
+const CUT_TOP = 18;
+const CUT_BOTTOM = -48;
+
+/** Read-only curve of the low and high cut filters, from +18 down to -48 dB. */
+export const FilterCurve = ({ cut }: { cut: CutSettings }) => {
+  const y = (db: number) => ((CUT_TOP - clamp(db, CUT_BOTTOM, CUT_TOP)) / (CUT_TOP - CUT_BOTTOM)) * H;
+  const points = Array.from(
+    { length: 121 },
+    (_, i) => `${((i / 120) * W).toFixed(1)},${y(cutResponse(cut, fOf(i / 120))).toFixed(1)}`
+  ).join(' ');
+  return (
+    <div
+      role="img"
+      aria-label="Filter curve"
+      className="relative h-20 overflow-hidden rounded-md border border-white/10 bg-slate-950"
+    >
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
+        {FREQ_GRID}
+        <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="white" strokeOpacity={0.18} vectorEffect="non-scaling-stroke" />
+        <polygon points={`0,${H} ${points} ${W},${H}`} className="fill-sky-400/15" />
+        <polyline points={points} fill="none" className="stroke-sky-300" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </svg>
+      {FREQ_LABELS}
+    </div>
+  );
+};
 
 /** Draggable 3-band EQ: drag a dot (or anywhere: the nearest dot jumps there) to set its frequency and gain. */
 const EqCurve = ({ eq, eqFreq, eqQ, onChange, disabled = false }: EqCurveProps) => {
@@ -133,18 +182,7 @@ const EqCurve = ({ eq, eqFreq, eqQ, onChange, disabled = false }: EqCurveProps) 
           className="absolute inset-0 h-full w-full"
           aria-hidden="true"
         >
-          {GRID_F.map((f) => (
-            <line
-              key={f}
-              x1={xOf(f) * W}
-              x2={xOf(f) * W}
-              y1={0}
-              y2={H}
-              stroke="white"
-              strokeOpacity={f === 100 || f === 1000 || f === 10000 ? 0.1 : 0.05}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
+          {FREQ_GRID}
           {[-12, -6, 0, 6, 12].map((db) => (
             <line
               key={db}
@@ -169,15 +207,7 @@ const EqCurve = ({ eq, eqFreq, eqQ, onChange, disabled = false }: EqCurveProps) 
             vectorEffect="non-scaling-stroke"
           />
         </svg>
-        {[100, 1000, 10000].map((f) => (
-          <span
-            key={f}
-            className="pointer-events-none absolute bottom-0.5 ml-1 font-mono text-[9px] text-slate-500"
-            style={{ left: `${xOf(f) * 100}%` }}
-          >
-            {f >= 1000 ? `${f / 1000}k` : f}
-          </span>
-        ))}
+        {FREQ_LABELS}
         {BANDS.map(({ band, label, fill }) => (
           <div
             key={band}

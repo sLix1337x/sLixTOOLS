@@ -11,15 +11,17 @@ interface SettingSliderProps {
   max: number;
   step: number;
   hint?: string | undefined;
+  /** Shown instead of valueText, e.g. a field to type the exact value */
+  field?: React.ReactNode;
   disabled?: boolean | undefined;
 }
 
 /** Labeled slider for a tool's settings column. */
-const SettingSlider = ({ label, value, valueText, onChange, min, max, step, hint, disabled = false }: SettingSliderProps) => (
+const SettingSlider = ({ label, value, valueText, onChange, min, max, step, hint, field, disabled = false }: SettingSliderProps) => (
   <div className="space-y-2">
     <div className="flex items-baseline justify-between gap-2">
       <span className={sectionLabel}>{label}</span>
-      <span className="font-mono text-[11px] tabular-nums text-slate-200">{valueText}</span>
+      {field ?? <span className="font-mono text-[11px] tabular-nums text-slate-200">{valueText}</span>}
     </div>
     <Slider
       aria-label={label}

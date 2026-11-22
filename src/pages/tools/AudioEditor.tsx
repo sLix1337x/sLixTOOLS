@@ -6,7 +6,9 @@ import {
   Copy,
   CopyPlus,
   Crop,
+  Crosshair,
   Download,
+  Drum,
   Eraser,
   Flag,
   FlipHorizontal2,
@@ -21,6 +23,7 @@ import {
   Redo2,
   Repeat,
   RotateCcw,
+  Save,
   ScanSearch,
   Scissors,
   Shrink,
@@ -47,7 +50,7 @@ import { toast } from 'sonner';
 import ToolPageLayout from '@/components/ToolPageLayout';
 import FileUploadArea from '@/components/FileUploadArea';
 import SettingSlider from '@/components/tools/SettingSlider';
-import EqCurve from '@/components/tools/EqCurve';
+import EqCurve, { FilterCurve } from '@/components/tools/EqCurve';
 import SourceChip from '@/components/tools/SourceChip';
 import { ToolbarDivider } from '@/components/tools/ToolBar';
 import { Progress } from '@/components/ui/progress';
@@ -56,11 +59,13 @@ import { useHistory } from '@/hooks';
 import { cn } from '@/lib/utils';
 import {
   audibleRange,
+  autoFire,
   clipEnd,
   computePeaks,
   copyRange,
   cutClips,
   deleteTrackRange,
+  distance,
   editTrackRange,
   encodeWav,
   fade,
@@ -68,6 +73,7 @@ import {
   fromAudioBuffer,
   fxActive,
   gain,
+  GATE_OFF,
   glue,
   insertIntoTrack,
   keepRange,
@@ -88,14 +94,20 @@ import {
   resizeClip,
   reverse,
   silence,
+  splitAt,
+  sweep,
+  toMono,
   trackEnd,
   trackStart,
   tracksLength,
+  withFxDefaults,
   type Clip,
   type Fade,
   type GlueSettings,
   type NoiseColor,
   type Pcm,
+  type ReverbSettings,
+  type Slope,
   type Track,
   type TrackFx,
 } from '@/utils/audioEdit';
@@ -141,9 +153,34 @@ const GLUE_DEFAULT: GlueSettings = {
 const GLUE_RATIOS = [2, 4, 10];
 const GLUE_ATTACKS = [0.1, 0.3, 1, 3, 10, 30];
 const GLUE_RELEASES = [100, 200, 400, 600, 800, 1200];
-/** Hz; 0 = off */
-const LOW_CUTS = [0, 30, 60, 100, 150, 200, 300, 500, 800, 1200, 2000];
-const HIGH_CUTS = [500, 800, 1200, 2000, 3000, 5000, 8000, 12000, 16000, 0];
+const SLOPES: Slope[] = [12, 24, 48];
+/** Everything but the amount, which stays as it is */
+const REVERB_PRESETS: { name: string; set: Omit<ReverbSettings, 'mix'> }[] = [
+  {
+    name: 'Small room',
+    set: { decay: 0.4, preDelay: 0, size: 0.5, early: 0.8, tail: 0.7, damping: 0.4, diffusion: 0.7, lowCut: 150, highCut: 8000, width: 0.8 },
+  },
+  {
+    name: 'Indoor range',
+    set: { decay: 1.2, preDelay: 8, size: 0.9, early: 1, tail: 0.8, damping: 0.15, diffusion: 0.5, lowCut: 100, highCut: 10000, width: 1 },
+  },
+  {
+    name: 'Hall',
+    set: { decay: 2.5, preDelay: 25, size: 1.4, early: 0.5, tail: 1, damping: 0.35, diffusion: 0.8, lowCut: 80, highCut: 9000, width: 1 },
+  },
+  {
+    name: 'Street',
+    set: { decay: 0.9, preDelay: 70, size: 1.7, early: 1, tail: 0.4, damping: 0.3, diffusion: 0.3, lowCut: 150, highCut: 7000, width: 1 },
+  },
+  {
+    name: 'Open field',
+    set: { decay: 2, preDelay: 120, size: 2, early: 0.15, tail: 0.7, damping: 0.6, diffusion: 0.9, lowCut: 200, highCut: 4500, width: 1 },
+  },
+  {
+    name: 'Plate',
+    set: { decay: 1.5, preDelay: 0, size: 0.6, early: 0, tail: 1, damping: 0.1, diffusion: 1, lowCut: 0, highCut: 0, width: 1 },
+  },
+];
 /** Hz; 0 = the project rate */
 const CRUSH_RATES = [0, 22050, 16000, 11025, 8000, 6000, 4000, 2000];
 const LOOP_FADES = [10, 20, 50, 100, 200, 500];
@@ -152,8 +189,33 @@ const NOISE_COLORS: NoiseColor[] = ['white', 'pink', 'brown'];
 const FX_DEFAULT = {
   loopMs: 50,
   noiseColor: 'white' as NoiseColor,
-  noiseLen: 0.5,
+  /** Seconds, of a noise burst or a thump */
+  genLen: 0.5,
+  thumpFrom: 150,
+  thumpTo: 40,
+  /** Rounds per minute */
+  fireRate: 600,
+  fireShots: 8,
 };
+/** Hz; 0 = the project's own rate */
+const EXPORT_RATES = [0, 48000, 44100, 22050];
+/** File name tag and `distance` amount of the versions an export can hold */
+const DISTANCES: [string, number][] = [
+  ['close', 0],
+  ['mid', 0.5],
+  ['far', 1],
+];
+const ONE_DISTANCE: [string, number][] = [['', 0]];
+/** The layers a weapon sound is built from, each with the effects its job starts with */
+const WEAPON_LAYERS: [string, Partial<TrackFx>][] = [
+  ['Transient', { lowCut: 1200, attack: 6 }],
+  ['Body', { lowCut: 100, highCut: 9000, drive: 3 }],
+  ['Mech', { lowCut: 600, volume: -6 }],
+  ['Tail', { lowCut: 150, reverb: { ...NO_FX.reverb, mix: 0.4, decay: 2, preDelay: 60, size: 1.7 } }],
+  ['Sub', { highCut: 120, highSlope: 48 }],
+];
+const PRESETS_KEY = 'audio-editor:fx-presets';
+type FxPresets = Record<string, Partial<TrackFx>>;
 const hz = (v: number) => (v >= 1000 ? `${v / 1000} kHz` : `${v} Hz`);
 /** Decoded audio kept in memory across all undo steps */
 const MEMORY_BUDGET = 800 * 1024 * 1024;
@@ -253,6 +315,27 @@ const getContext = () => (audioContext ??= new AudioContext());
 let nextTrackId = 1;
 const newTrack = (clips: Clip[] = []): Track => ({ id: nextTrackId++, clips });
 
+const toBuffer = (ctx: BaseAudioContext, pcm: Pcm) => {
+  const buffer = ctx.createBuffer(pcm.channels.length, Math.max(1, pcmLength(pcm)), pcm.sampleRate);
+  pcm.channels.forEach((ch, c) => buffer.copyToChannel(ch, c));
+  return buffer;
+};
+
+/** The audio at another sample rate, resampled by the browser. Rate 0 keeps it as it is. */
+const resample = async (pcm: Pcm, rate: number): Promise<Pcm> => {
+  if (!rate || rate === pcm.sampleRate) return pcm;
+  const ctx = new OfflineAudioContext(
+    pcm.channels.length,
+    Math.max(1, Math.round(pcmDuration(pcm) * rate)),
+    rate
+  );
+  const src = ctx.createBufferSource();
+  src.buffer = toBuffer(ctx, pcm);
+  src.connect(ctx.destination);
+  src.start();
+  return fromAudioBuffer(await ctx.startRendering());
+};
+
 const decode = async (file: File): Promise<Pcm> => {
   try {
     return fromAudioBuffer(await getContext().decodeAudioData(await file.arrayBuffer()));
@@ -327,6 +410,99 @@ const listSlider = (
     disabled={disabled}
   />
 );
+
+/** Exact-value field beside a slider. Commits on Enter or blur, so a half-typed number isn't clamped. */
+const NumberField = ({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  onCommit,
+  empty,
+  disabled,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  onCommit: (v: number) => void;
+  /** Shown for 0; with it, clearing the field commits 0 */
+  empty?: string | undefined;
+  disabled: boolean;
+}) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const v = Number(draft);
+    if (!draft.trim()) {
+      if (empty) onCommit(0);
+    } else if (Number.isFinite(v)) onCommit(Math.max(min, Math.min(max, Math.round(v))));
+    setDraft(null);
+  };
+  return (
+    <span className="flex items-baseline gap-1 font-mono text-[11px] tabular-nums text-slate-200">
+      <input
+        type="number"
+        aria-label={label}
+        value={draft ?? (value || '')}
+        placeholder={empty}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        className="w-16 rounded border border-white/10 bg-slate-950 px-1 py-0.5 text-right placeholder:text-slate-500 focus:border-sky-400 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      {unit}
+    </span>
+  );
+};
+
+const FREQ_STEPS = 240;
+/** Log-scale frequency slider (3 % steps) with a field for the exact Hz. With `off`, 0 Hz = off sits at that end. */
+const freqSlider = (
+  label: string,
+  value: number,
+  onChange: (v: number) => void,
+  disabled: boolean,
+  off?: 'min' | 'max',
+  [lo, hi]: [number, number] = [20, 20000]
+) => {
+  const first = off === 'min' ? 1 : 0;
+  const last = first + FREQ_STEPS;
+  const offPos = off === 'min' ? 0 : last + 1;
+  return (
+    <SettingSlider
+      label={label}
+      value={value ? first + Math.round((Math.log(value / lo) / Math.log(hi / lo)) * FREQ_STEPS) : offPos}
+      valueText={value ? hz(value) : 'Off'}
+      field={
+        <NumberField
+          label={`${label} in Hz`}
+          value={value}
+          unit="Hz"
+          min={lo}
+          max={hi}
+          onCommit={onChange}
+          empty={off && 'Off'}
+          disabled={disabled}
+        />
+      }
+      onChange={(pos) =>
+        onChange(
+          off && pos === offPos ? 0 : Number((lo * (hi / lo) ** ((pos - first) / FREQ_STEPS)).toPrecision(3))
+        )
+      }
+      min={0}
+      max={off === 'max' ? last + 1 : last}
+      step={1}
+      disabled={disabled}
+    />
+  );
+};
 
 /** Collapsible panel section, one open at a time */
 const fxGroup = (title: string, note: string, children: React.ReactNode) => (
@@ -570,11 +746,11 @@ const seoContent = (
         <ul className="space-y-1.5 text-sm text-gray-300">
           {guideItem(
             'Tracks:',
-            'add lanes to layer sounds, solo or mute them, pan them left or right, and watch their level while playing. Export mixes what you hear.'
+            'add lanes to layer sounds and name them, or add the five weapon layers (Transient, Body, Mech, Tail, Sub) with the button next to Add track. Solo or mute them, pan them left or right, and watch their level while playing. Export mixes what you hear.'
           )}
           {guideItem(
             'Effects:',
-            'every track has its own live effect chain: volume, pan, pitch, punch, lo-fi, filters, EQ and reverb. Changes are heard right away and can be undone. Bake renders them into the audio.'
+            'every track has its own live effect chain: volume, pan, pitch, pitch envelope, volume gate, punch, overdrive, lo-fi, filters, EQ, clipper, low pass gate, flanger, delay and reverb, in that order. Changes are heard right away and can be undone. Bake renders them into the audio. Copy a chain to another track, or save it as a preset.'
           )}
           {guideItem(
             'Fades, normalize, reverse:',
@@ -583,6 +759,14 @@ const seoContent = (
           {guideItem(
             'Equalizer:',
             'drag the Low, Mid and High dots: sideways sets the frequency, up or down boosts or cuts by up to 12 dB. Click anywhere on the graph to pull the nearest dot there, scroll on the Mid dot to make it wider or narrower, double-click a dot to reset it. Arrow keys work too.'
+          )}
+          {guideItem(
+            'Filters:',
+            'drag the slider or type the exact frequency in Hz, pick a slope of 12, 24 or 48 dB per octave, and add resonance for a peak at the cutoff. The graph shows the result.'
+          )}
+          {guideItem(
+            'Reverb:',
+            'start from a preset, then set the decay, the pre-delay, the room size, the balance of early reflections and tail, damping, diffusion, filters on the reverb alone and its stereo width.'
           )}
           {guideItem(
             'Clip fades:',
@@ -594,11 +778,11 @@ const seoContent = (
           )}
           {guideItem(
             'Game SFX:',
-            'shape transients, saturate, bitcrush, cut lows and highs, add a reverb tail, make seamless loops and generate noise bursts.'
+            'shape transients, saturate, overdrive, clip, bitcrush, gate, flange and echo, let a hit fall in pitch, add a reverb tail, make seamless loops and generate noise bursts and sub thumps.'
           )}
           {guideItem(
             'Export:',
-            'match loudness in LUFS with a limiter, and export up to 10 variations with random pitch and volume as a ZIP.'
+            'match loudness in LUFS with a limiter, export up to 10 variations with random pitch and volume as a ZIP, split the export at markers into one file per part, add close, mid and far versions, export in mono or at another sample rate, and test it on auto-fire at any fire rate.'
           )}
           {guideItem(
             'Formats:',
@@ -712,6 +896,22 @@ const AudioEditor = () => {
   const [format, setFormat] = useState<AudioFormat>('mp3');
   const [kbps, setKbps] = useState(192);
   const [selectionOnly, setSelectionOnly] = useState(false);
+  const [splitMarkers, setSplitMarkers] = useState(false);
+  const [exportMono, setExportMono] = useState(false);
+  /** Hz; 0 = the project's rate */
+  const [exportRate, setExportRate] = useState(0);
+  const [distances, setDistances] = useState(false);
+  const [fxClipboard, setFxClipboard] = useState<TrackFx | null>(null);
+  /** Saved effect chains, remembered per browser */
+  const [presets, setPresets] = useState<FxPresets>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(PRESETS_KEY) ?? '{}');
+      return saved && typeof saved === 'object' ? (saved as FxPresets) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [presetName, setPresetName] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [viewSize, setViewSize] = useState({ width: 800, height: 360 });
@@ -761,6 +961,83 @@ const AudioEditor = () => {
     );
   };
   const setActiveFx = (patch: Partial<TrackFx>) => active && setTrackFx(active.id, patch);
+  /** Patches one of the effects that keep their settings in an object */
+  const setFxPart = <
+    K extends 'pitchEnv' | 'gate' | 'overdrive' | 'clipper' | 'lpg' | 'flanger' | 'delay' | 'reverb',
+  >(
+    key: K,
+    patch: Partial<TrackFx[K]>
+  ) => setActiveFx({ [key]: { ...activeFx[key], ...patch } });
+  /** Puts a whole chain on the active track. Volume and pan belong to the mix, so they stay */
+  const loadFx = (chain: Partial<TrackFx>) =>
+    setActiveFx({ ...withFxDefaults(chain), volume: activeFx.volume, pan: activeFx.pan });
+  const storePresets = (next: FxPresets) => {
+    setPresets(next);
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    } catch {
+      // storage blocked: the presets last for this visit
+    }
+  };
+  const renameTrack = (name: string) =>
+    project &&
+    active &&
+    commit(
+      {
+        ...project,
+        tracks: project.tracks.map((t) => (t.id === active.id ? { ...t, name } : t)),
+      },
+      true
+    );
+  /** Effect slider in one line */
+  const slide = (
+    label: string,
+    value: number,
+    valueText: string,
+    onChange: (v: number) => void,
+    [min, max, step]: [number, number, number],
+    hint?: string
+  ) => (
+    <SettingSlider
+      label={label}
+      value={value}
+      valueText={valueText}
+      onChange={onChange}
+      min={min}
+      max={max}
+      step={step}
+      hint={hint}
+      disabled={busy}
+    />
+  );
+  /** Slider for a 0..1 setting, shown in percent; `zero` names what 0 % means */
+  const percent = (label: string, value: number, onChange: (v: number) => void, hint?: string, zero?: string) =>
+    slide(
+      label,
+      Math.round(value * 100),
+      zero && !value ? zero : `${Math.round(value * 100)} %`,
+      (v) => onChange(v / 100),
+      [0, 100, 1],
+      hint
+    );
+  const slopePicker = (label: string, value: Slope, onChange: (s: Slope) => void) => (
+    <div className="flex items-center justify-between gap-2">
+      <span className={sectionLabel}>Slope, dB/oct</span>
+      <div role="group" aria-label={`${label}, dB per octave`} className={segmentGroup}>
+        {SLOPES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={value === s}
+            onClick={() => onChange(s)}
+            className={segmentButton}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
   const audible = (id: number) => !muted.includes(id) && (!soloed.length || soloed.includes(id));
 
   // Effect tweaks reach the mix once they pause, not on every slider step; clip edits reach it at once
@@ -876,20 +1153,29 @@ const AudioEditor = () => {
     setPlaying(false);
   };
 
-  const play = (from?: number) => {
-    if (!mix) return;
+  /** Replaces whatever plays with a source for this audio, not started yet */
+  const sourceFor = (pcm: Pcm) => {
     stop();
     const ctx = getContext();
     void ctx.resume();
-    const buffer = ctx.createBuffer(
-      mix.channels.length,
-      Math.max(1, pcmLength(mix)),
-      mix.sampleRate
-    );
-    mix.channels.forEach((ch, c) => buffer.copyToChannel(ch, c));
     const src = ctx.createBufferSource();
-    src.buffer = buffer;
+    src.buffer = toBuffer(ctx, pcm);
     src.connect(ctx.destination);
+    src.onended = () => {
+      if (sourceRef.current === src) {
+        sourceRef.current = null;
+        setPlaying(false);
+      }
+    };
+    sourceRef.current = src;
+    setPlaying(true);
+    return src;
+  };
+
+  const play = (from?: number) => {
+    if (!mix) return;
+    const src = sourceFor(mix);
+    const ctx = getContext();
 
     const start =
       from ??
@@ -911,14 +1197,6 @@ const AudioEditor = () => {
     // Without loop a selection plays to its end; a cursor plays to the end of the project
     const until = hasSelection && start < selection.end ? selection.end : duration;
     src.start(0, start, lr ? undefined : Math.max(0, until - start));
-    src.onended = () => {
-      if (sourceRef.current === src) {
-        sourceRef.current = null;
-        setPlaying(false);
-      }
-    };
-    sourceRef.current = src;
-    setPlaying(true);
 
     const t0 = ctx.currentTime;
     const tick = () => {
@@ -1025,9 +1303,8 @@ const AudioEditor = () => {
     setLoop(true);
   };
 
-  /** Noise on a new track at the cursor, with a fast curved fade-out: the base of whooshes, hits and explosions */
-  const addNoise = () => {
-    const pcm = noise(sampleRate, fx.noiseLen, fx.noiseColor);
+  /** A generated sound on a new track at the cursor, with a fast curved fade-out */
+  const addGenerated = (pcm: Pcm) => {
     const n = pcmLength(pcm);
     const clip: Clip = {
       at: toSample(playhead),
@@ -1038,6 +1315,10 @@ const AudioEditor = () => {
     const track = newTrack([clip]);
     apply([...tracks, track], { track: track.id, start: playhead, end: playhead + n / sampleRate });
   };
+  /** The base of whooshes, hits and explosions */
+  const addNoise = () => addGenerated(noise(sampleRate, fx.genLen, fx.noiseColor));
+  /** The low punch under a shot or an explosion */
+  const addThump = () => addGenerated(sweep(sampleRate, fx.genLen, fx.thumpFrom, fx.thumpTo));
 
   const deleteSelection = () => {
     if (!requireSelection()) return;
@@ -1116,7 +1397,11 @@ const AudioEditor = () => {
         : processTrack(renderClips(active.clips, sampleRate, 0, trackEnd(active)), activeFx);
     const s = trackStart(active);
     apply(
-      mapActive((t) => ({ id: t.id, clips: [{ at: s, pcm: keepRange(full, s, pcmLength(full)) }] }))
+      mapActive((t) => ({
+        ...t,
+        fx: NO_FX,
+        clips: [{ at: s, pcm: keepRange(full, s, pcmLength(full)) }],
+      }))
     );
   };
 
@@ -1172,6 +1457,15 @@ const AudioEditor = () => {
   const addTrack = () => {
     const track = newTrack();
     apply([...tracks, track], { track: track.id, start: playhead, end: playhead });
+  };
+  /** Empty, named tracks for the layers of a weapon sound */
+  const addLayers = () => {
+    const layers = WEAPON_LAYERS.map(([name, patch]) => ({
+      ...newTrack(),
+      name,
+      fx: { ...NO_FX, ...patch },
+    }));
+    apply([...tracks, ...layers], { track: layers[0].id, start: playhead, end: playhead });
   };
 
   const removeTrack = (id: number) => {
@@ -1272,46 +1566,84 @@ const AudioEditor = () => {
   };
 
   // ---- export ----
-  const exportAudio = async () => {
-    if (!mix) return;
-    let source =
+  /** The mix or the selected time, in mono when asked. Null when that is nothing. */
+  const exportPick = () => {
+    if (!mix) return null;
+    const picked =
       selectionOnly && hasSelection
         ? keepRange(mix, toSample(selection.start), toSample(selection.end))
         : mix;
-    const n = pcmLength(source);
-    if (!n) {
+    if (!pcmLength(picked)) return null;
+    return exportMono ? toMono(picked) : picked;
+  };
+  /** At the target loudness, by the gain that brings `like` there: the parts of one sound keep their balance */
+  const levelled = (pcm: Pcm, like = pcm) => {
+    const measured = matchLoudness ? loudness(like) : NaN;
+    return Number.isFinite(measured) ? limit(pcm, -1, targetLufs - measured) : pcm;
+  };
+  /** One take per variation. Each gets its own random pitch and volume, so a sound played often in a game doesn't repeat exactly */
+  const takesOf = (base: Pcm) => {
+    const n = pcmLength(base);
+    return takes > 1
+      ? Array.from({ length: takes }, () => {
+          const st = Math.round((Math.random() * 2 - 1) * varyPitch * 10) / 10;
+          return pitchShift(gain(base, 0, n, 10 ** ((-Math.random() * varyVolume) / 20)), 0, n, st);
+        })
+      : [base];
+  };
+
+  /** Plays the export as a burst, to hear how it repeats in a game */
+  const testFire = () => {
+    const pick = exportPick();
+    if (!pick) {
+      toast.info('Nothing to play');
+      return;
+    }
+    sourceFor(autoFire(takesOf(levelled(pick)), fx.fireRate, fx.fireShots)).start();
+  };
+
+  const exportAudio = async () => {
+    const pick = exportPick();
+    if (!pick) {
       toast.info('Nothing to export');
       return;
     }
     setBusy(true);
     setProgress(0);
     try {
-      if (matchLoudness) {
-        const measured = loudness(source);
-        if (Number.isFinite(measured)) source = limit(source, -1, targetLufs - measured);
+      const offset = selectionOnly && hasSelection ? toSample(selection.start) : 0;
+      const cuts = splitMarkers
+        ? markers.map((m) => toSample(m) - offset).filter((c) => c > 0 && c < pcmLength(pick))
+        : [];
+      const parts = cuts.length ? splitAt(pick, cuts) : [pick];
+      const sounds = (distances ? DISTANCES : ONE_DISTANCE).flatMap(([where, far]) => {
+        // Loudness is matched on the whole export. Parts are moved away one by one, so no tail rings into the next
+        const whole = distance(pick, far);
+        return parts.flatMap((part, i) =>
+          takesOf(levelled(cuts.length ? distance(part, far) : whole, whole)).map((pcm, t) => ({
+            pcm,
+            suffix:
+              [cuts.length ? `part${i + 1}` : '', where, takes > 1 ? String(t + 1) : '']
+                .filter(Boolean)
+                .join('-') || undefined,
+          }))
+        );
+      });
+      if (!sounds.length) {
+        toast.info('Nothing to export');
+        return;
       }
-      const base = source;
-      // Each take gets its own random pitch and volume, so a sound played often in a game doesn't repeat exactly
-      const sources =
-        takes > 1
-          ? Array.from({ length: takes }, () => {
-              const st = Math.round((Math.random() * 2 - 1) * varyPitch * 10) / 10;
-              return pitchShift(
-                gain(base, 0, n, 10 ** ((-Math.random() * varyVolume) / 20)),
-                0,
-                n,
-                st
-              );
-            })
-          : [base];
+      const files = await Promise.all(
+        sounds.map(async (f) => ({ ...f, pcm: await resample(f.pcm, exportRate) }))
+      );
       let done = 0;
       const blobs =
         format === 'wav'
-          ? sources.map(encodeWav)
+          ? files.map((f) => encodeWav(f.pcm))
           : await withFFmpeg(
               async (ff) => {
                 const out: Blob[] = [];
-                for (const [i, pcm] of sources.entries()) {
+                for (const [i, { pcm }] of files.entries()) {
                   await ff.write(`in${i}.wav`, encodeWav(pcm));
                   await ff.run(
                     ['-i', `in${i}.wav`, ...audioCodecArgs(format, kbps), `out${i}.${format}`],
@@ -1322,15 +1654,20 @@ const AudioEditor = () => {
                 }
                 return out;
               },
-              (p) => setProgress((done + p) / sources.length)
+              (p) => setProgress((done + p) / files.length)
             );
-      let out = toFile(blobs[0], file?.name, format);
+      let out = toFile(blobs[0], file?.name, format, files[0].suffix);
       if (blobs.length > 1) {
         const zip = new JSZip();
         blobs.forEach((blob, i) =>
-          zip.file(toFile(blob, file?.name, format, String(i + 1)).name, blob)
+          zip.file(toFile(blob, file?.name, format, files[i].suffix).name, blob)
         );
-        out = toFile(await zip.generateAsync({ type: 'blob' }), file?.name, 'zip', 'variations');
+        out = toFile(
+          await zip.generateAsync({ type: 'blob' }),
+          file?.name,
+          'zip',
+          cuts.length ? 'parts' : distances ? 'distances' : 'variations'
+        );
       }
       downloadBlob(out, out.name, { showToast: true });
     } catch (error) {
@@ -1915,11 +2252,14 @@ const AudioEditor = () => {
   const estimate = !mix
     ? null
     : (format === 'wav'
-        ? exportSeconds * sampleRate * mixChannels * 2
+        ? exportSeconds * (exportRate || sampleRate) * (exportMono ? 1 : mixChannels) * 2
         : lossy
           ? exportSeconds * kbps * 125
-          : NaN) * takes;
+          : NaN) *
+      takes *
+      (distances ? DISTANCES.length : 1);
   const flatEq = !activeFx.eq.low && !activeFx.eq.mid && !activeFx.eq.high;
+  const { gate: gateFx, overdrive: od, lpg, flanger, delay: echo, reverb: verb, clipper, pitchEnv } = activeFx;
   const setGlue = (patch: Partial<GlueSettings>) => setGlueSet((g) => ({ ...g, ...patch }));
   const setFx = (patch: Partial<typeof FX_DEFAULT>) => setFxState((f) => ({ ...f, ...patch }));
   const mixLufs = useMemo(
@@ -1958,7 +2298,7 @@ const AudioEditor = () => {
     <ToolPageLayout
       title="Audio Editor"
       description="Cut, move, layer and fade audio on multiple tracks, then export as MP3, WAV, OGG, FLAC or M4A. Everything runs in your browser."
-      keywords="audio editor, multitrack audio editor, sfx editor, game sound effects, transient shaper, bitcrusher, reverb, lufs normalization, cut mp3, trim audio, merge audio, combine mp3, audio equalizer, pitch shifter, audio converter, mp3 to wav, extract audio from video, normalize audio"
+      keywords="audio editor, multitrack audio editor, sfx editor, game sound effects, transient shaper, bitcrusher, reverb, noise gate, low pass gate, overdrive, flanger, delay, lufs normalization, cut mp3, trim audio, merge audio, combine mp3, audio equalizer, pitch shifter, audio converter, mp3 to wav, extract audio from video, normalize audio"
       canonicalUrl="/tools/audio-editor"
       pageTitle="Audio Editor - sLixTOOLS"
       pageDescription="Free online multitrack audio editor and converter: cut, move, layer, fade, EQ, compress, pitch-shift and normalize audio, shape game SFX, export MP3, WAV, OGG, FLAC or M4A. No uploads."
@@ -2210,6 +2550,16 @@ const AudioEditor = () => {
                 'Generate',
                 'new track at the cursor',
                 <>
+                  <SettingSlider
+                    label="Length"
+                    value={fx.genLen}
+                    valueText={`${fx.genLen.toFixed(2)} s`}
+                    onChange={(v) => setFx({ genLen: v })}
+                    min={0.05}
+                    max={3}
+                    step={0.05}
+                    disabled={busy}
+                  />
                   <div role="group" aria-label="Noise color" className={segmentGroup}>
                     {NOISE_COLORS.map((c) => (
                       <button
@@ -2223,22 +2573,21 @@ const AudioEditor = () => {
                       </button>
                     ))}
                   </div>
-                  <SettingSlider
-                    label="Length"
-                    value={fx.noiseLen}
-                    valueText={`${fx.noiseLen.toFixed(2)} s`}
-                    onChange={(v) => setFx({ noiseLen: v })}
-                    min={0.05}
-                    max={3}
-                    step={0.05}
-                    disabled={busy}
-                  />
                   {actionBtn(
                     'Add noise burst',
                     addNoise,
                     Wind,
                     false,
                     'Noise with a fast fade-out: layer it under hits, or filter it into whooshes and explosions'
+                  )}
+                  {freqSlider('Thump from', fx.thumpFrom, (v) => setFx({ thumpFrom: v }), busy, undefined, [20, 1000])}
+                  {freqSlider('Thump to', fx.thumpTo, (v) => setFx({ thumpTo: v }), busy, undefined, [20, 1000])}
+                  {actionBtn(
+                    'Add sub thump',
+                    addThump,
+                    Drum,
+                    false,
+                    'A sine that glides from one pitch to the other: the chest punch under a shot or an explosion. Shorter hits harder'
                   )}
                 </>
               )}
@@ -2273,6 +2622,32 @@ const AudioEditor = () => {
                     ))}
                   </div>
                 )}
+                <div role="group" aria-label="Sample rate" className={segmentGroup}>
+                  {EXPORT_RATES.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      aria-pressed={exportRate === r}
+                      onClick={() => setExportRate(r)}
+                      title={r ? undefined : `The project's sample rate: ${hz(sampleRate)}`}
+                      className={segmentButton}
+                    >
+                      {r ? `${r / 1000} kHz` : 'Original'}
+                    </button>
+                  ))}
+                </div>
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-200"
+                  title="Left and right averaged into one channel. A game plays the sounds it places in 3D in mono, and the file is half the size"
+                >
+                  <input
+                    type="checkbox"
+                    checked={exportMono}
+                    onChange={(e) => setExportMono(e.target.checked)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Mono
+                </label>
                 <label
                   className={cn(
                     'flex items-center gap-2 text-sm text-slate-200',
@@ -2288,6 +2663,46 @@ const AudioEditor = () => {
                   />
                   Export only the selected time
                 </label>
+                <label
+                  className={cn(
+                    'flex items-center gap-2 text-sm text-slate-200',
+                    !markers.length && 'opacity-50'
+                  )}
+                  title={markers.length ? undefined : 'Add markers first: press M'}
+                >
+                  <input
+                    type="checkbox"
+                    checked={splitMarkers && markers.length > 0}
+                    disabled={!markers.length}
+                    onChange={(e) => setSplitMarkers(e.target.checked)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Split at markers
+                </label>
+                {splitMarkers && markers.length > 0 && (
+                  <p className="text-xs text-slate-500">
+                    Every part between two markers becomes its own file in a ZIP, with the silence
+                    around it trimmed. Lay shot, tail and reload out in a row and put markers in the
+                    gaps.
+                  </p>
+                )}
+                <label className="flex items-center gap-2 text-sm text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={distances}
+                    onChange={(e) => setDistances(e.target.checked)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Distance versions
+                </label>
+                {distances && (
+                  <p className="text-xs text-slate-500">
+                    Three files per sound in a ZIP: close as it is, mid and far duller, softer and
+                    with more of the surroundings. Blend between them by distance in the game. If
+                    the game already turns far sounds down, tick Match loudness so all three are
+                    equally loud.
+                  </p>
+                )}
                 <label className="flex items-center gap-2 text-sm text-slate-200">
                   <input
                     type="checkbox"
@@ -2370,6 +2785,54 @@ const AudioEditor = () => {
                   </p>
                 )}
               </section>
+
+              {panelSection(
+                'Auto-fire test',
+                'plays what you export',
+                <>
+                  <SettingSlider
+                    label="Fire rate"
+                    value={fx.fireRate}
+                    valueText={`${fx.fireRate} RPM`}
+                    field={
+                      <NumberField
+                        label="Fire rate in rounds per minute"
+                        value={fx.fireRate}
+                        unit="RPM"
+                        min={30}
+                        max={1500}
+                        onCommit={(v) => setFx({ fireRate: v })}
+                        disabled={busy}
+                      />
+                    }
+                    onChange={(v) => setFx({ fireRate: v })}
+                    min={30}
+                    max={1500}
+                    step={10}
+                    disabled={busy}
+                  />
+                  <SettingSlider
+                    label="Shots"
+                    value={fx.fireShots}
+                    valueText={String(fx.fireShots)}
+                    onChange={(v) => setFx({ fireShots: v })}
+                    min={2}
+                    max={30}
+                    step={1}
+                    disabled={busy}
+                  />
+                  {actionBtn(
+                    'Fire a burst',
+                    testFire,
+                    Crosshair,
+                    false,
+                    'Every shot is one of the variations, picked at random, and its tail rings over the next shot, like in a game'
+                  )}
+                  <p className="text-xs text-slate-500">
+                    To fire only the shot, select it and tick "Export only the selected time".
+                  </p>
+                </>
+              )}
 
               <p className="border-t border-white/10 pt-3 font-mono text-[11px] text-slate-500">
                 {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'} · {sampleRate} Hz{' '}
@@ -2507,7 +2970,7 @@ const AudioEditor = () => {
                                   current ? 'font-medium text-white' : 'text-slate-400'
                                 )}
                               >
-                                Track {i + 1}
+                                {track.name || `Track ${i + 1}`}
                                 {fxActive(fxOf(track)) && (
                                   <span className="ml-1 rounded bg-amber-300/20 px-1 text-[10px] font-medium text-amber-200">
                                     FX
@@ -2614,16 +3077,27 @@ const AudioEditor = () => {
                         </div>
                       );
                     })}
-                    <div className="flex items-center px-1" style={{ height: ADD_ROW_H }}>
+                    <div className="flex items-center gap-1 px-1" style={{ height: ADD_ROW_H }}>
                       <button
                         type="button"
                         onClick={addTrack}
                         disabled={busy}
-                        className={cn(chipButton, 'h-7 w-full justify-center text-xs')}
+                        className={cn(chipButton, 'h-7 min-w-0 flex-1 justify-center text-xs')}
                       >
                         <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                         Add track
                       </button>
+                      <Tooltip label="Add weapon layers: empty tracks named Transient, Body, Mech, Tail and Sub, each with the filter its job starts with">
+                        <button
+                          type="button"
+                          onClick={addLayers}
+                          disabled={busy}
+                          aria-label="Add weapon layers"
+                          className={cn(chipButton, 'h-7 px-2')}
+                        >
+                          <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                     </div>
                     {/* Room for the lanes' horizontal scrollbar */}
                     <div className="h-5" />
@@ -3066,10 +3540,15 @@ const AudioEditor = () => {
                   ))}
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm text-slate-200">
-                    Track {tracks.indexOf(active) + 1}{' '}
-                    <span className="text-slate-500">· live effects</span>
-                  </p>
+                  <input
+                    aria-label="Track name"
+                    title="Name this track"
+                    value={active?.name ?? ''}
+                    placeholder={`Track ${tracks.indexOf(active) + 1}`}
+                    maxLength={24}
+                    onChange={(e) => renameTrack(e.target.value)}
+                    className="h-7 min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 text-sm text-slate-200 placeholder:text-slate-200 hover:border-white/10 focus:border-sky-400 focus:outline-none"
+                  />
                   <div className="flex gap-1">
                     <Tooltip label="Bake: render the effects into the track's audio and switch them off">
                       <button
@@ -3092,6 +3571,94 @@ const AudioEditor = () => {
                       Reset
                     </button>
                   </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Tooltip label="Copy this track's effects, to paste them on another track">
+                    <button
+                      type="button"
+                      aria-label="Copy effects"
+                      className={cn(chipButton, 'h-7 px-2')}
+                      onClick={() => {
+                        setFxClipboard(activeFx);
+                        toast.success('Effects copied');
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Paste the copied effects on this track. Its volume and pan stay">
+                    <button
+                      type="button"
+                      aria-label="Paste effects"
+                      className={cn(chipButton, 'h-7 px-2')}
+                      disabled={!fxClipboard}
+                      onClick={() => fxClipboard && loadFx(fxClipboard)}
+                    >
+                      <ClipboardPaste className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                  {Object.keys(presets).length > 0 && (
+                    <select
+                      aria-label="Load a preset"
+                      title="Load a saved effect chain on this track. Its volume and pan stay"
+                      value=""
+                      onChange={(e) => {
+                        const saved = presets[e.target.value];
+                        if (!saved) return;
+                        loadFx(saved);
+                        setPresetName(e.target.value);
+                      }}
+                      className="h-7 min-w-0 flex-1 rounded border border-white/10 bg-slate-950 px-1 text-xs text-slate-200 focus:border-sky-400 focus:outline-none"
+                    >
+                      <option value="">Load preset…</option>
+                      {Object.keys(presets).map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    aria-label="Preset name"
+                    value={presetName}
+                    placeholder="Preset name"
+                    maxLength={40}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    className="h-7 min-w-0 flex-1 rounded border border-white/10 bg-slate-950 px-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-sky-400 focus:outline-none"
+                  />
+                  <Tooltip label="Save this track's effects as a preset under the name. Presets stay in this browser">
+                    <button
+                      type="button"
+                      aria-label="Save preset"
+                      className={cn(chipButton, 'h-7 px-2')}
+                      disabled={!presetName.trim()}
+                      onClick={() => {
+                        storePresets({ ...presets, [presetName.trim()]: activeFx });
+                        setPresetName(presetName.trim());
+                        toast.success(`Preset "${presetName.trim()}" saved`);
+                      }}
+                    >
+                      <Save className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Delete the preset with this name">
+                    <button
+                      type="button"
+                      aria-label="Delete preset"
+                      className={cn(chipButton, 'h-7 px-2')}
+                      disabled={!(presetName in presets)}
+                      onClick={() => {
+                        storePresets(
+                          Object.fromEntries(Object.entries(presets).filter(([name]) => name !== presetName))
+                        );
+                        setPresetName('');
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               <section className="space-y-3">
@@ -3129,6 +3696,70 @@ const AudioEditor = () => {
                   disabled={busy}
                 />
               </section>
+
+              {fxGroup(
+                'Pitch envelope',
+                pitchEnv.amount ? 'on' : '',
+                <>
+                  {slide(
+                    'Starts at',
+                    pitchEnv.amount,
+                    pitchEnv.amount
+                      ? signed(pitchEnv.amount, Math.abs(pitchEnv.amount) === 1 ? 'semitone' : 'semitones')
+                      : 'Off',
+                    (v) => setFxPart('pitchEnv', { amount: v }),
+                    [-24, 24, 1],
+                    'The sound starts this far off its pitch and glides back. Above 0 falls like a shot or a laser, below 0 rises like a swell'
+                  )}
+                  {slide(
+                    'Glide',
+                    pitchEnv.time,
+                    `${pitchEnv.time} ms`,
+                    (v) => setFxPart('pitchEnv', { time: v }),
+                    [5, 500, 5],
+                    'Begins at the first sound on the track, which gets a little shorter or longer'
+                  )}
+                </>
+              )}
+
+              {fxGroup(
+                'Volume gate',
+                gateFx.threshold > GATE_OFF ? 'on' : '',
+                <>
+                  {slide(
+                    'Threshold',
+                    gateFx.threshold,
+                    gateFx.threshold > GATE_OFF ? `${gateFx.threshold} dB` : 'Off',
+                    (v) => setFxPart('gate', { threshold: v }),
+                    [GATE_OFF, 0, 1],
+                    'Everything quieter than this is turned down: cuts hiss, room noise and long tails'
+                  )}
+                  {slide(
+                    'Range',
+                    gateFx.range,
+                    gateFx.range >= 80 ? 'Mute' : `-${gateFx.range} dB`,
+                    (v) => setFxPart('gate', { range: v }),
+                    [3, 80, 1],
+                    'How far the closed gate turns the sound down'
+                  )}
+                  {slide(
+                    'Attack',
+                    gateFx.attack,
+                    `${gateFx.attack} ms`,
+                    (v) => setFxPart('gate', { attack: v }),
+                    [0, 50, 0.5],
+                    'The gate opens this early, so hits keep their full snap'
+                  )}
+                  {slide('Hold', gateFx.hold, `${gateFx.hold} ms`, (v) => setFxPart('gate', { hold: v }), [0, 500, 5])}
+                  {slide(
+                    'Release',
+                    gateFx.release,
+                    `${gateFx.release} ms`,
+                    (v) => setFxPart('gate', { release: v }),
+                    [5, 1000, 5]
+                  )}
+                </>
+              )}
 
               {fxGroup(
                 'Punch',
@@ -3170,6 +3801,43 @@ const AudioEditor = () => {
               )}
 
               {fxGroup(
+                'Overdrive',
+                od.mix ? 'on' : '',
+                <>
+                  {percent(
+                    'Dry / wet',
+                    od.mix,
+                    (v) => setFxPart('overdrive', { mix: v }),
+                    'Distorts one frequency band; the level stays where it was',
+                    'Off'
+                  )}
+                  {slide('Drive', od.drive, `${od.drive} dB`, (v) => setFxPart('overdrive', { drive: v }), [0, 48, 1])}
+                  {freqSlider('Band', od.freq, (v) => setFxPart('overdrive', { freq: v }), busy)}
+                  {slide(
+                    'Band width',
+                    od.width,
+                    `${od.width} oct`,
+                    (v) => setFxPart('overdrive', { width: v }),
+                    [0.5, 8, 0.5],
+                    'Narrow drives only around the band, wide drives everything'
+                  )}
+                  {slide(
+                    'Tone',
+                    Math.round(od.tone * 100),
+                    od.tone ? `${Math.abs(Math.round(od.tone * 100))} % ${od.tone > 0 ? 'brighter' : 'darker'}` : 'Neutral',
+                    (v) => setFxPart('overdrive', { tone: v / 100 }),
+                    [-100, 100, 5]
+                  )}
+                  {percent(
+                    'Dynamics',
+                    od.dynamics,
+                    (v) => setFxPart('overdrive', { dynamics: v }),
+                    'Low squashes everything to one level, high keeps hits loud and tails quiet'
+                  )}
+                </>
+              )}
+
+              {fxGroup(
                 'Lo-fi',
                 activeFx.bits < 16 || activeFx.rate ? 'on' : '',
                 <>
@@ -3196,23 +3864,26 @@ const AudioEditor = () => {
 
               {fxGroup(
                 'Filters',
-                activeFx.lowCut || activeFx.highCut ? 'on' : '24 dB/oct',
+                activeFx.lowCut || activeFx.highCut ? 'on' : '',
                 <>
-                  {listSlider(
-                    'Low cut',
-                    LOW_CUTS,
-                    activeFx.lowCut,
-                    (v) => setActiveFx({ lowCut: v }),
-                    (v) => (v ? hz(v) : 'Off'),
-                    busy
+                  <FilterCurve cut={activeFx} />
+                  {freqSlider('Low cut', activeFx.lowCut, (v) => setActiveFx({ lowCut: v }), busy, 'min')}
+                  {slopePicker('Low cut slope', activeFx.lowSlope, (v) => setActiveFx({ lowSlope: v }))}
+                  {slide(
+                    'Low cut resonance',
+                    activeFx.lowRes,
+                    activeFx.lowRes ? `+${activeFx.lowRes} dB` : 'Off',
+                    (v) => setActiveFx({ lowRes: v }),
+                    [0, 18, 0.5]
                   )}
-                  {listSlider(
-                    'High cut',
-                    HIGH_CUTS,
-                    activeFx.highCut,
-                    (v) => setActiveFx({ highCut: v }),
-                    (v) => (v ? hz(v) : 'Off'),
-                    busy
+                  {freqSlider('High cut', activeFx.highCut, (v) => setActiveFx({ highCut: v }), busy, 'max')}
+                  {slopePicker('High cut slope', activeFx.highSlope, (v) => setActiveFx({ highSlope: v }))}
+                  {slide(
+                    'High cut resonance',
+                    activeFx.highRes,
+                    activeFx.highRes ? `+${activeFx.highRes} dB` : 'Off',
+                    (v) => setActiveFx({ highRes: v }),
+                    [0, 18, 0.5]
                   )}
                 </>
               )}
@@ -3238,30 +3909,194 @@ const AudioEditor = () => {
               )}
 
               {fxGroup(
-                'Reverb',
-                activeFx.reverb ? 'on' : '',
+                'Clipper',
+                clipper.drive || clipper.ceiling < 0 ? 'on' : '',
                 <>
+                  {slide(
+                    'Drive',
+                    clipper.drive,
+                    clipper.drive ? `+${clipper.drive} dB` : 'Off',
+                    (v) => setFxPart('clipper', { drive: v }),
+                    [0, 36, 0.5],
+                    'Pushes the sound into the ceiling, where its peaks are cut flat: louder and harsher, the way gunshots are made to hit'
+                  )}
+                  {slide(
+                    'Ceiling',
+                    clipper.ceiling,
+                    `${clipper.ceiling} dB`,
+                    (v) => setFxPart('clipper', { ceiling: v }),
+                    [-24, 0, 0.5],
+                    'Nothing gets louder than this'
+                  )}
+                </>
+              )}
+
+              {fxGroup(
+                'Low pass gate',
+                lpg.amount ? 'on' : '',
+                <>
+                  {percent(
+                    'Amount',
+                    lpg.amount,
+                    (v) => setFxPart('lpg', { amount: v }),
+                    'The loudest hit opens the gate; as the sound dies it turns darker and quieter',
+                    'Off'
+                  )}
+                  {slide(
+                    'Decay',
+                    lpg.decay,
+                    `${lpg.decay} ms`,
+                    (v) => setFxPart('lpg', { decay: v }),
+                    [10, 1000, 10],
+                    'How slowly the gate closes after a hit'
+                  )}
+                  {freqSlider('Closes down to', lpg.floor, (v) => setFxPart('lpg', { floor: v }), busy, undefined, [20, 5000])}
+                  {percent('Resonance', lpg.resonance, (v) => setFxPart('lpg', { resonance: v }))}
+                </>
+              )}
+
+              {fxGroup(
+                'Flanger',
+                flanger.mix ? 'on' : '',
+                <>
+                  {percent('Amount', flanger.mix, (v) => setFxPart('flanger', { mix: v }), undefined, 'Off')}
+                  {slide(
+                    'Delay',
+                    flanger.time,
+                    `${flanger.time} ms`,
+                    (v) => setFxPart('flanger', { time: v }),
+                    [0.1, 10, 0.1]
+                  )}
+                  {slide(
+                    'Sweep depth',
+                    flanger.depth,
+                    flanger.depth ? `${flanger.depth} ms` : 'Fixed',
+                    (v) => setFxPart('flanger', { depth: v }),
+                    [0, 10, 0.1]
+                  )}
+                  {slide(
+                    'Sweep rate',
+                    flanger.rate,
+                    `${flanger.rate} Hz`,
+                    (v) => setFxPart('flanger', { rate: v }),
+                    [0.05, 10, 0.05]
+                  )}
+                  {slide(
+                    'Feedback',
+                    Math.round(flanger.feedback * 100),
+                    `${Math.round(flanger.feedback * 100)} %`,
+                    (v) => setFxPart('flanger', { feedback: v / 100 }),
+                    [-95, 95, 1],
+                    'Higher rings more metallic; below zero sounds hollow'
+                  )}
+                </>
+              )}
+
+              {fxGroup(
+                'Delay',
+                echo.mix ? 'on' : '',
+                <>
+                  {percent('Amount', echo.mix, (v) => setFxPart('delay', { mix: v }), undefined, 'Off')}
                   <SettingSlider
-                    label="Amount"
-                    value={Math.round(activeFx.reverb * 100)}
-                    valueText={activeFx.reverb ? `${Math.round(activeFx.reverb * 100)} %` : 'Off'}
-                    onChange={(v) => setActiveFx({ reverb: v / 100 })}
-                    min={0}
-                    max={100}
+                    label="Time"
+                    value={echo.time}
+                    valueText={`${echo.time} ms`}
+                    field={
+                      <NumberField
+                        label="Time in ms"
+                        value={echo.time}
+                        unit="ms"
+                        min={10}
+                        max={1000}
+                        onCommit={(v) => setFxPart('delay', { time: v })}
+                        disabled={busy}
+                      />
+                    }
+                    onChange={(v) => setFxPart('delay', { time: v })}
+                    min={10}
+                    max={1000}
                     step={5}
                     disabled={busy}
-                    hint="The tail rings on past the last clip"
                   />
-                  <SettingSlider
-                    label="Decay"
-                    value={activeFx.decay}
-                    valueText={`${activeFx.decay.toFixed(1)} s`}
-                    onChange={(v) => setActiveFx({ decay: v })}
-                    min={0.2}
-                    max={5}
-                    step={0.1}
-                    disabled={busy}
-                  />
+                  {percent(
+                    'Feedback',
+                    echo.feedback,
+                    (v) => setFxPart('delay', { feedback: Math.min(0.95, v) }),
+                    'How much of every echo is repeated again'
+                  )}
+                  {percent('Damping', echo.damp, (v) => setFxPart('delay', { damp: v }), 'Every repeat gets darker')}
+                </>
+              )}
+
+              {fxGroup(
+                'Reverb',
+                verb.mix ? 'on' : '',
+                <>
+                  <div role="group" aria-label="Reverb presets" className="flex flex-wrap gap-1">
+                    {REVERB_PRESETS.map(({ name, set }) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={cn(chipButton, 'h-7 text-xs')}
+                        onClick={() => setFxPart('reverb', { ...set, mix: verb.mix || 0.3 })}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                  {percent(
+                    'Amount',
+                    verb.mix,
+                    (v) => setFxPart('reverb', { mix: v }),
+                    'The tail rings on past the last clip',
+                    'Off'
+                  )}
+                  {slide(
+                    'Decay',
+                    verb.decay,
+                    `${verb.decay.toFixed(1)} s`,
+                    (v) => setFxPart('reverb', { decay: v }),
+                    [0.1, 10, 0.1]
+                  )}
+                  {slide(
+                    'Pre-delay',
+                    verb.preDelay,
+                    `${verb.preDelay} ms`,
+                    (v) => setFxPart('reverb', { preDelay: v }),
+                    [0, 250, 1],
+                    'Silence before the room answers: longer sounds like walls further away'
+                  )}
+                  {slide(
+                    'Size',
+                    Math.round(verb.size * 100),
+                    `${Math.round(verb.size * 100)} %`,
+                    (v) => setFxPart('reverb', { size: v / 100 }),
+                    [25, 200, 5],
+                    'Spreads the reflections out in time'
+                  )}
+                  {percent(
+                    'Reflections',
+                    verb.early,
+                    (v) => setFxPart('reverb', { early: v }),
+                    'The first distinct echoes off the walls'
+                  )}
+                  {percent('Tail', verb.tail, (v) => setFxPart('reverb', { tail: v }), 'The smooth wash after them')}
+                  {percent('Damping', verb.damping, (v) => setFxPart('reverb', { damping: Math.min(0.95, v) }), 'Highs die faster than lows')}
+                  {percent(
+                    'Diffusion',
+                    verb.diffusion,
+                    (v) => setFxPart('reverb', { diffusion: v }),
+                    'Low leaves grainy single echoes, high smears them together'
+                  )}
+                  {freqSlider('Reverb low cut', verb.lowCut, (v) => setFxPart('reverb', { lowCut: v }), busy, 'min')}
+                  {freqSlider('Reverb high cut', verb.highCut, (v) => setFxPart('reverb', { highCut: v }), busy, 'max')}
+                  {percent(
+                    'Stereo width',
+                    verb.width,
+                    (v) => setFxPart('reverb', { width: v }),
+                    'Above 0 a mono track comes out stereo',
+                    'Mono'
+                  )}
                 </>
               )}
 

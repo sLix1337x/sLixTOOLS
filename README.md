@@ -29,7 +29,7 @@ WebAssembly and modern browser APIs. **Your files never leave your device.**
 | 📐 **Image Resizer** | Resize images by pixels or percentage, bulk-ready |
 | 🎥 **Video Converter** | Convert video formats right in the browser via ffmpeg.wasm |
 | ✂️ **Video Editor** | Trim, split and combine clips; speed, rotation, fades; export MP4/WebM or the soundtrack as MP3 |
-| 🎚️ **Audio Editor** | Multitrack with drag-and-drop files: cut, move parts, fade curves, EQ, filters, glue compressor, transient shaper, saturation/bitcrush, reverb tail, pitch shift, seamless loops, noise bursts, trim silence; export MP3/WAV/OGG/FLAC/M4A with LUFS match and random variations (ZIP) |
+| 🎚️ **Audio Editor** | Multitrack with drag-and-drop files: cut, move parts, fade curves, EQ, precise filters (exact Hz, 12/24/48 dB slopes, resonance), volume gate, low pass gate, overdrive, hard clipper, flanger, delay, glue compressor, transient shaper, saturation/bitcrush, reverb with early reflections and presets, pitch shift and pitch envelope, effect presets and copy/paste between tracks, named tracks with a weapon layer template, seamless loops, noise bursts and sub thumps, trim silence, auto-fire test at any fire rate; export MP3/WAV/OGG/FLAC/M4A with LUFS match, mono and sample-rate options, random variations, close/mid/far distance versions and one file per marker region (ZIP) |
 | 🏷️ **File Renamer** | Batch rename with rules (remove words, replace, snake_case, _001 numbering); rename a folder in place, ZIP or script |
 | 🔄 **Image Converter** | Batch-convert many images between PNG / JPG / WebP — quality slider, per-file or ZIP download |
 | 🧩 **Image Splitter** | Slice one image into a grid of tiles with view presets |

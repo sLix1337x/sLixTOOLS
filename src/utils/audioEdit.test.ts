@@ -1,30 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import {
   audibleRange,
+  autoFire,
   bitcrush,
   computePeaks,
   copyRange,
   cutFilter,
+  cutResponse,
   cutClips,
+  delay,
   deleteTrackRange,
+  distance,
   editTrackRange,
   encodeWav,
   equalize,
   eqResponse,
   fadeCurve,
   fade,
+  fxActive,
   gain,
+  gate,
+  GATE_OFF,
   glue,
+  hardClip,
   insertIntoTrack,
   keepRange,
   limit,
   loudness,
+  lowPassGate,
   makeLoop,
   moveClips,
   moveRange,
   noise,
   NO_FX,
   normalize,
+  overdrive,
+  pitchEnvelope,
   pitchShift,
   pan,
   pasteClips,
@@ -36,8 +47,12 @@ import {
   reverse,
   saturate,
   silence,
+  splitAt,
+  sweep,
+  toMono,
   tracksLength,
   transient,
+  withFxDefaults,
   type Clip,
   type Pcm,
   type Track,
@@ -268,15 +283,220 @@ describe('audioEdit', () => {
       expect(values(loop).slice(3)).toEqual([3, 4, 5, 6]);
     });
 
+    it('sweeps a sine down, fires takes in a row and splits at cuts', () => {
+      const sr = 48000;
+      const thump = sweep(sr, 1, 200, 50);
+      const x = thump.channels[0];
+      const crossings = (from: number, to: number) => {
+        let c = 0;
+        for (let i = from + 1; i < to; i++) if (x[i - 1] < 0 !== x[i] < 0) c++;
+        return c;
+      };
+      expect(x).toHaveLength(sr);
+      expect(Math.abs(x[0])).toBe(0); // starts on a zero crossing, so no click
+      expect(peak(thump)).toBeCloseTo(0.9, 3);
+      // 200 Hz falls to 100 Hz in the first half and on to 50 Hz in the second: half the cycles
+      expect(Math.abs(crossings(0, sr / 2) - 144)).toBeLessThanOrEqual(2);
+      expect(Math.abs(crossings(sr / 2, sr) - 72)).toBeLessThanOrEqual(2);
+      const steady = sweep(8000, 1, 2000, 2000).channels[0];
+      expect([steady[1], steady[3]].map((v) => Math.round(v * 10) / 10)).toEqual([0.9, -0.9]);
+
+      // 60 000 rounds per minute at 8 kHz: a shot every 8 samples
+      const picks = [0, 0.9, 0];
+      const fired = autoFire([mono(1, 0.5), mono(0.25)], 60000, 3, () => picks.shift() ?? 0);
+      expect(values(fired)).toEqual([1, 0.5, 0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0, 0, 0, 1, 0.5]);
+      expect(values(autoFire([mono(1, 0.5)], 480000, 2))).toEqual([1, 1.5, 0.5]); // tails add up
+
+      const parts = splitAt(mono(0, 0.5, 0.5, 0, 0, 0, 0.25, 0, 0, 0), [4, 8]);
+      expect(parts.map((p) => values(p))).toEqual([[0.5, 0.5], [0.25]]); // trimmed, the silent part dropped
+      expect(splitAt(mono(0.5, 0.5), []).map((p) => values(p))).toEqual([[0.5, 0.5]]);
+    });
+
+    it('downmixes to mono and clips hard at a ceiling', () => {
+      const stereo: Pcm = { sampleRate: 8000, channels: [Float32Array.of(1, 0, -0.5), Float32Array.of(0, 1, -0.5)] };
+      expect(values(toMono(stereo))).toEqual([0.5, 0.5, -0.5]);
+      const one = mono(1, 2);
+      expect(toMono(one)).toBe(one);
+
+      // 6.02 dB doubles; a ceiling of -6.02 dB is 0.5
+      const clipped = hardClip(mono(0.1, -0.2, 0.9, -0.9), { drive: 6.0206, ceiling: -6.0206 });
+      expect(values(clipped).map((v) => Math.round(v * 1000) / 1000)).toEqual([0.2, -0.4, 0.5, -0.5]);
+      expect(hardClip(one, NO_FX.clipper)).toBe(one);
+      expect(fxActive({ ...NO_FX, clipper: { drive: 0, ceiling: -3 } })).toBe(true);
+      const chain = processTrack(mono(0.9, -0.9, 0.1), { ...NO_FX, clipper: { drive: 0, ceiling: -6.0206 } });
+      expect(values(chain).map((v) => Math.round(v * 1000) / 1000)).toEqual([0.5, -0.5, 0.1]);
+    });
+
+    it('glides the pitch back from a start above or below', () => {
+      // A ramp: the step between two output samples is the playback speed
+      const ramp = mono(...Array.from({ length: 400 }, (_, i) => 0.5 + i / 10000));
+      const speed = (pcm: Pcm, i: number) => (pcm.channels[0][i + 1] - pcm.channels[0][i]) * 10000;
+      const down = pitchEnvelope(ramp, { amount: 12, time: 25 }); // 200 samples of glide
+      expect(speed(down, 0)).toBeCloseTo(2, 1); // an octave up plays twice as fast
+      expect(speed(down, 100)).toBeGreaterThan(1.05);
+      expect(speed(down, 100)).toBeLessThan(1.5); // most of the way back at half time
+      expect(speed(down, 250)).toBeCloseTo(1, 3);
+      expect(pcmLength(down)).toBeLessThan(400);
+      expect(pcmLength(down)).toBeGreaterThan(300);
+      const up = pitchEnvelope(ramp, { amount: -12, time: 25 });
+      expect(speed(up, 0)).toBeCloseTo(0.5, 1);
+      expect(pcmLength(up)).toBeGreaterThan(400);
+      expect(pcmLength(up)).toBeLessThanOrEqual(600);
+      expect(peak(up)).toBeLessThanOrEqual(peak(ramp) + 1e-6); // reads nothing past the end
+
+      // Waits for the sound: the silence in front keeps its length
+      const late = pitchEnvelope(mono(...Array<number>(50).fill(0), ...values(ramp)), { amount: 12, time: 25 });
+      expect(values(late).slice(0, 50)).toEqual(Array<number>(50).fill(0));
+      expect(speed(late, 50)).toBeCloseTo(2, 1);
+
+      expect(pitchEnvelope(ramp, NO_FX.pitchEnv)).toBe(ramp);
+      const quiet = mono(0, 0, 0);
+      expect(pitchEnvelope(quiet, { amount: 12, time: 25 })).toBe(quiet);
+      expect(fxActive({ ...NO_FX, pitchEnv: { amount: -5, time: 80 } })).toBe(true);
+      expect(pcmLength(processTrack(ramp, { ...NO_FX, pitchEnv: { amount: 12, time: 25 } }))).toBe(pcmLength(down));
+    });
+
+    it('moves a sound away: duller, softer, with more room', () => {
+      const sr = 16000;
+      const tone = (hz: number): Pcm => ({
+        sampleRate: sr,
+        channels: [Float32Array.from({ length: sr / 10 }, (_, i) => 0.5 * Math.sin((2 * Math.PI * hz * i) / sr))],
+      });
+      const rms = (pcm: Pcm, to: number) => Math.hypot(...pcm.channels[0].subarray(0, to)) / Math.sqrt(to);
+      const high = tone(7000);
+      const far = distance(high, 1);
+      expect(far.channels).toHaveLength(1); // mono stays mono
+      expect(pcmLength(far)).toBeGreaterThan(pcmLength(high) + sr); // the reverb rings on
+      expect(rms(far, sr / 10)).toBeLessThan(rms(high, sr / 10) / 2); // the highs are gone
+      const mid = distance(high, 0.5);
+      expect(rms(mid, sr / 10)).toBeGreaterThan(rms(far, sr / 10));
+      expect(rms(mid, sr / 10)).toBeLessThan(rms(high, sr / 10));
+      const low = tone(200);
+      expect(rms(distance(low, 1), sr / 10)).toBeGreaterThan(rms(low, sr / 10) / 2); // the lows carry
+      expect(distance(high, 0)).toBe(high);
+      const stereo = { ...high, channels: [high.channels[0], high.channels[0]] };
+      expect(distance(stereo, 1).channels).toHaveLength(2);
+    });
+
+    it('fills a saved effect chain up with the defaults', () => {
+      expect(withFxDefaults({})).toEqual(NO_FX);
+      // Saved before the clipper existed, and with a reverb that had fewer settings
+      const old = { volume: -3, lowSlope: 48, reverb: { mix: 0.5, decay: 2 } } as unknown as Partial<typeof NO_FX>;
+      const loaded = withFxDefaults(old);
+      expect(loaded.volume).toBe(-3);
+      expect(loaded.lowSlope).toBe(48);
+      expect(loaded.reverb).toEqual({ ...NO_FX.reverb, mix: 0.5, decay: 2 });
+      expect(loaded.clipper).toEqual(NO_FX.clipper);
+      expect(loaded.clipper).not.toBe(NO_FX.clipper); // a copy: editing a loaded chain leaves the defaults alone
+      expect(pcmLength(processTrack(mono(0.5, 0.25), loaded))).toBeGreaterThan(2);
+    });
+
     it('adds a decaying reverb tail', () => {
       const impulse = mono(1, ...Array<number>(799).fill(0));
-      const wet = reverb(impulse, 0.5, 0.5);
+      const settings = { ...NO_FX.reverb, mix: 0.5, decay: 0.5, width: 0 };
+      const wet = reverb(impulse, settings);
       expect(pcmLength(wet)).toBe(800 + 4000);
+      expect(wet.channels).toHaveLength(1);
       expect(wet.channels[0][0]).toBe(1);
       const energy = (from: number, to: number) => values(wet).slice(from, to).reduce((a, v) => a + v * v, 0);
       expect(energy(800, 1800)).toBeGreaterThan(10 * energy(3800, 4800));
       expect(energy(3800, 4800)).toBeGreaterThan(0);
-      expect(reverb(impulse, 0.5, 0)).toBe(impulse);
+      expect(reverb(impulse, { ...settings, mix: 0 })).toBe(impulse);
+    });
+
+    it('places early reflections by pre-delay and room size, and widens mono to stereo', () => {
+      const impulse = mono(1, ...Array<number>(799).fill(0));
+      const early = { ...NO_FX.reverb, mix: 1, early: 1, tail: 0, width: 0 };
+      const at = (p: Pcm) => values(p).findIndex((v, i) => i > 0 && v !== 0);
+      expect(at(reverb(impulse, early))).toBe(40); // the 5 ms reflection
+      expect(reverb(impulse, early).channels[0][40]).toBeCloseTo(1 / (1 + 5 / 25), 5);
+      expect(at(reverb(impulse, { ...early, preDelay: 10 }))).toBe(120);
+      expect(at(reverb(impulse, { ...early, size: 2 }))).toBe(80);
+      expect(pcmLength(reverb(impulse, { ...early, preDelay: 10 }))).toBe(800 + 80 + 8000);
+      const wide = reverb(impulse, { ...NO_FX.reverb, mix: 1, width: 1 });
+      expect(wide.channels).toHaveLength(2);
+      expect(values(wide, 0)).not.toEqual(values(wide, 1));
+      expect(wide.channels[1][0]).toBe(1);
+      const stereo = { ...impulse, channels: [impulse.channels[0], impulse.channels[0]] };
+      const narrow = reverb(stereo, { ...NO_FX.reverb, mix: 1, width: 0 });
+      expect(values(narrow, 0)).toEqual(values(narrow, 1));
+    });
+
+    describe('tones', () => {
+      const sr = 48000;
+      const tone = (hz: number, amp: (i: number) => number, length = sr / 2): Pcm => ({
+        sampleRate: sr,
+        channels: [Float32Array.from({ length }, (_, i) => amp(i) * Math.sin((2 * Math.PI * hz * i) / sr))],
+      });
+      const amp = (p: Pcm, from: number, to: number) => values(p).slice(from, to).reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+      const db = (v: number) => 20 * Math.log10(v);
+
+      it('cuts by slope and resonance, as its curve says', () => {
+        expect(cutResponse({ lowCut: 0, highCut: 1000 }, 1000)).toBeCloseTo(-3.01, 1);
+        expect(cutResponse({ lowCut: 1000, highCut: 0, lowRes: 12 }, 1000)).toBeCloseTo(8.99, 1);
+        expect(cutResponse({ lowCut: 0, highCut: 0 }, 1000)).toBe(0);
+        const sine = tone(2000, () => 0.5);
+        for (const highSlope of [12, 24, 48] as const) {
+          const o = { lowCut: 0, highCut: 1000, highSlope };
+          const out = cutFilter(sine, 0, sr / 2, o);
+          expect(db(amp(out, 12000, 20000) / 0.5)).toBeCloseTo(cutResponse(o, 2000), 1);
+          expect(cutResponse(o, 2000)).toBeLessThan(-highSlope + 1); // one octave above the cutoff
+        }
+      });
+
+      it('gates quiet parts, opens ahead of a hit and holds', () => {
+        const x = mono(...Array.from({ length: n }, (_, i) => (i >= 2000 && i < 4000 ? 0.5 : 0.01)));
+        const settings = { threshold: -20, attack: 2, hold: 10, release: 20, range: 60 };
+        const out = gate(x, settings).channels[0];
+        expect(out[1000]).toBeCloseTo(0.01 * 0.001, 6);
+        expect(out[2000]).toBeCloseTo(0.5, 5);
+        expect(out[3999]).toBeCloseTo(0.5, 5);
+        expect(out[4050]).toBeCloseTo(0.01, 5); // still held open
+        expect(out[7000]).toBeLessThan(0.0001);
+        expect(gate(mono(0.5, 0.5, 0.5), settings).channels[0][0]).toBe(0.5); // no room to fade in: starts open
+        expect(gate(x, { ...settings, threshold: GATE_OFF })).toBe(x);
+      });
+
+      it('low pass gate keeps the hit and darkens and quiets the tail', () => {
+        const x = tone(4000, (i) => (i < 4800 ? 0.8 : 0.08));
+        const settings = { amount: 1, decay: 20, floor: 100, resonance: 0 };
+        const out = lowPassGate(x, settings);
+        expect(amp(out, 2400, 4800)).toBeGreaterThan(0.7);
+        expect(amp(out, 20000, 24000)).toBeLessThan(0.08 / 100);
+        expect(amp(lowPassGate(x, { ...settings, amount: 0.3 }), 20000, 24000)).toBeGreaterThan(0.08 / 10);
+        expect(lowPassGate(x, { ...settings, amount: 0 })).toBe(x);
+      });
+
+      it('overdrives into a squarer wave at the dry peak, dynamics bring the quiet parts back', () => {
+        const settings = { mix: 1, drive: 30, freq: 1000, width: 4, tone: 0, dynamics: 0 };
+        const od = overdrive(tone(1000, () => 0.2), settings);
+        const rms = Math.sqrt(values(od).reduce((a, v) => a + v * v, 0) / pcmLength(od));
+        expect(amp(od, 0, sr / 2)).toBeCloseTo(0.2, 5);
+        expect(rms / 0.2).toBeGreaterThan(0.85); // a sine has 0.707
+        const steps = tone(1000, (i) => (i < 12000 ? 0.5 : 0.05));
+        const tail = (dynamics: number) => {
+          const out = overdrive(steps, { ...settings, dynamics });
+          return amp(out, 18000, 24000) / amp(out, 6000, 12000);
+        };
+        expect(tail(0)).toBeGreaterThan(0.5);
+        expect(tail(1)).toBeLessThan(0.2);
+        expect(overdrive(steps, { ...settings, mix: 0 })).toBe(steps);
+      });
+
+      it('echoes with feedback, and flanges when the delay is swept', () => {
+        const impulse = mono(1, ...Array<number>(799).fill(0));
+        const settings = { mix: 1, time: 10, feedback: 0.5, depth: 0, rate: 0, damp: 0 };
+        const echo = delay(impulse, settings);
+        expect([0, 80, 160, 240, 81].map((i) => echo.channels[0][i])).toEqual([1, 1, 0.5, 0.25, 0]);
+        expect(pcmLength(echo)).toBe(800 + 798); // ten halvings to -60 dB
+        expect(Math.abs(delay(impulse, { ...settings, damp: 0.5 }).channels[0][160])).toBeLessThan(0.5);
+        expect(delay(impulse, { ...settings, mix: 0 })).toBe(impulse);
+        // 1 kHz against itself 1 to 2 ms late: in phase, then cancelled, as the delay sweeps
+        const flanged = delay(tone(1000, () => 0.5, sr), { mix: 1, time: 1, feedback: 0, depth: 1, rate: 1, damp: 0 });
+        const windows = Array.from({ length: 40 }, (_, w) => amp(flanged, 1000 + w * 1000, 2000 + w * 1000));
+        expect(Math.max(...windows)).toBeGreaterThan(0.95);
+        expect(Math.min(...windows)).toBeLessThan(0.2);
+      });
     });
   });
 
