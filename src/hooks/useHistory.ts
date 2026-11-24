@@ -49,8 +49,21 @@ export function useHistory<T>(init: () => T, limit = HISTORY_LIMIT) {
     );
   }, []);
 
+  /** Moves by steps (negative = back) in one go */
+  const jump = useCallback((steps: number) => {
+    lastCoalesceAt.current = 0;
+    setHistory((h) => {
+      const all = [...h.past, h.present, ...h.future];
+      const at = Math.max(0, Math.min(all.length - 1, h.past.length + steps));
+      return { past: all.slice(0, at), present: all[at], future: all.slice(at + 1) };
+    });
+  }, []);
+
   return {
     present: history.present,
+    past: history.past,
+    future: history.future,
+    jump,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
     commit,

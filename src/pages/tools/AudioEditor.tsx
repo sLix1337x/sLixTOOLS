@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AudioWaveform,
   Blend,
@@ -16,8 +16,15 @@ import {
   Focus,
   Keyboard,
   Layers,
+  History,
+  Command,
+  Power,
+  Rainbow,
+  Star,
   LocateFixed,
   Magnet,
+  AlignStartVertical,
+  Wrench,
   Pause,
   Play,
   Plus,
@@ -67,16 +74,21 @@ import {
   autoFire,
   clipEnd,
   computePeaks,
+  spectrogram,
   copyRange,
   cutClips,
   deleteTrackRange,
   distance,
   editTrackRange,
   encodeWav,
+  environment,
+  ENVIRONMENT_NAMES,
+  equalize,
   extendLoop,
   fade,
   fadeCurve,
   findLoopEnd,
+  fireLoop,
   fromAudioBuffer,
   fxActive,
   gain,
@@ -87,11 +99,14 @@ import {
   limit,
   loudness,
   makeLoop,
+  MECH_KINDS,
+  mechSound,
   moveClips,
   moveRange,
   NO_FX,
   noise,
   normalize,
+  onsetOf,
   pasteClips,
   pitchShift,
   pcmDuration,
@@ -102,16 +117,20 @@ import {
   reverse,
   silence,
   splitAt,
+  suppress,
   sweep,
   texture,
   toMono,
   trackEnd,
+  truePeak,
   trackStart,
   tracksLength,
   withFxDefaults,
   type Clip,
+  type Environment,
   type Fade,
   type GlueSettings,
+  type MechKind,
   type NoiseColor,
   type Pcm,
   type ReverbSettings,
@@ -212,7 +231,12 @@ const FX_DEFAULT = {
   /** Rounds per minute */
   fireRate: 600,
   fireShots: 8,
+  mechKind: 'bolt' as MechKind,
 };
+const MECH_LABELS: Record<MechKind, string> = { bolt: 'Bolt', click: 'Click', mag: 'Mag', shell: 'Shell' };
+const PLACE_LABELS: Record<Environment, string> = { field: 'Field', city: 'City', canyon: 'Canyon', indoor: 'Indoor' };
+/** One variation's random pitch (semitones), volume and tone tilt (dB) */
+type Take = { st: number; db: number; tone: number };
 /** Hz; 0 = the project's own rate */
 const EXPORT_RATES = [0, 48000, 44100, 22050];
 /** File name tag and `distance` amount of the versions an export can hold */
@@ -231,6 +255,7 @@ const WEAPON_LAYERS: [string, Partial<TrackFx>][] = [
   ['Sub', { highCut: 120, highSlope: 48 }],
 ];
 const PRESETS_KEY = 'audio-editor:fx-presets';
+const FAVORITES_KEY = 'audio-editor:fx-favorites';
 type FxPresets = Record<string, Partial<TrackFx>>;
 const hz = (v: number) => (v >= 1000 ? `${v / 1000} kHz` : `${v} Hz`);
 /** Decoded audio kept in memory across all undo steps */
@@ -263,6 +288,8 @@ interface Project {
   tracks: Track[];
   /** seconds, sorted */
   markers?: number[];
+  /** the button that made this undo step, for the history list */
+  label?: string;
 }
 const NO_TRACKS: Track[] = [];
 const NO_MARKERS: number[] = [];
@@ -314,6 +341,9 @@ const CLIP_HEAD_H = 14;
 const SNAP_PX = 8;
 const panText = (p: number) => (p === 0 ? 'C' : p < 0 ? `L${-p}` : `R${p}`);
 
+/** A copy without these keys (optional props can't be set to undefined here) */
+const omit = <T extends object, K extends keyof T>(o: T, ...keys: K[]) =>
+  Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k as K))) as Omit<T, K>;
 const fadeKey = (edge: FadeEdge) => (edge === 'in' ? 'fadeIn' : 'fadeOut');
 const withFade = (track: Track, clip: number, edge: FadeEdge, fade: Fade): Track => ({
   ...track,
@@ -365,6 +395,23 @@ const historyLimitFor = (bytes: number) =>
   Math.max(3, Math.min(30, Math.floor(MEMORY_BUDGET / bytes)));
 const signed = (v: number, unit: string) => `${v > 0 ? '+' : ''}${v} ${unit}`;
 
+/** Every enabled button of the last render, for the command palette: label → what it does */
+const commands = new Map<string, { run: () => void; shortcut?: string | undefined }>();
+/** The button being clicked: the undo step it makes is named after it */
+let actionLabel: string | null = null;
+const labelled = (label: string, fn: () => void, disabled?: boolean, shortcut?: string) => {
+  const run = () => {
+    actionLabel = label.split(':')[0];
+    try {
+      fn();
+    } finally {
+      actionLabel = null;
+    }
+  };
+  if (!disabled) commands.set(label, { run, shortcut });
+  return run;
+};
+
 const iconBtn = (
   label: string,
   onClick: () => void,
@@ -377,7 +424,7 @@ const iconBtn = (
       aria-label={label}
       aria-pressed={opts.pressed}
       disabled={opts.disabled}
-      onClick={onClick}
+      onClick={labelled(label, onClick, opts.disabled, opts.shortcut)}
       className={toolButton}
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
@@ -395,7 +442,7 @@ const actionBtn = (
   const button = (
     <button
       type="button"
-      onClick={onClick}
+      onClick={labelled(label, onClick, disabled)}
       disabled={disabled}
       className={cn(chipButton, 'w-full justify-start')}
     >
@@ -521,8 +568,18 @@ const freqSlider = (
 };
 
 /** Collapsible panel section, one open at a time */
-const fxGroup = (title: string, note: string, children: React.ReactNode) => (
-  <details name="fx" className="group [&>summary::-webkit-details-marker]:hidden">
+/** A starred group moves to the top */
+const fxGroup = (
+  title: string,
+  note: string,
+  children: React.ReactNode,
+  fav?: { on: boolean; toggle: () => void }
+) => (
+  <details
+    name="fx"
+    className="group [&>summary::-webkit-details-marker]:hidden"
+    style={fav?.on ? { order: -1 } : undefined}
+  >
     <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2">
       <span className={cn(sectionLabel, 'mt-0 inline-flex items-center gap-1')}>
         <ChevronRight
@@ -530,6 +587,24 @@ const fxGroup = (title: string, note: string, children: React.ReactNode) => (
           aria-hidden="true"
         />
         {title}
+        {fav && (
+          <button
+            type="button"
+            aria-label={fav.on ? `Unstar ${title}` : `Star ${title}: keep it at the top`}
+            aria-pressed={fav.on}
+            title={fav.on ? 'Starred: stays at the top' : 'Star: keep it at the top'}
+            onClick={(e) => {
+              e.preventDefault();
+              fav.toggle();
+            }}
+            className={cn(
+              'ml-0.5 rounded p-0.5 hover:text-amber-200',
+              fav.on ? 'text-amber-300' : 'text-slate-600 opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+            )}
+          >
+            <Star className={cn('h-3 w-3', fav.on && 'fill-current')} aria-hidden="true" />
+          </button>
+        )}
       </span>
       <span className="text-[11px] text-slate-500">{note}</span>
     </summary>
@@ -588,7 +663,54 @@ const peaksOf = (pcm: Pcm, w: number) => {
   return peaks;
 };
 
-/** One track's waveform. selStart/selEnd (seconds) highlight the selected part; equal when it isn't on this track. */
+const SPEC_BANDS = 96;
+/** Dark blue through violet and orange to pale yellow: quiet to loud */
+const SPEC_COLORS = (() => {
+  const stops = [
+    [2, 6, 23],
+    [49, 18, 99],
+    [140, 34, 120],
+    [235, 90, 60],
+    [252, 200, 80],
+    [255, 250, 210],
+  ];
+  return Array.from({ length: 256 }, (_, i) => {
+    const u = (i / 255) * (stops.length - 1);
+    const k = Math.min(stops.length - 2, Math.floor(u));
+    const f = u - k;
+    return stops[k].map((a, c) => Math.round(a + (stops[k + 1][c] - a) * f));
+  });
+})();
+/** A source's spectrogram as an image, one column per 256 samples (at most 2048), low bands at the bottom */
+const specCache = new WeakMap<Pcm, HTMLCanvasElement>();
+const spectrumOf = (pcm: Pcm) => {
+  const hit = specCache.get(pcm);
+  if (hit) return hit;
+  const n = pcmLength(pcm);
+  const cols = Math.max(1, Math.min(2048, Math.ceil(n / 256)));
+  const spec = spectrogram(pcm, 0, n, cols, SPEC_BANDS);
+  const img = new ImageData(cols, SPEC_BANDS);
+  for (let c = 0; c < cols; c++)
+    for (let b = 0; b < SPEC_BANDS; b++) {
+      const [r, g, bl] = SPEC_COLORS[Math.round(spec[c * SPEC_BANDS + b] * 255)];
+      const o = ((SPEC_BANDS - 1 - b) * cols + c) * 4;
+      img.data[o] = r;
+      img.data[o + 1] = g;
+      img.data[o + 2] = bl;
+      img.data[o + 3] = 255;
+    }
+  const canvas = document.createElement('canvas');
+  canvas.width = cols;
+  canvas.height = SPEC_BANDS;
+  canvas.getContext('2d')?.putImageData(img, 0, 0);
+  specCache.set(pcm, canvas);
+  return canvas;
+};
+
+/**
+ * One track's waveform, or its spectrogram. selStart/selEnd (seconds) highlight the selected part; equal when it
+ * isn't on this track.
+ */
 const LaneCanvas = ({
   clips,
   sampleRate,
@@ -598,6 +720,7 @@ const LaneCanvas = ({
   muted,
   selStart,
   selEnd,
+  spectrum,
 }: {
   clips: Clip[];
   sampleRate: number;
@@ -607,6 +730,7 @@ const LaneCanvas = ({
   muted: boolean;
   selStart: number;
   selEnd: number;
+  spectrum: boolean;
 }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   const px = (samples: number) => (samples / sampleRate / span) * width;
@@ -621,6 +745,10 @@ const LaneCanvas = ({
         return {
           x: Math.round(px(c.at)),
           w,
+          src,
+          // the clip's part of the source, 0..1
+          from: (c.offset ?? 0) / pcmLength(src),
+          part: pcmLength(c.pcm) / pcmLength(src),
           peaks: peaksOf(src, full).subarray(skip * 2, (skip + w) * 2),
           g: c.gain ? 10 ** (c.gain / 20) : 1,
           fadeIn: c.fadeIn,
@@ -658,11 +786,26 @@ const LaneCanvas = ({
       ctx.fillRect(x, 0, 1, height);
       ctx.fillRect(x + w - 1, 0, 1, height);
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.fillRect(0, Math.round(mid), width, 1); // zero line
     const selected = selEnd > selStart;
-    bars(muted ? WAVE_MUTED : selected ? WAVE_DIM : WAVE);
-    if (selected && !muted) {
+    if (spectrum) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = muted ? 0.35 : 1;
+      for (const { x, w, src, from, part } of drawn) {
+        const img = spectrumOf(src);
+        ctx.drawImage(img, from * img.width, 0, Math.max(1, part * img.width), img.height, x, 0, w, height);
+      }
+      ctx.globalAlpha = 1;
+      if (selected) {
+        const a = (selStart / span) * width;
+        ctx.fillStyle = 'rgba(186,230,253,0.18)';
+        ctx.fillRect(a, 0, (selEnd / span) * width - a, height);
+      }
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(0, Math.round(mid), width, 1); // zero line
+      bars(muted ? WAVE_MUTED : selected ? WAVE_DIM : WAVE);
+    }
+    if (selected && !muted && !spectrum) {
       const a = (selStart / span) * width;
       ctx.save();
       ctx.beginPath();
@@ -691,9 +834,223 @@ const LaneCanvas = ({
           fadeCurve(1 - u, fadeOut.curve)
         );
     }
-  }, [drawn, width, height, span, muted, selStart, selEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drawn, width, height, span, muted, selStart, selEnd, spectrum]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <canvas ref={ref} className="absolute inset-0 h-full w-full" />;
+};
+
+/**
+ * The whole mix in one strip, with the part the timeline shows boxed. Click or drag to scroll there. Follows the
+ * timeline's scrolling itself, so scrolling doesn't re-render the editor.
+ */
+const Overview = ({
+  pcm,
+  view,
+  span,
+  playhead,
+  zoom,
+}: {
+  pcm: Pcm | null;
+  view: React.RefObject<HTMLDivElement | null>;
+  span: number;
+  playhead: number;
+  zoom: number;
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const w = (canvas.width = canvas.clientWidth);
+    const h = (canvas.height = canvas.clientHeight);
+    ctx.clearRect(0, 0, w, h);
+    if (!pcm) return;
+    const len = Math.max(1, Math.round((pcmLength(pcm) / pcm.sampleRate / span) * w));
+    const peaks = peaksOf(pcm, len);
+    ctx.fillStyle = WAVE_DIM;
+    for (let i = 0; i < len; i++) {
+      const a = Math.max(Math.abs(peaks[i * 2]), Math.abs(peaks[i * 2 + 1])) * h * 0.45;
+      ctx.fillRect(i, h / 2 - a, 1, Math.max(1, 2 * a));
+    }
+  }, [pcm, span]);
+  useEffect(() => {
+    const v = view.current;
+    const box = boxRef.current;
+    if (!v || !box) return;
+    const sync = () => {
+      box.style.left = `${(v.scrollLeft / v.scrollWidth) * 100}%`;
+      box.style.width = `${(v.clientWidth / v.scrollWidth) * 100}%`;
+    };
+    sync();
+    v.addEventListener('scroll', sync);
+    window.addEventListener('resize', sync);
+    return () => {
+      v.removeEventListener('scroll', sync);
+      window.removeEventListener('resize', sync);
+    };
+  }, [view, zoom]);
+  const scrollTo = (e: React.PointerEvent) => {
+    const v = view.current;
+    if (!v || !(e.buttons & 1)) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    v.scrollLeft = ((e.clientX - r.left) / r.width) * v.scrollWidth - v.clientWidth / 2;
+  };
+  return (
+    <div
+      className="relative h-6 shrink-0 cursor-pointer touch-none border-b border-white/10 bg-slate-950"
+      title="The whole mix: click or drag to scroll there"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        scrollTo(e);
+      }}
+      onPointerMove={scrollTo}
+    >
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      <div
+        ref={boxRef}
+        className="pointer-events-none absolute inset-y-0 rounded-sm border border-sky-300/70 bg-sky-300/10"
+      />
+      <div
+        className="pointer-events-none absolute inset-y-0 w-px bg-amber-300"
+        style={{ left: `${(playhead / span) * 100}%` }}
+      />
+    </div>
+  );
+};
+
+/** A modal over the page; Esc or a click outside closes it */
+const Modal = ({
+  open,
+  onClose,
+  label,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  label: string;
+  children: React.ReactNode;
+}) => {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (open && !d?.open) d?.showModal();
+    else if (!open && d?.open) d.close();
+  }, [open]);
+  return (
+    <dialog
+      ref={ref}
+      aria-label={label}
+      onClose={onClose}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className="w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-white/10 bg-slate-900 p-0 text-slate-200 shadow-2xl backdrop:bg-black/60"
+    >
+      {open && children}
+    </dialog>
+  );
+};
+
+/** Type to find any button of the editor, Enter runs it */
+const CommandPalette = ({ onClose }: { onClose: () => void }) => {
+  const [query, setQuery] = useState('');
+  const [at, setAt] = useState(0);
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const found = [...commands].filter(([label]) => words.every((w) => label.toLowerCase().includes(w)));
+  const run = (i: number) => {
+    const hit = found[i];
+    onClose();
+    hit?.[1].run();
+  };
+  return (
+    <div className="flex max-h-[70vh] flex-col">
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setAt(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') setAt((a) => Math.min(found.length - 1, a + 1));
+          else if (e.key === 'ArrowUp') setAt((a) => Math.max(0, a - 1));
+          else if (e.key === 'Enter') run(at);
+          else return;
+          e.preventDefault();
+        }}
+        placeholder="Type a command: reverb, loop, export…"
+        aria-label="Command"
+        className="border-b border-white/10 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-slate-500"
+      />
+      <ul className="overflow-y-auto p-1" role="listbox" aria-label="Commands">
+        {found.map(([label, { shortcut }], i) => (
+          <li key={label} role="option" aria-selected={i === at}>
+            <button
+              type="button"
+              ref={i === at ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+              onClick={() => run(i)}
+              onMouseMove={() => setAt(i)}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left text-sm',
+                i === at ? 'bg-sky-500/20 text-sky-100' : 'text-slate-300'
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{label}</span>
+              {shortcut && <kbd className={guideKey}>{shortcut}</kbd>}
+            </button>
+          </li>
+        ))}
+        {!found.length && <li className="px-3 py-2 text-sm text-slate-500">Nothing found</li>}
+      </ul>
+    </div>
+  );
+};
+
+const SHORTCUTS: [string, string][] = [
+  ['Space', 'Play / stop'],
+  ['Home / End', 'Jump to the start / end'],
+  ['Hold B', 'Hear it without effects (A/B)'],
+  ['Ctrl+Z / Ctrl+Y', 'Undo / redo'],
+  ['Ctrl+C / X / V', 'Copy, cut, paste'],
+  ['Ctrl+D', 'Duplicate'],
+  ['Ctrl+A', 'Select the active track'],
+  ['Ctrl+L', 'Loop the selection'],
+  ['Delete', 'Delete the selection, or the picked clips'],
+  ['Esc', 'Clear the selection'],
+  ['M', 'Add a marker'],
+  [', / .', 'Previous / next marker'],
+  ['Ctrl+K', 'Command palette'],
+  ['?', 'This list'],
+  ['Ctrl+click', 'Pick several clips'],
+  ['Ctrl+drag', 'Draw a box to pick clips'],
+  ['Ctrl when dropping', 'Copy instead of move'],
+  ['Alt while dragging', 'No snapping, no phase nudge'],
+  ['Right-click a clip', 'Clip menu'],
+  ['Ctrl+wheel', 'Zoom'],
+  ['Shift+wheel', 'Scroll sideways'],
+];
+
+/** "lowCut" → "low cut" */
+const words = (key: string) => key.replace(/[A-Z]/g, (m) => ` ${m.toLowerCase()}`);
+/** What changed from one undo step to the next, when no button named it */
+const describeStep = (a: Project | null, b: Project | null) => {
+  if (!b) return 'Empty';
+  if (!a) return 'Opened';
+  if (b.label) return b.label;
+  if (b.tracks.length > a.tracks.length) return 'Add track';
+  if (b.tracks.length < a.tracks.length) return 'Remove track';
+  if (b.markers !== a.markers) return 'Markers';
+  for (const [i, t] of b.tracks.entries()) {
+    const o = a.tracks.find((x) => x.id === t.id);
+    const name = t.name ?? `Track ${i + 1}`;
+    if (!o) return 'Edit';
+    if (t.clips !== o.clips) return `Edit ${name}`;
+    if (t.name !== o.name) return `Rename to ${name}`;
+    if (t.fx !== o.fx) {
+      const key = (Object.keys(t.fx ?? NO_FX) as (keyof TrackFx)[]).find((k) => t.fx?.[k] !== o.fx?.[k]);
+      return `${name}: ${key ? words(key) : 'effects'}`;
+    }
+  }
+  return 'Edit';
 };
 
 const seoContent = (
@@ -801,8 +1158,16 @@ const seoContent = (
             'shape transients, saturate, overdrive, clip, bitcrush, gate, flange and echo, let a hit fall in pitch, add a reverb tail, make seamless loops and generate noise bursts and sub thumps.'
           )}
           {guideItem(
+            'Weapons:',
+            'add mechanics (bolt, click, magazine, shell), line up every layer to the same attack, export suppressed versions and Field, City, Canyon or Indoor tails, and export an auto-fire loop with its release tail for the game engine.'
+          )}
+          {guideItem(
+            'Compare and find:',
+            'hold B to hear it without effects, switch on the spectrogram to see pitch over time, star the effects you use most, right-click a clip for its menu, and press Ctrl+K to find any action by name.'
+          )}
+          {guideItem(
             'Export:',
-            'match loudness in LUFS with a limiter, export up to 10 variations with random pitch and volume as a ZIP, split the export at markers into one file per part, add close, mid and far versions, export in mono or at another sample rate, and test it on auto-fire at any fire rate.'
+            'match loudness in LUFS with a limiter, export up to 10 variations with random pitch and volume as a ZIP, split the export at markers into one file per part, add close, mid and far versions, nudge each layer timing and tone per take, keep true peaks under -1 dBTP, export in mono or at another sample rate, and test it on auto-fire at any fire rate.'
           )}
           {guideItem(
             'Formats:',
@@ -836,6 +1201,10 @@ const seoContent = (
           <li>
             <kbd className={guideKey}>Alt</kbd> while dragging: no snapping
           </li>
+          <li>
+            hold <kbd className={guideKey}>B</kbd> to hear it without effects,{' '}
+            <kbd className={guideKey}>Ctrl+K</kbd> command palette, <kbd className={guideKey}>?</kbd> all shortcuts
+          </li>
           <li>Focus mode: the mouse wheel drives the timeline and the page stays put</li>
           <li>
             <kbd className={guideKey}>Ctrl</kbd> + mouse wheel zoom, or hold the ruler and drag down or up,{' '}
@@ -862,12 +1231,23 @@ const AudioEditor = () => {
   const [historyLimit, setHistoryLimit] = useState(30);
   const {
     present: project,
-    commit,
+    past,
+    future,
+    commit: commitRaw,
     undo,
     redo,
+    jump,
     canUndo,
     canRedo,
   } = useHistory<Project | null>(() => null, historyLimit);
+  // Filled again by the buttons below on every render
+  commands.clear();
+  /** Every undo step carries the name of the button that made it, or none */
+  const commit = (next: Project | null, coalesce = false) => {
+    if (!next || next === project) return commitRaw(next, coalesce);
+    const rest = omit(next, 'label');
+    commitRaw(actionLabel ? { ...rest, label: actionLabel } : rest, coalesce);
+  };
   const [file, setFile] = useState<File | null>(null);
   const [selection, setSelection] = useState<Selection>({ track: 0, start: 0, end: 0 });
   const [muted, setMuted] = useState<number[]>([]);
@@ -922,6 +1302,13 @@ const AudioEditor = () => {
   /** Hz; 0 = the project's rate */
   const [exportRate, setExportRate] = useState(0);
   const [distances, setDistances] = useState(false);
+  /** Where the export is fired; all = one file per place */
+  const [place, setPlace] = useState<Environment | 'all' | ''>('');
+  const [suppressedToo, setSuppressedToo] = useState(false);
+  /** ms each layer of a variation may start late */
+  const [jitterMs, setJitterMs] = useState(0);
+  /** ± dB of random tone tilt per variation */
+  const [varyTone, setVaryTone] = useState(0);
   const [fxClipboard, setFxClipboard] = useState<TrackFx | null>(null);
   /** Saved effect chains, remembered per browser */
   const [presets, setPresets] = useState<FxPresets>(() => {
@@ -937,6 +1324,36 @@ const AudioEditor = () => {
   const [progress, setProgress] = useState<number | null>(null);
   const [viewSize, setViewSize] = useState({ width: 800, height: 360 });
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  /** A/B: every track as recorded, no effects, no glue; while B is held or the switch is on */
+  const [bypass, setBypass] = useState(false);
+  const [spectrum, toggleSpectrum] = useStoredToggle('audio-editor:spectrum', false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  /** Right-clicked clip, and where the menu opens */
+  const [clipMenu, setClipMenu] = useState<{ x: number; y: number; track: number; index: number } | null>(
+    null
+  );
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(FAVORITES_KEY) ?? '[]');
+      return Array.isArray(saved) ? saved.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const fav = (title: string) => ({
+    on: favorites.includes(title),
+    toggle: () => {
+      const next = favorites.includes(title) ? favorites.filter((f) => f !== title) : [...favorites, title];
+      setFavorites(next);
+      try {
+        localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+      } catch {
+        // storage blocked: the stars last for this visit
+      }
+    },
+  });
 
   const workspaceRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
@@ -1102,6 +1519,21 @@ const AudioEditor = () => {
     const glued = glue(sum, glueSet);
     return { mix: glued.pcm, reduction: glued.reduction };
   }, [rate, liveTracks, muted, soloed, glueOn, glueSet]);
+  // A/B: the same tracks with nothing on them
+  const dry = useMemo(
+    () =>
+      bypass && rate
+        ? renderClips(
+            liveTracks.filter((t) => audible(t.id)).flatMap((t) => t.clips),
+            rate,
+            0,
+            tracksLength(liveTracks)
+          )
+        : null,
+    [bypass, rate, liveTracks, muted, soloed] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  /** What plays */
+  const heard = dry ?? mix;
   /** Peak of a track's processed audio over the last 50 ms before the playhead, while playing */
   const levelOf = (t: Track) => {
     const pcm =
@@ -1134,7 +1566,7 @@ const AudioEditor = () => {
         setHistoryLimit(historyLimitFor(pcmBytes(decoded)));
         stop();
         const track = newTrack([{ at: 0, pcm: decoded }]);
-        commit({ sampleRate: decoded.sampleRate, tracks: [track] });
+        commitRaw({ sampleRate: decoded.sampleRate, tracks: [track] });
         setFile(next);
         setMuted([]);
         setSoloed([]);
@@ -1148,7 +1580,7 @@ const AudioEditor = () => {
         setBusy(false);
       }
     },
-    [commit]
+    [commitRaw]
   );
 
   useHandoff((f) => void load(f));
@@ -1194,8 +1626,8 @@ const AudioEditor = () => {
   };
 
   const play = (from?: number) => {
-    if (!mix) return;
-    const src = sourceFor(mix);
+    if (!heard) return;
+    const src = sourceFor(heard);
     const ctx = getContext();
 
     const start =
@@ -1242,7 +1674,7 @@ const AudioEditor = () => {
   // Muting, effects or the loop change what plays: keep playing from the same spot with the new one
   useEffect(() => {
     if (sourceRef.current && dragRef.current?.mode !== 'loop') play(playhead);
-  }, [mix, loop, loopRegion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [heard, loop, loopRegion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Loop on/off; switching it on without a brace sets one over the selection, or everything */
   const toggleLoop = () => {
@@ -1375,21 +1807,46 @@ const AudioEditor = () => {
   };
 
   /** A generated sound on a new track at the cursor, with a fast curved fade-out */
-  const addGenerated = (pcm: Pcm) => {
+  /** A named sound is already shaped, so it gets no fade-out */
+  const addGenerated = (pcm: Pcm, name?: string) => {
     const n = pcmLength(pcm);
     const clip: Clip = {
       at: toSample(playhead),
       pcm,
       fadeIn: { length: Math.min(n, toSample(0.002)), curve: 0 },
-      fadeOut: { length: Math.round(n * 0.9), curve: -0.6 },
+      ...(name ? {} : { fadeOut: { length: Math.round(n * 0.9), curve: -0.6 } }),
     };
-    const track = newTrack([clip]);
+    const track = { ...newTrack([clip]), ...(name ? { name } : {}) };
     apply([...tracks, track], { track: track.id, start: playhead, end: playhead + n / sampleRate });
   };
   /** The base of whooshes, hits and explosions */
   const addNoise = () => addGenerated(noise(sampleRate, fx.genLen, fx.noiseColor));
   /** The low punch under a shot or an explosion */
   const addThump = () => addGenerated(sweep(sampleRate, fx.genLen, fx.thumpFrom, fx.thumpTo));
+  /** Named Mech, so the suppressed export leaves it as it is */
+  const addMech = () => addGenerated(mechSound(sampleRate, fx.mechKind), `Mech ${MECH_LABELS[fx.mechKind].toLowerCase()}`);
+
+  /**
+   * Moves every other track so its attack lines up with the active track's: layers that hit together sound like one
+   * shot, not a flam. If that would push a track before 0, everything moves later instead.
+   */
+  const alignAttacks = () => {
+    if (!active?.clips.length) return;
+    const onset = (t: Track) => trackStart(t) + onsetOf(renderClips(t.clips, sampleRate, trackStart(t), trackEnd(t)));
+    const target = onset(active);
+    const shifts = tracks.map((t) => (t === active || !t.clips.length ? 0 : target - onset(t)));
+    if (shifts.every((d) => !d)) {
+      toast.info('Already lined up');
+      return;
+    }
+    const lead = Math.max(0, ...tracks.map((t, i) => (t.clips.length ? -(trackStart(t) + shifts[i]) : 0)));
+    apply(
+      tracks.map((t, i) =>
+        shifts[i] + lead ? { ...t, clips: t.clips.map((c) => ({ ...c, at: c.at + shifts[i] + lead })) } : t
+      )
+    );
+    toast.success(`Lined up ${shifts.filter(Boolean).length} tracks on ${active.name ?? 'the active track'}`);
+  };
 
   const deleteSelection = () => {
     if (!requireSelection()) return;
@@ -1479,6 +1936,43 @@ const AudioEditor = () => {
         t.id === track ? { ...t, clips: t.clips.map((c, i) => (i === index ? clip : c)) } : t
       )
     );
+
+  /** A clip's audio changed in place: it no longer windows a longer source */
+  const withPcm = (clip: Clip, pcm: Pcm): Clip => ({ ...omit(clip, 'src', 'offset'), pcm });
+  const clipActions = (trackId: number, index: number): [string, () => void][] => {
+    const track = tracks.find((t) => t.id === trackId);
+    const clip = track?.clips[index];
+    if (!track || !clip) return [];
+    const n = pcmLength(clip.pcm);
+    const unfaded = omit(clip, 'fadeIn', 'fadeOut');
+    const ungained = omit(clip, 'gain');
+    return [
+      [
+        'Select',
+        () => setSelection({ track: trackId, start: clip.at / sampleRate, end: clipEnd(clip) / sampleRate }),
+      ],
+      ['Duplicate after it', () => moveGroup([clip], 0, n, true, true)],
+      ['Normalize', () => setClip(trackId, index, withPcm(ungained, normalize(clip.pcm, 0, n)))],
+      [
+        'Reverse',
+        () => {
+          const { fadeIn, fadeOut, ...rest } = withPcm(clip, reverse(clip.pcm, 0, n));
+          setClip(trackId, index, { ...rest, ...(fadeOut ? { fadeIn: fadeOut } : {}), ...(fadeIn ? { fadeOut: fadeIn } : {}) });
+        },
+      ],
+      ...(clip.gain ? [['Reset clip gain', () => setClip(trackId, index, ungained)] as [string, () => void]] : []),
+      ...(clip.fadeIn || clip.fadeOut
+        ? [['Remove fades', () => setClip(trackId, index, unfaded)] as [string, () => void]]
+        : []),
+      [
+        'Delete',
+        () => {
+          apply(tracks.map((t) => (t === track ? { ...t, clips: t.clips.filter((c) => c !== clip) } : t)));
+          setPicked((p) => p.filter((c) => c !== clip));
+        },
+      ],
+    ];
+  };
 
   /** Renders the active track's effects into its audio, as one clip, and switches them off */
   const bakeFx = () => {
@@ -1660,72 +2154,109 @@ const AudioEditor = () => {
 
   // ---- export ----
   /** The mix or the selected time, in mono when asked. Null when that is nothing. */
-  const exportPick = () => {
-    if (!mix) return null;
+  const exportPick = (base = mix) => {
+    if (!base) return null;
     const picked =
       selectionOnly && hasSelection
-        ? keepRange(mix, toSample(selection.start), toSample(selection.end))
-        : mix;
+        ? keepRange(base, toSample(selection.start), toSample(selection.end))
+        : base;
     if (!pcmLength(picked)) return null;
     return exportMono ? toMono(picked) : picked;
   };
-  /** At the target loudness, by the gain that brings `like` there: the parts of one sound keep their balance */
+  /**
+   * The tracks summed again, for what the live mix can't give: the suppressed version (every layer but Mech through a
+   * suppressor) or a variation whose layers each start up to `jitter` samples late
+   */
+  const remix = (suppressed: boolean, jitter: number) => {
+    if (!rate || (!suppressed && !jitter)) return mix;
+    const outs = liveTracks
+      .filter((t) => audible(t.id) && t.clips.length)
+      .map((t) => {
+        const pcm =
+          processedRef.current.get(t.id)?.pcm ??
+          processTrack(renderClips(t.clips, rate, 0, trackEnd(t)), t.fx ?? NO_FX);
+        return {
+          at: Math.round(Math.random() * jitter),
+          pcm: suppressed && !/mech/i.test(t.name ?? '') ? suppress(pcm) : pcm,
+        };
+      });
+    const sum = renderClips(outs, rate, 0, Math.max(0, ...outs.map(clipEnd)));
+    return glueOn ? glue(sum, glueSet).pcm : sum;
+  };
+  /**
+   * At the target loudness, by the gain that brings `like` there: the parts of one sound keep their balance. Peaks
+   * stay under -1 dB, between the samples too (true peak), so no encoder or speaker clips them.
+   */
   const levelled = (pcm: Pcm, like = pcm) => {
     const measured = matchLoudness ? loudness(like) : NaN;
-    return Number.isFinite(measured) ? limit(pcm, -1, targetLufs - measured) : pcm;
+    if (!Number.isFinite(measured)) return pcm;
+    const out = limit(pcm, -1, targetLufs - measured);
+    const over = truePeak(out) / 10 ** (-1 / 20);
+    return over > 1 ? gain(out, 0, pcmLength(out), 1 / over) : out;
   };
-  /** One take per variation. Each gets its own random pitch and volume, so a sound played often in a game doesn't repeat exactly */
-  const takesOf = (base: Pcm) => {
-    const n = pcmLength(base);
-    return takes > 1
-      ? Array.from({ length: takes }, () => {
-          const st = Math.round((Math.random() * 2 - 1) * varyPitch * 10) / 10;
-          return pitchShift(gain(base, 0, n, 10 ** ((-Math.random() * varyVolume) / 20)), 0, n, st);
-        })
-      : [base];
+  /** One per variation, so a sound played often in a game doesn't repeat exactly */
+  const randomTakes = (): Take[] =>
+    takes > 1
+      ? Array.from({ length: takes }, () => ({
+          st: Math.round((Math.random() * 2 - 1) * varyPitch * 10) / 10,
+          db: -Math.random() * varyVolume,
+          tone: Math.round((Math.random() * 2 - 1) * varyTone * 10) / 10,
+        }))
+      : [{ st: 0, db: 0, tone: 0 }];
+  /** Tone tilts around 1 kHz: lows down and highs up by the same dB, or the other way */
+  const vary = (pcm: Pcm, { st, db, tone }: Take) => {
+    const n = pcmLength(pcm);
+    let out = db ? gain(pcm, 0, n, 10 ** (db / 20)) : pcm;
+    if (tone) out = equalize(out, 0, n, { low: -tone, mid: 0, high: tone });
+    return st ? pitchShift(out, 0, n, st) : out;
   };
+  /** The export once per variation, each with its own layer timing: the shots of a burst or a loop */
+  const shotsOf = (level: boolean) =>
+    randomTakes().flatMap((take) => {
+      const pick = exportPick(remix(false, toSample(jitterMs / 1000)));
+      return pick ? [vary(level ? levelled(pick) : pick, take)] : [];
+    });
+  const singlePlace = place === 'all' ? '' : place;
 
   /** Plays the export as a burst, to hear how it repeats in a game */
   const testFire = () => {
-    const pick = exportPick();
-    if (!pick) {
+    const shots = shotsOf(true);
+    if (!shots.length) {
       toast.info('Nothing to play');
       return;
     }
-    sourceFor(autoFire(takesOf(levelled(pick)), fx.fireRate, fx.fireShots)).start();
+    const burst = autoFire(shots, fx.fireRate, fx.fireShots);
+    // The place answers the whole burst, as it would in a game
+    sourceFor(singlePlace ? environment(burst, singlePlace) : burst).start();
+  };
+  /** The burst as a seamless loop and its release tail, levelled together */
+  const loopAndTail = () => {
+    const shots = shotsOf(false);
+    if (!shots.length) {
+      toast.info('Nothing to fire');
+      return null;
+    }
+    const { loop, tail } = fireLoop(shots, fx.fireRate, fx.fireShots);
+    return { loop: levelled(loop), tail: levelled(tail, loop) };
+  };
+  /** The loop three times, then the trigger let go */
+  const hearLoop = () => {
+    const lt = loopAndTail();
+    if (!lt) return;
+    const n = pcmLength(lt.loop);
+    const clips = [0, 1, 2].map((k) => ({ at: k * n, pcm: lt.loop })).concat({ at: 3 * n, pcm: lt.tail });
+    sourceFor(renderClips(clips, lt.loop.sampleRate, 0, 3 * n + pcmLength(lt.tail))).start();
   };
 
-  const exportAudio = async () => {
-    const pick = exportPick();
-    if (!pick) {
+  /** Encodes the sounds and downloads them: one file, or a ZIP named with `zipTag` */
+  const save = async (sounds: { pcm: Pcm; suffix: string | undefined }[], zipTag: string) => {
+    if (!sounds.length) {
       toast.info('Nothing to export');
       return;
     }
     setBusy(true);
     setProgress(0);
     try {
-      const offset = selectionOnly && hasSelection ? toSample(selection.start) : 0;
-      const cuts = splitMarkers
-        ? markers.map((m) => toSample(m) - offset).filter((c) => c > 0 && c < pcmLength(pick))
-        : [];
-      const parts = cuts.length ? splitAt(pick, cuts) : [pick];
-      const sounds = (distances ? DISTANCES : ONE_DISTANCE).flatMap(([where, far]) => {
-        // Loudness is matched on the whole export. Parts are moved away one by one, so no tail rings into the next
-        const whole = distance(pick, far);
-        return parts.flatMap((part, i) =>
-          takesOf(levelled(cuts.length ? distance(part, far) : whole, whole)).map((pcm, t) => ({
-            pcm,
-            suffix:
-              [cuts.length ? `part${i + 1}` : '', where, takes > 1 ? String(t + 1) : '']
-                .filter(Boolean)
-                .join('-') || undefined,
-          }))
-        );
-      });
-      if (!sounds.length) {
-        toast.info('Nothing to export');
-        return;
-      }
       const files = await Promise.all(
         sounds.map(async (f) => ({ ...f, pcm: await resample(f.pcm, exportRate) }))
       );
@@ -1755,12 +2286,7 @@ const AudioEditor = () => {
         blobs.forEach((blob, i) =>
           zip.file(toFile(blob, file?.name, format, files[i].suffix).name, blob)
         );
-        out = toFile(
-          await zip.generateAsync({ type: 'blob' }),
-          file?.name,
-          'zip',
-          cuts.length ? 'parts' : distances ? 'distances' : 'variations'
-        );
+        out = toFile(await zip.generateAsync({ type: 'blob' }), file?.name, 'zip', zipTag);
       }
       downloadBlob(out, out.name, { showToast: true });
     } catch (error) {
@@ -1771,6 +2297,65 @@ const AudioEditor = () => {
       setBusy(false);
       setProgress(null);
     }
+  };
+
+  const exportLoop = () => {
+    const lt = loopAndTail();
+    if (lt) void save([{ pcm: lt.loop, suffix: 'loop' }, { pcm: lt.tail, suffix: 'tail' }], 'auto-fire');
+  };
+
+  const places: (Environment | '')[] = place === 'all' ? ENVIRONMENT_NAMES : [place];
+  const versions = suppressedToo ? [false, true] : [false];
+  const exportAudio = () => {
+    const first = exportPick();
+    if (!first) {
+      toast.info('Nothing to export');
+      return;
+    }
+    const offset = selectionOnly && hasSelection ? toSample(selection.start) : 0;
+    const cuts = splitMarkers
+      ? markers.map((m) => toSample(m) - offset).filter((c) => c > 0 && c < pcmLength(first))
+      : [];
+    const jitter = toSample(jitterMs / 1000);
+    const at = (pcm: Pcm, where: Environment | '') => (where ? environment(pcm, where) : pcm);
+    const sounds = randomTakes().flatMap((take, t) =>
+      versions.flatMap((suppressed) => {
+        const pick = suppressed || jitter ? exportPick(remix(suppressed, jitter)) : first;
+        if (!pick) return [];
+        const parts = cuts.length ? splitAt(pick, cuts) : [pick];
+        return (distances ? DISTANCES : ONE_DISTANCE).flatMap(([where, far]) =>
+          places.flatMap((env) => {
+            // Loudness is matched on the whole export. Parts are moved away one by one, so no tail rings into the next
+            const whole = at(distance(pick, far), env);
+            return parts.map((part, i) => ({
+              pcm: vary(levelled(cuts.length ? at(distance(part, far), env) : whole, whole), take),
+              suffix:
+                [
+                  cuts.length ? `part${i + 1}` : '',
+                  where,
+                  env,
+                  suppressed ? 'suppressed' : '',
+                  takes > 1 ? String(t + 1) : '',
+                ]
+                  .filter(Boolean)
+                  .join('-') || undefined,
+            }));
+          })
+        );
+      })
+    );
+    void save(
+      sounds,
+      cuts.length
+        ? 'parts'
+        : distances
+          ? 'distances'
+          : place === 'all'
+            ? 'places'
+            : suppressedToo
+              ? 'versions'
+              : 'variations'
+    );
   };
 
   // ---- timeline ----
@@ -2281,14 +2866,20 @@ const AudioEditor = () => {
 
   // ---- keyboard ----
   /** Typing keeps its keys; buttons, checkboxes and sliders don't (Space must not press a focused button) */
-  const isTyping = (target: HTMLElement) =>
-    Boolean(target.closest('textarea,select,[contenteditable="true"]')) ||
-    (target instanceof HTMLInputElement &&
-      !['checkbox', 'radio', 'range', 'button'].includes(target.type));
+  const isTyping = (target: EventTarget | null) =>
+    target instanceof Element &&
+    (Boolean(target.closest('textarea,select,[contenteditable="true"]')) ||
+      (target instanceof HTMLInputElement &&
+        !['checkbox', 'radio', 'range', 'button'].includes(target.type)));
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   keyRef.current = (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    if (!project || isTyping(target)) return;
+    // Dialogs keep their keys
+    if (!project || isTyping(e.target) || document.querySelector('dialog[open]')) return;
+    if (e.key.toLowerCase() === 'b' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!e.repeat) setBypass(e.type === 'keydown');
+      e.preventDefault();
+      return;
+    }
     if (e.code === 'Space') {
       // Swallow both halves: a focused button or checkbox activates on keyup
       e.preventDefault();
@@ -2306,6 +2897,7 @@ const AudioEditor = () => {
       else if (key === 'v') paste();
       else if (key === 'd') duplicate();
       else if (key === 'l') loopSelection();
+      else if (key === 'k') setPaletteOpen(true);
       else if (key === 'a' && active)
         setSelection({
           track: active.id,
@@ -2326,6 +2918,7 @@ const AudioEditor = () => {
     else if (key === '.') jumpMarker(1);
     else if (key === 'home') seek(0);
     else if (key === 'end') seek(duration);
+    else if (key === '?') setKeysOpen(true);
     else return;
     e.preventDefault();
   };
@@ -2353,13 +2946,15 @@ const AudioEditor = () => {
           ? exportSeconds * kbps * 125
           : NaN) *
       takes *
-      (distances ? DISTANCES.length : 1);
+      (distances ? DISTANCES.length : 1) *
+      places.length *
+      versions.length;
   const flatEq = !activeFx.eq.low && !activeFx.eq.mid && !activeFx.eq.high;
   const { gate: gateFx, overdrive: od, lpg, flanger, delay: echo, reverb: verb, clipper, pitchEnv } = activeFx;
   const setGlue = (patch: Partial<GlueSettings>) => setGlueSet((g) => ({ ...g, ...patch }));
   const setFx = (patch: Partial<typeof FX_DEFAULT>) => setFxState((f) => ({ ...f, ...patch }));
-  const mixLufs = useMemo(
-    () => (mix && matchLoudness ? loudness(mix) : null),
+  const mixLevel = useMemo(
+    () => (mix && matchLoudness ? { lufs: loudness(mix), peak: 20 * Math.log10(truePeak(mix)) } : null),
     [mix, matchLoudness]
   );
 
@@ -2471,6 +3066,50 @@ const AudioEditor = () => {
             <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
               {iconBtn('Undo', undo, Undo2, { disabled: !canUndo || busy, shortcut: 'Ctrl+Z' })}
               {iconBtn('Redo', redo, Redo2, { disabled: !canRedo || busy, shortcut: 'Ctrl+Y' })}
+              <div className="relative">
+                {iconBtn('Undo history: jump back to any step', () => setHistoryOpen((o) => !o), History, {
+                  disabled: (!canUndo && !canRedo) || busy,
+                  pressed: historyOpen,
+                })}
+                {historyOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} />
+                    <ol
+                      aria-label="Undo history"
+                      className="absolute left-0 top-full z-50 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-white/10 bg-slate-900 p-1 shadow-2xl"
+                    >
+                      {[...past, project, ...future]
+                        .map((step, i, all) => ({ i, step, text: describeStep(all[i - 1] ?? null, step) }))
+                        // the empty editor before the first file isn't a step to go back to
+                        .filter(({ step }) => step)
+                        .reverse()
+                        .map(({ i, text }) => (
+                          <li key={i}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                stop();
+                                jump(i - past.length);
+                                setHistoryOpen(false);
+                              }}
+                              aria-current={i === past.length ? 'step' : undefined}
+                              className={cn(
+                                'w-full truncate rounded-md px-2.5 py-1 text-left text-xs',
+                                i === past.length
+                                  ? 'bg-sky-500/20 text-sky-100'
+                                  : i > past.length
+                                    ? 'text-slate-500 hover:bg-white/5'
+                                    : 'text-slate-300 hover:bg-white/5'
+                              )}
+                            >
+                              {text}
+                            </button>
+                          </li>
+                        ))}
+                    </ol>
+                  </>
+                )}
+              </div>
               <span className="mx-1 h-5 w-px bg-white/10" aria-hidden="true" />
               {iconBtn('Cut', cut, Scissors, {
                 disabled: !hasSelection || busy,
@@ -2685,6 +3324,26 @@ const AudioEditor = () => {
                     false,
                     'A sine that glides from one pitch to the other: the chest punch under a shot or an explosion. Shorter hits harder'
                   )}
+                  <div role="group" aria-label="Mechanics sound" className={segmentGroup}>
+                    {MECH_KINDS.map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        aria-pressed={fx.mechKind === k}
+                        onClick={() => setFx({ mechKind: k })}
+                        className={segmentButton}
+                      >
+                        {MECH_LABELS[k]}
+                      </button>
+                    ))}
+                  </div>
+                  {actionBtn(
+                    'Add mech sound',
+                    addMech,
+                    Wrench,
+                    false,
+                    'Synthesized metal: a bolt racked back and forward, a trigger click, a magazine seated, or a casing bouncing on concrete. New each time'
+                  )}
                 </>
               )}
 
@@ -2799,6 +3458,45 @@ const AudioEditor = () => {
                     equally loud.
                   </p>
                 )}
+                <p className={sectionLabel}>Fired in</p>
+                <div role="group" aria-label="Where it is fired" className={segmentGroup}>
+                  {(['', ...ENVIRONMENT_NAMES, 'all'] as const).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      aria-pressed={place === p}
+                      onClick={() => setPlace(p)}
+                      title={
+                        p === 'all'
+                          ? 'One file per place, in a ZIP'
+                          : p
+                            ? undefined
+                            : 'Dry: the place is left to the game'
+                      }
+                      className={segmentButton}
+                    >
+                      {p === 'all' ? 'All' : p ? PLACE_LABELS[p] : 'Dry'}
+                    </button>
+                  ))}
+                </div>
+                {place && (
+                  <p className="text-xs text-slate-500">
+                    Adds the place's echoes and reverb: Field a treeline far off, City slapback off the
+                    houses, Canyon walls answering one after another, Indoor a short dense room.
+                  </p>
+                )}
+                <label
+                  className="flex items-center gap-2 text-sm text-slate-200"
+                  title="Also export it through a suppressor: crack tamed, highs muffled, quieter. Tracks named Mech stay as they are, so the action still clacks"
+                >
+                  <input
+                    type="checkbox"
+                    checked={suppressedToo}
+                    onChange={(e) => setSuppressedToo(e.target.checked)}
+                    className="h-4 w-4 accent-sky-400"
+                  />
+                  Suppressed version too
+                </label>
                 <label className="flex items-center gap-2 text-sm text-slate-200">
                   <input
                     type="checkbox"
@@ -2807,12 +3505,17 @@ const AudioEditor = () => {
                     className="h-4 w-4 accent-sky-400"
                   />
                   Match loudness
-                  {mixLufs !== null && (
+                  {mixLevel && (
                     <span
-                      className="ml-auto font-mono text-[11px] tabular-nums text-slate-400"
-                      title="Loudness of the whole mix now"
+                      className={cn(
+                        'ml-auto font-mono text-[11px] tabular-nums',
+                        mixLevel.peak > -1 ? 'text-amber-300' : 'text-slate-400'
+                      )}
+                      title="The whole mix now: loudness, and its true peak (the highest level between the samples too)"
                     >
-                      {Number.isFinite(mixLufs) ? `now ${mixLufs.toFixed(1)} LUFS` : 'silent'}
+                      {Number.isFinite(mixLevel.lufs)
+                        ? `now ${mixLevel.lufs.toFixed(1)} LUFS · ${mixLevel.peak.toFixed(1)} dBTP`
+                        : 'silent'}
                     </span>
                   )}
                 </label>
@@ -2833,7 +3536,7 @@ const AudioEditor = () => {
                     </div>
                     <p className="text-xs text-slate-500">
                       Target in LUFS, so every sound in a game plays equally loud. A limiter keeps
-                      peaks under -1 dB.
+                      peaks under -1 dB, between the samples too (true peak).
                     </p>
                   </>
                 )}
@@ -2869,6 +3572,28 @@ const AudioEditor = () => {
                       max={12}
                       step={1}
                       disabled={busy}
+                    />
+                    <SettingSlider
+                      label="Random tone"
+                      value={varyTone}
+                      valueText={varyTone ? `± ${varyTone} dB` : 'Off'}
+                      onChange={setVaryTone}
+                      min={0}
+                      max={6}
+                      step={0.5}
+                      disabled={busy}
+                      hint="Tilts each take a little brighter or darker"
+                    />
+                    <SettingSlider
+                      label="Layer timing"
+                      value={jitterMs}
+                      valueText={jitterMs ? `0 to ${jitterMs} ms` : 'Off'}
+                      onChange={setJitterMs}
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      disabled={busy}
+                      hint="Each layer of a take starts a little late at random, so the layers never line up the same way twice"
                     />
                   </>
                 )}
@@ -2923,6 +3648,20 @@ const AudioEditor = () => {
                     Crosshair,
                     false,
                     'Every shot is one of the variations, picked at random, and its tail rings over the next shot, like in a game'
+                  )}
+                  {actionBtn(
+                    'Hear loop + tail',
+                    hearLoop,
+                    Repeat,
+                    false,
+                    'The shots as a loop that plays while the trigger is held (three times here), then the tail when it is let go'
+                  )}
+                  {actionBtn(
+                    'Export loop + tail',
+                    exportLoop,
+                    Download,
+                    busy,
+                    'Two files in a ZIP: a seamless loop of the shots, every ring already wrapped into it, and the tail to play on release. Shot i is variation i'
                   )}
                   <p className="text-xs text-slate-500">
                     To fire only the shot, select it and tick "Export only the selected time".
@@ -2989,6 +3728,26 @@ const AudioEditor = () => {
                     Blend,
                     { pressed: autoXfade }
                   )}
+                  {iconBtn(
+                    bypass
+                      ? 'Bypass on: you hear every track as recorded, without effects (export is unchanged)'
+                      : 'Bypass: hear it without effects, to compare (or hold B)',
+                    () => setBypass((b) => !b),
+                    Power,
+                    { pressed: bypass }
+                  )}
+                  {iconBtn(
+                    spectrum
+                      ? 'Spectrogram on: low to high pitch from bottom to top, louder is brighter'
+                      : 'Spectrogram: show pitch over time instead of the waveform',
+                    toggleSpectrum,
+                    Rainbow,
+                    { pressed: spectrum }
+                  )}
+                  {iconBtn('Command palette: find any action by name', () => setPaletteOpen(true), Command, {
+                    shortcut: 'Ctrl+K',
+                  })}
+                  {iconBtn('Keyboard shortcuts', () => setKeysOpen(true), Keyboard, { shortcut: '?' })}
                   <span className="mx-0.5 h-5 w-px bg-white/10" aria-hidden="true" />
                   {iconBtn('Add a marker at the cursor', addMarker, Flag, { shortcut: 'M' })}
                   {iconBtn('Previous marker', () => jumpMarker(-1), StepBack, {
@@ -3039,6 +3798,7 @@ const AudioEditor = () => {
                   {iconBtn('Show everything', () => zoomTo(1), Shrink, { disabled: zoom <= 1 })}
                 </div>
               </div>
+              {zoom > 1 && <Overview pcm={mix} view={viewRef} span={span} playhead={playhead} zoom={zoom} />}
               <div className="relative flex min-h-0 flex-1 bg-black/30">
                 {/* Track column: scrolls with the lanes vertically, stays put horizontally */}
                 <div className="relative w-32 shrink-0 border-r border-white/10 bg-slate-950/60">
@@ -3202,6 +3962,17 @@ const AudioEditor = () => {
                           <Layers className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>
                       </Tooltip>
+                      <Tooltip label="Line up attacks: move the other tracks so they hit at the same moment as the active one">
+                        <button
+                          type="button"
+                          onClick={alignAttacks}
+                          disabled={busy || tracks.length < 2}
+                          aria-label="Line up attacks"
+                          className={cn(chipButton, 'h-7 px-2')}
+                        >
+                          <AlignStartVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                     </div>
                     {/* Room for the lanes' horizontal scrollbar */}
                     <div className="h-5" />
@@ -3334,6 +4105,7 @@ const AudioEditor = () => {
                                 muted={!audible(track.id)}
                                 selStart={selected ? selection.start : 0}
                                 selEnd={selected ? selection.end : 0}
+                                spectrum={spectrum}
                               />
                               {selected && (
                                 <>
@@ -3391,6 +4163,10 @@ const AudioEditor = () => {
                                       left: pct(clip.at / sampleRate),
                                       width: pct(len),
                                       height: CLIP_HEAD_H,
+                                    }}
+                                    onContextMenu={(e) => {
+                                      e.preventDefault();
+                                      setClipMenu({ x: e.clientX, y: e.clientY, track: track.id, index: ci });
                                     }}
                                   />,
                                   ...(['start', 'end'] as const).map((edge) => (
@@ -3801,6 +4577,7 @@ const AudioEditor = () => {
                 />
               </section>
 
+              <div className="flex flex-col gap-5">
               {fxGroup(
                 'Pitch envelope',
                 pitchEnv.amount ? 'on' : '',
@@ -3823,7 +4600,8 @@ const AudioEditor = () => {
                     [5, 500, 5],
                     'Begins at the first sound on the track, which gets a little shorter or longer'
                   )}
-                </>
+                </>,
+                fav('Pitch envelope')
               )}
 
               {fxGroup(
@@ -3862,7 +4640,8 @@ const AudioEditor = () => {
                     (v) => setFxPart('gate', { release: v }),
                     [5, 1000, 5]
                   )}
-                </>
+                </>,
+                fav('Volume gate')
               )}
 
               {fxGroup(
@@ -3901,7 +4680,8 @@ const AudioEditor = () => {
                     step={1}
                     disabled={busy}
                   />
-                </>
+                </>,
+                fav('Punch')
               )}
 
               {fxGroup(
@@ -3938,7 +4718,8 @@ const AudioEditor = () => {
                     (v) => setFxPart('overdrive', { dynamics: v }),
                     'Low squashes everything to one level, high keeps hits loud and tails quiet'
                   )}
-                </>
+                </>,
+                fav('Overdrive')
               )}
 
               {fxGroup(
@@ -3963,7 +4744,8 @@ const AudioEditor = () => {
                     (v) => (v ? hz(v) : 'Off'),
                     busy
                   )}
-                </>
+                </>,
+                fav('Lo-fi')
               )}
 
               {fxGroup(
@@ -3989,7 +4771,8 @@ const AudioEditor = () => {
                     (v) => setActiveFx({ highRes: v }),
                     [0, 18, 0.5]
                   )}
-                </>
+                </>,
+                fav('Filters')
               )}
 
               {fxGroup(
@@ -4009,7 +4792,8 @@ const AudioEditor = () => {
                     RotateCcw,
                     flatEq
                   )}
-                </>
+                </>,
+                fav('Equalizer')
               )}
 
               {fxGroup(
@@ -4032,7 +4816,8 @@ const AudioEditor = () => {
                     [-24, 0, 0.5],
                     'Nothing gets louder than this'
                   )}
-                </>
+                </>,
+                fav('Clipper')
               )}
 
               {fxGroup(
@@ -4056,7 +4841,8 @@ const AudioEditor = () => {
                   )}
                   {freqSlider('Closes down to', lpg.floor, (v) => setFxPart('lpg', { floor: v }), busy, undefined, [20, 5000])}
                   {percent('Resonance', lpg.resonance, (v) => setFxPart('lpg', { resonance: v }))}
-                </>
+                </>,
+                fav('Low pass gate')
               )}
 
               {fxGroup(
@@ -4093,7 +4879,8 @@ const AudioEditor = () => {
                     [-95, 95, 1],
                     'Higher rings more metallic; below zero sounds hollow'
                   )}
-                </>
+                </>,
+                fav('Flanger')
               )}
 
               {fxGroup(
@@ -4129,7 +4916,8 @@ const AudioEditor = () => {
                     'How much of every echo is repeated again'
                   )}
                   {percent('Damping', echo.damp, (v) => setFxPart('delay', { damp: v }), 'Every repeat gets darker')}
-                </>
+                </>,
+                fav('Delay')
               )}
 
               {fxGroup(
@@ -4201,7 +4989,8 @@ const AudioEditor = () => {
                     'Above 0 a mono track comes out stereo',
                     'Mono'
                   )}
-                </>
+                </>,
+                fav('Reverb')
               )}
 
               {fxGroup(
@@ -4253,7 +5042,8 @@ const AudioEditor = () => {
                     false,
                     'Rebuild it from pieces taken at random places, each matched in phase to the one before, so it never repeats. Best for steady sounds: hum, motors, fans, wind, rain'
                   )}
-                </>
+                </>,
+                fav('Loop')
               )}
 
               {fxGroup(
@@ -4348,11 +5138,79 @@ const AudioEditor = () => {
                       {actionBtn('Reset', () => setGlueSet(GLUE_DEFAULT), RotateCcw)}
                     </>
                   )}
-                </>
+                </>,
+                fav('Glue compressor')
               )}
+              </div>
             </fieldset>
           </div>
         </div>
+      )}
+      <Modal open={paletteOpen} onClose={() => setPaletteOpen(false)} label="Command palette">
+        <CommandPalette onClose={() => setPaletteOpen(false)} />
+      </Modal>
+      <Modal open={keysOpen} onClose={() => setKeysOpen(false)} label="Keyboard shortcuts">
+        <div className="max-h-[70vh] overflow-y-auto p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-100">Keyboard and mouse</h2>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            {SHORTCUTS.map(([key, what]) => (
+              <Fragment key={key}>
+                <dt>
+                  <kbd className={guideKey}>{key}</kbd>
+                </dt>
+                <dd className="text-slate-300">{what}</dd>
+              </Fragment>
+            ))}
+          </dl>
+        </div>
+      </Modal>
+      {clipMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setClipMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setClipMenu(null);
+            }}
+          />
+          <ul
+            role="menu"
+            aria-label="Clip"
+            className="fixed z-50 w-48 rounded-lg border border-white/10 bg-slate-900 p-1 shadow-2xl"
+            style={{
+              left: Math.min(clipMenu.x, window.innerWidth - 200),
+              top: Math.min(clipMenu.y, window.innerHeight - 260),
+            }}
+            onKeyDown={(e) => e.key === 'Escape' && setClipMenu(null)}
+          >
+            {clipActions(clipMenu.track, clipMenu.index).map(([label, run], i) => (
+              <li key={label} role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  autoFocus={i === 0}
+                  disabled={busy}
+                  onClick={() => {
+                    setClipMenu(null);
+                    actionLabel = `Clip: ${label}`;
+                    try {
+                      run();
+                    } finally {
+                      actionLabel = null;
+                    }
+                  }}
+                  className={cn(
+                    'w-full rounded-md px-3 py-1.5 text-left text-sm hover:bg-white/5 disabled:opacity-40',
+                    label === 'Delete' ? 'text-rose-300' : 'text-slate-200'
+                  )}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </ToolPageLayout>
   );

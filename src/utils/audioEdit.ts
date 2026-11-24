@@ -1309,6 +1309,200 @@ export const autoFire = (takes: Pcm[], rpm: number, shots: number, random = Math
   return renderClips(clips, sampleRate, 0, Math.max(...clips.map(clipEnd)));
 };
 
+/**
+ * Full auto as a game engine plays it: `loop` repeats seamlessly while the trigger is held, `tail` plays once when it
+ * is let go. Every shot's ring wraps around the loop's end, so the loop already carries the tails of the shots before
+ * it; the tail is what the last pass's shots ring past the loop's end. Shot i of the loop is take i (cycling).
+ */
+export const fireLoop = (takes: Pcm[], rpm: number, shots: number) => {
+  const { sampleRate } = takes[0];
+  const step = Math.max(1, Math.round((60 / rpm) * sampleRate));
+  const len = step * shots;
+  const count = Math.max(...takes.map((t) => t.channels.length));
+  const ring = Math.max(...takes.map(pcmLength));
+  const loop = Array.from({ length: count }, () => new Float32Array(len));
+  const tail = Array.from({ length: count }, () => new Float32Array(Math.max(0, ring - step)));
+  for (let i = 0; i < shots; i++) {
+    const take = takes[i % takes.length];
+    const n = pcmLength(take);
+    for (let c = 0; c < count; c++) {
+      const src = take.channels[Math.min(c, take.channels.length - 1)];
+      for (let t = 0; t < n; t++) loop[c][(i * step + t) % len] += src[t];
+      // This shot fired m loops before the release rings into the tail from sample m·len − i·step of itself
+      for (let from = len - i * step; from < n; from += len)
+        for (let t = 0; t < tail[c].length && from + t < n; t++) tail[c][t] += src[from + t];
+    }
+  }
+  return { loop: { sampleRate, channels: loop }, tail: { sampleRate, channels: tail } };
+};
+
+/** First sample that comes within `thresholdDb` of the sound's own peak: where its attack starts. 0 for silence. */
+export const onsetOf = (pcm: Pcm, thresholdDb = -20) => {
+  const n = pcmLength(pcm);
+  let peak = 0;
+  for (const ch of pcm.channels) for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(ch[i]));
+  if (!peak) return 0;
+  const t = peak * 10 ** (thresholdDb / 20);
+  for (let i = 0; i < n; i++) if (pcm.channels.some((ch) => Math.abs(ch[i]) >= t)) return i;
+  return 0;
+};
+
+export type Environment = 'field' | 'city' | 'canyon' | 'indoor';
+/** Discrete echoes as [ms, dB, high cut Hz] (each further one duller), and the reverb that fills in behind them */
+const ENVIRONMENTS: Record<Environment, { taps: [number, number, number][]; verb: Partial<ReverbSettings> }> = {
+  // the ground right under the shot, then a treeline far off
+  field: {
+    taps: [[6, -6, 8000], [380, -20, 2500], [820, -27, 1800]],
+    verb: { mix: 0.12, decay: 1.2, size: 2, early: 0.1, damping: 0.6 },
+  },
+  // slapback off the house fronts on both sides of a street
+  city: {
+    taps: [[45, -9, 6000], [90, -12, 5000], [140, -14, 4000], [210, -16, 3500], [300, -19, 3000], [420, -22, 2500]],
+    verb: { mix: 0.25, decay: 1.6, size: 1.5, early: 0.4, damping: 0.45 },
+  },
+  // far walls answering one after another
+  canyon: {
+    taps: [[350, -8, 4000], [720, -12, 3000], [1100, -16, 2200], [1500, -20, 1600], [1950, -25, 1200]],
+    verb: { mix: 0.2, decay: 3, size: 2, early: 0.1, damping: 0.5 },
+  },
+  // a room: close walls and a short, dense tail
+  indoor: {
+    taps: [[7, -6, 9000], [13, -8, 8000], [21, -10, 7000]],
+    verb: { mix: 0.45, decay: 0.9, size: 0.6, early: 0.7, damping: 0.3 },
+  },
+};
+export const ENVIRONMENT_NAMES = Object.keys(ENVIRONMENTS) as Environment[];
+
+/** The sound fired in a place: its echo pattern, then a reverb. Longer by the last echo and the reverb's tail. */
+export const environment = (pcm: Pcm, where: Environment): Pcm => {
+  const { taps, verb } = ENVIRONMENTS[where];
+  const { sampleRate } = pcm;
+  const n = pcmLength(pcm);
+  const stereo = pcm.channels.length > 1;
+  const latest = Math.round((Math.max(...taps.map(([ms]) => ms)) / 1000) * sampleRate);
+  const channels = pcm.channels.map((ch) => {
+    const out = new Float32Array(n + latest);
+    out.set(ch);
+    return out;
+  });
+  taps.forEach(([ms, db, cut], k) => {
+    const dull = cutFilter(pcm, 0, n, { lowCut: 0, highCut: Math.min(cut, 0.45 * sampleRate), highSlope: 12 });
+    const d = Math.round((ms / 1000) * sampleRate);
+    const g = 10 ** (db / 20);
+    dull.channels.forEach((ch, c) => {
+      // In stereo the echoes alternate sides, so they come from around
+      const side = stereo && k % 2 !== c ? 0.6 : 1;
+      const out = channels[c];
+      for (let i = 0; i < n; i++) out[i + d] += ch[i] * g * side;
+    });
+  });
+  return reverb({ sampleRate, channels }, { ...NO_FX.reverb, width: stereo ? 1 : 0, ...verb });
+};
+
+/** The shot through a suppressor: the crack tamed, the highs muffled, 8 dB quieter. Keep the mechanics as they are. */
+export const suppress = (pcm: Pcm): Pcm => {
+  const n = pcmLength(pcm);
+  const soft = transient(pcm, 0, n, -12, -3);
+  return gain(cutFilter(soft, 0, n, { lowCut: 0, highCut: Math.min(2500, 0.45 * pcm.sampleRate), highSlope: 12 }), 0, n, 10 ** (-8 / 20));
+};
+
+export type MechKind = 'bolt' | 'click' | 'mag' | 'shell';
+export const MECH_KINDS: MechKind[] = ['bolt', 'click', 'mag', 'shell'];
+/** A struck metal part: damped sine modes [Hz, level, decay ms] rung by a short noise tick of contact */
+const strike = (
+  out: Float32Array,
+  at: number,
+  sampleRate: number,
+  modes: [number, number, number][],
+  level: number,
+  random: () => number
+) => {
+  for (const [f, a, ms] of modes) {
+    const hz = Math.min(f * (1 + (random() - 0.5) * 0.04), 0.45 * sampleRate);
+    const fall = Math.exp(-1 / ((ms / 1000) * sampleRate));
+    const w = (2 * Math.PI * hz) / sampleRate;
+    const phase = random() * 2 * Math.PI;
+    const len = Math.min(out.length - at, Math.ceil((ms / 1000) * sampleRate * 7));
+    let env = a * level;
+    for (let i = 0; i < len; i++, env *= fall) out[at + i] += env * Math.sin(w * i + phase);
+  }
+  const tick = Math.round(0.0015 * sampleRate);
+  for (let i = 0; i < tick && at + i < out.length; i++) out[at + i] += (random() * 2 - 1) * level * 0.6 * (1 - i / tick);
+};
+/** Metal sliding on metal: bright noise between two times (s), swelling to `level` */
+const scrape = (out: Float32Array, from: number, to: number, sampleRate: number, level: number, random: () => number) => {
+  const s = Math.round(from * sampleRate);
+  const e = Math.min(out.length, Math.round(to * sampleRate));
+  let prev = 0;
+  for (let i = s; i < e; i++) {
+    const x = random() * 2 - 1;
+    out[i] += (x - prev) * 0.5 * level * Math.sin((Math.PI * (i - s)) / (e - s));
+    prev = x;
+  }
+};
+
+/**
+ * Weapon mechanics, synthesized: bolt or slide racked back and forward, a trigger or selector click, a magazine
+ * seated, or a spent casing bouncing on concrete. Each call varies a little. Mono, peak at -1 dB.
+ */
+export const mechSound = (sampleRate: number, kind: MechKind, random = Math.random): Pcm => {
+  const at = (s: number) => Math.round(s * sampleRate);
+  const seconds = { bolt: 0.3, click: 0.08, mag: 0.25, shell: 0.9 }[kind];
+  const out = new Float32Array(at(seconds));
+  if (kind === 'bolt') {
+    strike(out, 0, sampleRate, [[180, 0.5, 25], [1250, 0.35, 18], [2900, 0.3, 14], [4700, 0.2, 10]], 0.8, random);
+    scrape(out, 0.01, 0.075, sampleRate, 0.25, random);
+    strike(out, at(0.08), sampleRate, [[150, 0.6, 30], [980, 0.4, 22], [2400, 0.35, 16], [5200, 0.25, 12]], 1, random);
+  } else if (kind === 'click') {
+    strike(out, 0, sampleRate, [[2100, 0.4, 6], [3900, 0.35, 5], [6800, 0.25, 4]], 1, random);
+    strike(out, at(0.012), sampleRate, [[2400, 0.3, 5], [5200, 0.2, 4]], 0.4, random);
+  } else if (kind === 'mag') {
+    scrape(out, 0, 0.06, sampleRate, 0.3, random);
+    strike(out, at(0.06), sampleRate, [[220, 0.5, 30], [1600, 0.4, 20], [3400, 0.3, 15]], 1, random);
+    strike(out, at(0.075), sampleRate, [[2600, 0.4, 8], [5100, 0.3, 6]], 0.6, random);
+  } else {
+    // Brass rings long and high; each bounce comes sooner and softer than the one before
+    const brass: [number, number, number][] = [[3800, 0.4, 90], [6100, 0.35, 70], [8900, 0.25, 50], [11800, 0.15, 35]];
+    let t = 0;
+    let gap = 0.11 * (0.9 + random() * 0.2);
+    for (let level = 1; level > 0.05 && at(t) < out.length; level *= 0.55, t += gap, gap *= 0.6)
+      strike(out, at(t), sampleRate, brass, level, random);
+  }
+  let peak = 0;
+  for (const v of out) peak = Math.max(peak, Math.abs(v));
+  const g = peak ? 0.89 / peak : 0;
+  return { sampleRate, channels: [out.map((v) => v * g)] };
+};
+
+/** Interpolation kernels for 4× oversampling: phase p/4 between a sample and the next, from 12 neighbours */
+const TP_HALF = 6;
+const TP_KERNELS = [1, 2, 3].map((p) =>
+  Array.from({ length: 2 * TP_HALF }, (_, j) => {
+    const t = j - TP_HALF + 1 - p / 4;
+    const sinc = Math.sin(Math.PI * t) / (Math.PI * t);
+    return sinc * (0.5 + 0.5 * Math.cos((Math.PI * t) / TP_HALF));
+  })
+);
+/** True peak (linear): the highest level between the samples too, as a DAC or an encoder will reconstruct it. */
+export const truePeak = (pcm: Pcm) => {
+  const n = pcmLength(pcm);
+  let peak = 0;
+  for (const ch of pcm.channels) {
+    for (let i = 0; i < n; i++) {
+      peak = Math.max(peak, Math.abs(ch[i]));
+      for (const k of TP_KERNELS) {
+        let v = 0;
+        for (let j = 0; j < k.length; j++) {
+          const at = i + j - TP_HALF + 1;
+          if (at >= 0 && at < n) v += ch[at] * k[j];
+        }
+        peak = Math.max(peak, Math.abs(v));
+      }
+    }
+  }
+  return peak;
+};
+
 /** Cuts at the sample positions and trims the silence around every part. Parts with nothing audible are dropped. */
 export const splitAt = (pcm: Pcm, cuts: number[], thresholdDb = -60): Pcm[] => {
   const edges = [0, ...cuts, pcmLength(pcm)];
@@ -1599,6 +1793,77 @@ export const computePeaks = (pcm: Pcm, start: number, end: number, buckets: numb
     }
     out[b * 2] = min;
     out[b * 2 + 1] = max;
+  }
+  return out;
+};
+
+/** In-place radix-2 FFT; `re.length` must be a power of two. */
+const fft = (re: Float32Array, im: Float32Array) => {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [re[i], re[j]] = [re[j], re[i]];
+      [im[i], im[j]] = [im[j], im[i]];
+    }
+  }
+  for (let size = 2; size <= n; size <<= 1) {
+    const step = (-2 * Math.PI) / size;
+    for (let s = 0; s < n; s += size) {
+      for (let k = 0; k < size / 2; k++) {
+        const wr = Math.cos(step * k);
+        const wi = Math.sin(step * k);
+        const a = s + k;
+        const b = a + size / 2;
+        const tr = re[b] * wr - im[b] * wi;
+        const ti = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - tr;
+        im[b] = im[a] - ti;
+        re[a] += tr;
+        im[a] += ti;
+      }
+    }
+  }
+};
+
+const SPEC_SIZE = 1024;
+const SPEC_FLOOR = -90;
+/**
+ * Spectrogram of samples [start, end): `columns` × `bands` levels 0..1 (-90..0 dB), column-major, band 0 the lowest.
+ * Bands are spaced logarithmically from 40 Hz to Nyquist, like hearing; every column is a Hann-windowed FFT.
+ */
+export const spectrogram = (pcm: Pcm, start: number, end: number, columns: number, bands: number) => {
+  const [s, e] = clamp(pcm, start, end);
+  const out = new Float32Array(columns * bands);
+  const nyquist = pcm.sampleRate / 2;
+  const binHz = pcm.sampleRate / SPEC_SIZE;
+  const edge = (b: number) => Math.min(SPEC_SIZE / 2, Math.max(1, (40 * (nyquist / 40) ** (b / bands)) / binHz));
+  const hann = Array.from({ length: SPEC_SIZE }, (_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / SPEC_SIZE));
+  // a full-scale sine comes out at 0 dB
+  const norm = 4 / SPEC_SIZE;
+  const re = new Float32Array(SPEC_SIZE);
+  const im = new Float32Array(SPEC_SIZE);
+  const k = 1 / pcm.channels.length;
+  for (let c = 0; c < columns; c++) {
+    const mid = s + Math.floor(((c + 0.5) * (e - s)) / columns);
+    for (let i = 0; i < SPEC_SIZE; i++) {
+      const at = mid - SPEC_SIZE / 2 + i;
+      let v = 0;
+      if (at >= s && at < e) for (const ch of pcm.channels) v += ch[at];
+      re[i] = v * k * hann[i];
+      im[i] = 0;
+    }
+    fft(re, im);
+    for (let b = 0; b < bands; b++) {
+      const lo = Math.floor(edge(b));
+      const hi = Math.max(lo + 1, Math.floor(edge(b + 1)));
+      let power = 0;
+      for (let j = lo; j < hi && j < SPEC_SIZE / 2; j++) power = Math.max(power, re[j] * re[j] + im[j] * im[j]);
+      const db = 10 * Math.log10(power * norm * norm + 1e-12);
+      out[c * bands + b] = Math.max(0, Math.min(1, 1 - db / SPEC_FLOOR));
+    }
   }
   return out;
 };

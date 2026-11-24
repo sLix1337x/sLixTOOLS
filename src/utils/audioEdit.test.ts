@@ -16,11 +16,13 @@ import {
   distance,
   editTrackRange,
   encodeWav,
+  environment,
   extendLoop,
   equalize,
   eqResponse,
   fadeCurve,
   findLoopEnd,
+  fireLoop,
   fade,
   fxActive,
   gain,
@@ -34,11 +36,14 @@ import {
   loudness,
   lowPassGate,
   makeLoop,
+  mechSound,
+  MECH_KINDS,
   moveClips,
   moveRange,
   noise,
   NO_FX,
   normalize,
+  onsetOf,
   overdrive,
   pitchEnvelope,
   pitchShift,
@@ -52,12 +57,15 @@ import {
   reverse,
   saturate,
   silence,
+  spectrogram,
   splitAt,
+  suppress,
   sweep,
   texture,
   toMono,
   tracksLength,
   transient,
+  truePeak,
   withFxDefaults,
   type Clip,
   type Pcm,
@@ -608,6 +616,74 @@ describe('audioEdit', () => {
       expect((((1513 + shift) % 80) + 80) % 80).toBe(0);
       expect(Math.abs(shift)).toBeLessThanOrEqual(40);
       expect(alignOverlap([a, { ...b, at: 2500 }], 1, 60)).toBe(0);
+    });
+  });
+
+  describe('weapon tools', () => {
+    const at = (sampleRate: number, values: Pcm["channels"][number]): Pcm => ({ sampleRate, channels: [values] });
+    it('loops full auto seamlessly and rings out the release as its tail', () => {
+      const takes = [0, 1, 2].map((k) => at(1000, Float32Array.from({ length: 250 }, (_, i) => Math.sin(i * 0.37 + k))));
+      const { loop, tail } = fireLoop(takes, 600, 3);
+      // the same three shots fired over and over, released after the third pass
+      const chain = renderClips(
+        Array.from({ length: 9 }, (_, j) => ({ at: j * 100, pcm: takes[j % 3] })),
+        1000,
+        0,
+        1150
+      );
+      const near = (a: Float32Array, b: Float32Array) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i], 5));
+      expect(pcmLength(loop)).toBe(300);
+      near(loop.channels[0], chain.channels[0].subarray(600, 900));
+      expect(pcmLength(tail)).toBe(150);
+      near(tail.channels[0], chain.channels[0].subarray(900, 1050));
+    });
+
+    it('finds the attack', () => {
+      expect(onsetOf(mono(0, 0.01, 0.2, 1, 0.5))).toBe(2);
+      expect(onsetOf(mono(0, 0, 0))).toBe(0);
+    });
+
+    it('measures true peak above the sample peak between samples', () => {
+      // a sine at a quarter of the rate, sampled 45° off its crests: samples peak at 0.707, the wave at 1
+      const sine = at(48000, Float32Array.from({ length: 400 }, (_, i) => Math.sin((Math.PI / 2) * i + Math.PI / 4)));
+      expect(truePeak(sine)).toBeGreaterThan(0.95);
+      expect(truePeak(mono(0.5, 0.5, 0.5))).toBeCloseTo(0.5, 1);
+    });
+
+    it('places a sound in an environment, with echoes after it', () => {
+      const shot = at(8000, Float32Array.from({ length: 800 }, (_, i) => (i < 40 ? 1 - i / 40 : 0)));
+      for (const where of ['field', 'city', 'canyon', 'indoor'] as const) {
+        const out = environment(shot, where);
+        expect(pcmLength(out)).toBeGreaterThan(pcmLength(shot));
+        const late = out.channels[0].subarray(1600);
+        expect(late.some((v) => Math.abs(v) > 1e-3)).toBe(true);
+      }
+    });
+
+    it('suppresses: quieter, duller', () => {
+      const crack = at(48000, Float32Array.from({ length: 4800 }, (_, i) => Math.sin(i * 1.3) * Math.exp(-i / 400)));
+      const out = suppress(crack);
+      const level = (p: Pcm) => Math.max(...p.channels[0].map(Math.abs));
+      expect(level(out)).toBeLessThan(level(crack) * 0.4);
+    });
+
+    it('synthesizes mechanics that vary and peak just under full scale', () => {
+      for (const kind of MECH_KINDS) {
+        const a = mechSound(48000, kind);
+        const peak = Math.max(...a.channels[0].map(Math.abs));
+        expect(peak).toBeCloseTo(0.89, 2);
+        expect(values(mechSound(48000, kind))).not.toEqual(values(a));
+      }
+    });
+
+    it('draws a spectrogram with the energy in the right band', () => {
+      const tone = (hz: number) => at(8000, Float32Array.from({ length: 4096 }, (_, i) => Math.sin((2 * Math.PI * hz * i) / 8000)));
+      const loudest = (spec: Float32Array) => spec.subarray(0, 32).indexOf(Math.max(...spec.subarray(0, 32)));
+      const low = loudest(spectrogram(tone(100), 0, 4096, 4, 32));
+      const high = loudest(spectrogram(tone(2000), 0, 4096, 4, 32));
+      expect(high).toBeGreaterThan(low + 10);
+      expect(Math.max(...spectrogram(tone(1000), 0, 4096, 1, 32))).toBeGreaterThan(0.95);
+      expect(Math.max(...spectrogram(at(8000, new Float32Array(4096)), 0, 4096, 2, 8))).toBe(0);
     });
   });
 });
