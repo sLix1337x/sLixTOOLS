@@ -698,22 +698,241 @@ export const sweep = (sampleRate: number, seconds: number, from: number, to: num
   return { sampleRate, channels: [x] };
 };
 
-/** Seamless loop: the last xf samples are crossfaded (equal power) into the start and dropped, so the end runs into the start. */
+// ---- seams: finding where two stretches of audio match, and crossfading them ----
+
+/** Mono mix at `count` points from `from` on, each summing `step` samples: cheap material for match searches. */
+const probe = (pcm: Pcm, from: number, count: number, step: number) => {
+  const out = new Float32Array(Math.max(0, count));
+  for (const ch of pcm.channels)
+    for (let i = 0; i < out.length; i++) {
+      const k = from + i * step;
+      let s = 0;
+      for (let j = 0; j < step; j++) s += ch[k + j] ?? 0;
+      out[i] += s;
+    }
+  return out;
+};
+
+const correlation = (dot: number, ea: number, eb: number) => (ea > 1e-12 && eb > 1e-12 ? dot / Math.sqrt(ea * eb) : 0);
+/** Correlation weighed by how close the two levels are: a quiet stretch that matches in shape is still a jump */
+const matchScore = (dot: number, ea: number, eb: number) =>
+  correlation(dot, ea, eb) * Math.sqrt(Math.min(ea, eb) / Math.max(ea, eb, 1e-12));
+
+/** Samples compared in the sample-exact pass: enough to pin the phase of a low hum */
+const REFINE_LEN = 2048;
+
+interface Search {
+  a: Pcm;
+  aFrom: number;
+  b: Pcm;
+  bFrom: number;
+  len: number;
+  lo: number;
+  hi: number;
+}
+
+/** Shifts that keep a's window inside a; null when none do */
+const searchRange = (a: Pcm, aFrom: number, b: Pcm, bFrom: number, len: number, lo: number, hi: number): Search | null => {
+  lo = Math.max(Math.round(lo), -aFrom);
+  hi = Math.min(Math.round(hi), pcmLength(a) - len - aFrom);
+  return len < 1 || hi < lo ? null : { a, aFrom, b, bFrom, len, lo, hi };
+};
+
+/** Best shift on a decimated mono mix, stepping one probe at a time */
+const coarseMatch = ({ a, aFrom, b, bFrom, len, lo, hi }: Search) => {
+  const step = Math.max(1, Math.ceil(len / 256));
+  const m = Math.floor(len / step);
+  const count = Math.floor((hi - lo) / step) + 1;
+  const pa = probe(a, aFrom + lo, count - 1 + m, step);
+  const pb = probe(b, bFrom, m, step);
+  let eb = 0;
+  let ea = 0;
+  for (let i = 0; i < m; i++) {
+    eb += pb[i] * pb[i];
+    ea += pa[i] * pa[i];
+  }
+  let score = -Infinity;
+  let lag = lo;
+  for (let j = 0; j < count; j++) {
+    if (j) ea = Math.max(0, ea + pa[j + m - 1] ** 2 - pa[j - 1] ** 2);
+    let dot = 0;
+    for (let i = 0; i < m; i++) dot += pa[j + i] * pb[i];
+    const s = matchScore(dot, ea, eb);
+    if (s > score) [score, lag] = [s, lo + j * step];
+  }
+  return { lag, score, step };
+};
+
+/** Sample-exact best shift within `step` of a coarse one, and its correlation */
+const refineMatch = ({ a, aFrom, b, bFrom, len, lo, hi }: Search, coarse: number, step: number) => {
+  const n = Math.min(len, REFINE_LEN);
+  const from = Math.max(lo, coarse - step);
+  const to = Math.min(hi, coarse + step);
+  const ma = probe(a, aFrom + from, to - from + n, 1);
+  const mb = probe(b, bFrom, n, 1);
+  let eb = 0;
+  for (let i = 0; i < n; i++) eb += mb[i] * mb[i];
+  let best = -Infinity;
+  let result = { lag: coarse, r: 0 };
+  for (let s = from; s <= to; s++) {
+    let dot = 0;
+    let e = 0;
+    for (let i = 0, k = s - from; i < n; i++, k++) {
+      dot += ma[k] * mb[i];
+      e += ma[k] * ma[k];
+    }
+    const score = matchScore(dot, e, eb);
+    if (score > best) [best, result] = [score, { lag: s, r: correlation(dot, e, eb) }];
+  }
+  return result;
+};
+
+/**
+ * The shift in [lo, hi] at which a's `len` samples from aFrom + shift look most like b's from bFrom,
+ * and their correlation there (1 = same waveform, 0 = unrelated). Coarse on a decimated mono mix, then
+ * sample-exact around the winner. Shifts that would leave a are skipped.
+ */
+export const bestMatch = (a: Pcm, aFrom: number, b: Pcm, bFrom: number, len: number, lo: number, hi: number) => {
+  const search = searchRange(a, aFrom, b, bFrom, len, lo, hi);
+  if (!search) return { lag: 0, r: 0 };
+  const { lag, step } = coarseMatch(search);
+  return refineMatch(search, lag, step);
+};
+
+/**
+ * Crossfade gains [in, out] at t in [0, 1] for two signals with correlation r: linear when they match
+ * (r = 1, the amplitudes add up), equal power when unrelated (r ≤ 0, the powers add up). No bump, no dip.
+ */
+export const crossfadeGains = (t: number, r: number): [number, number] => {
+  const c = Math.max(0, Math.min(1, r));
+  const d = Math.sqrt(t * t + (1 - t) * (1 - t) + 2 * c * t * (1 - t));
+  return [t / d, (1 - t) / d];
+};
+
+/** Seamless loop: the last xf samples are crossfaded into the start and dropped, so the end runs into the start. */
 export const makeLoop = (pcm: Pcm, xf: number): Pcm => {
   const n = pcmLength(pcm);
   const x = Math.max(0, Math.min(Math.floor(n / 2), Math.round(xf)));
   if (!x) return pcm;
+  const { r } = bestMatch(pcm, n - x, pcm, 0, x, 0, 0);
+  const gains = Array.from({ length: x }, (_, i) => crossfadeGains(i / x, r));
   return {
     ...pcm,
     channels: pcm.channels.map((ch) => {
       const out = ch.slice(0, n - x);
-      for (let i = 0; i < x; i++) {
-        const t = ((i / x) * Math.PI) / 2;
-        out[i] = ch[i] * Math.sin(t) + ch[n - x + i] * Math.cos(t);
-      }
+      for (let i = 0; i < x; i++) out[i] = ch[i] * gains[i][0] + ch[n - x + i] * gains[i][1];
       return out;
     }),
   };
+};
+
+/**
+ * Where a loop of pcm from sample 0 should end so its last xf samples crossfade best into its first:
+ * searched between half the length and the end. match is the seam's correlation (1 = inaudible).
+ */
+export const findLoopEnd = (pcm: Pcm, xf: number) => {
+  const n = pcmLength(pcm);
+  const x = Math.max(1, Math.min(Math.floor(n / 2), Math.round(xf)));
+  const { lag, r } = bestMatch(pcm, 0, pcm, 0, x, Math.max(x, Math.ceil(n / 2) - x), n - x);
+  return { end: lag + x, match: r };
+};
+
+/**
+ * Repeats the best loop of pcm until it lasts at least `length` samples, in whole cycles. The real start
+ * and end stay, so the result joins whatever was around it.
+ */
+export const extendLoop = (pcm: Pcm, xf: number, length: number) => {
+  const n = pcmLength(pcm);
+  if (length <= n || n < 4) return { pcm, match: 1 };
+  const { end, match } = findLoopEnd(pcm, xf);
+  const x = Math.max(1, Math.min(Math.floor(n / 2), Math.round(xf)));
+  const body = makeLoop(keepRange(pcm, 0, end), x);
+  const cycle = end - x;
+  const k = Math.ceil((length - n) / cycle);
+  return {
+    match,
+    pcm: {
+      ...pcm,
+      channels: pcm.channels.map((ch, c) => {
+        // start … body × k … end: every join continues the sample before it
+        const out = new Float32Array(n + k * cycle);
+        out.set(ch.subarray(0, cycle));
+        for (let j = 0; j < k; j++) out.set(body.channels[c], cycle * (j + 1));
+        out.set(ch.subarray(cycle), cycle * (k + 1));
+        return out;
+      }),
+    },
+  };
+};
+
+/** Random places tried for each grain; the best-matching one wins */
+const GRAIN_TRIES = 4;
+
+/**
+ * Rebuilds pcm about `length` samples long from `grain`-long pieces taken at random places. Each piece is
+ * nudged (up to 25 ms) to where it continues the one before in phase, then crossfaded over half its length,
+ * so a steady sound (hum, fan, wind) runs on without a repeating pattern. The real start and end stay.
+ * match is the mean seam correlation.
+ */
+export const texture = (pcm: Pcm, length: number, grain: number, random = Math.random) => {
+  const n = pcmLength(pcm);
+  const g = Math.min(Math.floor(n / 3), Math.round(grain));
+  if (length <= n || g < 64) return { pcm, match: 1 };
+  const o = Math.floor(g / 2);
+  const hop = g - o;
+  const tol = Math.min(o, Math.round(pcm.sampleRate * 0.025));
+  const out = pcm.channels.map((ch) => {
+    const buf = new Float32Array(length + tol + 1);
+    buf.set(ch.subarray(0, g));
+    return buf;
+  });
+  /** Crossfades source from q into out at `at`: o samples blended, then `rest` more copied */
+  const place = (q: number, at: number, r: number, rest: number) =>
+    pcm.channels.forEach((ch, c) => {
+      const buf = out[c];
+      for (let i = 0; i < o; i++) {
+        const [gi, go] = crossfadeGains((i + 0.5) / o, r);
+        buf[at + i] = buf[at + i] * go + ch[q + i] * gi;
+      }
+      buf.set(ch.subarray(q + o, q + o + rest), at + o);
+    });
+  let src = 0;
+  let at = 0;
+  let sum = 0;
+  let seams = 0;
+  for (;;) {
+    const next = at + hop;
+    // The source that would continue the current grain: each candidate is matched against it
+    const want = src + hop;
+    if (length - next <= 2 * g) {
+      // Last piece: the source's own ending, nudged to fit
+      const { lag, r } = bestMatch(pcm, n - (length - next), pcm, want, o, -tol, tol);
+      const q = n - (length - next) + lag;
+      place(q, next, r, n - q - o);
+      sum += r;
+      seams++;
+      return {
+        pcm: { ...pcm, channels: out.map((buf) => buf.slice(0, next + n - q)) },
+        match: sum / seams,
+      };
+    }
+    // Candidates compete on the cheap coarse match; only the winner gets the sample-exact pass
+    let pick: { search: Search; lag: number; step: number; score: number } | null = null;
+    for (let t = 0; t < GRAIN_TRIES; t++) {
+      const p = tol + Math.floor(random() * (n - g - 2 * tol));
+      const search = searchRange(pcm, p, pcm, want, o, -tol, tol);
+      const c = search && coarseMatch(search);
+      if (search && c && (!pick || c.score > pick.score)) pick = { search, ...c };
+    }
+    if (!pick) return { pcm, match: 1 }; // only when the source is too short to search
+    const { lag, r } = refineMatch(pick.search, pick.lag, pick.step);
+    const q = pick.search.aFrom + lag;
+    place(q, next, r, g - o);
+    sum += r;
+    seams++;
+    src = q;
+    at = next;
+  }
 };
 
 export interface DelaySettings {
@@ -903,6 +1122,8 @@ export const distance = (pcm: Pcm, amount: number): Pcm => {
 export interface Fade {
   length: number;
   curve: number;
+  /** made by autoCrossfade, which keeps it matched to the overlap; editing it by hand makes it the user's */
+  auto?: boolean;
 }
 export interface Clip {
   at: number;
@@ -1012,6 +1233,69 @@ export const renderClips = (clips: Clip[], sampleRate: number, start: number, en
     });
   }
   return { sampleRate, channels };
+};
+
+/** Fade curve of an automatic crossfade between unrelated clips: close to equal power (k = 2) */
+const XF_CURVE = 1 / 3;
+/** Overlap compared to tell matching clips (linear crossfade) from unrelated ones */
+const XF_PROBE = 8192;
+
+/**
+ * Turns every partial overlap between a track's clips into a crossfade: the earlier clip fades out across
+ * it, the later one fades in, linear when the two match in phase and near equal power when they don't.
+ * Fades it made (auto) follow the overlaps and go when they do; hand-made fades are left alone.
+ * Returns the same array, and untouched clips, when nothing changes.
+ */
+export const autoCrossfade = (clips: Clip[]): Clip[] => {
+  const ins = clips.map(() => ({ len: 0, other: -1 }));
+  const outs = clips.map(() => ({ len: 0, other: -1 }));
+  clips.forEach((a, i) =>
+    clips.forEach((b, j) => {
+      const len = clipEnd(a) - b.at;
+      if (a.at >= b.at || len <= 0 || clipEnd(a) >= clipEnd(b)) return;
+      if (len > outs[i].len) outs[i] = { len, other: j };
+      if (len > ins[j].len) ins[j] = { len, other: i };
+    })
+  );
+  const curve = (a: Clip, b: Clip, len: number) => {
+    const n = Math.min(len, XF_PROBE);
+    return bestMatch(a.pcm, b.at - a.at, b.pcm, 0, n, 0, 0).r >= 0.5 ? 0 : XF_CURVE;
+  };
+  const fit = (own: Fade | undefined, len: number, make: () => number): Fade | undefined => {
+    if (own && !own.auto) return own;
+    if (len <= 0) return undefined;
+    return own?.length === len ? own : { length: len, curve: make(), auto: true };
+  };
+  let changed = false;
+  const next = clips.map((c, i) => {
+    const fadeIn = fit(c.fadeIn, ins[i].len, () => curve(clips[ins[i].other], c, ins[i].len));
+    const room = pcmLength(c.pcm) - (fadeIn?.length ?? 0);
+    const fadeOut = fit(c.fadeOut, Math.min(room, outs[i].len), () => curve(c, clips[outs[i].other], outs[i].len));
+    if (fadeIn === c.fadeIn && fadeOut === c.fadeOut) return c;
+    changed = true;
+    const out: Clip = { ...c, ...(fadeIn && { fadeIn }), ...(fadeOut && { fadeOut }) };
+    if (!fadeIn) delete out.fadeIn;
+    if (!fadeOut) delete out.fadeOut;
+    return out;
+  });
+  return changed ? next : clips;
+};
+
+/**
+ * How far (within ±maxShift samples) to move clips[i] so it lines up in phase with the clip it overlaps at
+ * its start, so their crossfade doesn't hollow out a hum. 0 when there's no such overlap or nothing matches.
+ */
+export const alignOverlap = (clips: Clip[], i: number, maxShift: number) => {
+  const b = clips[i];
+  let a: Clip | undefined;
+  for (const c of clips) if (c !== b && c.at < b.at && clipEnd(c) > b.at && (!a || clipEnd(c) > clipEnd(a))) a = c;
+  if (!a) return 0;
+  const half = Math.floor(Math.min(clipEnd(a) - b.at, pcmLength(b.pcm)) / 2);
+  const len = Math.min(half, XF_PROBE);
+  if (len < 32) return 0;
+  const shift = Math.min(maxShift, half);
+  const { lag, r } = bestMatch(a.pcm, b.at - a.at, b.pcm, 0, len, Math.max(-shift, -b.at), shift);
+  return r >= 0.5 ? lag : 0;
 };
 
 /** `shots` in a row at `rpm` rounds per minute, each one a random take, tails ringing over the next shot: full auto as a game plays it. */

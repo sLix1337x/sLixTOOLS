@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AudioWaveform,
+  Blend,
   ChevronRight,
   ClipboardPaste,
   Copy,
@@ -22,6 +23,7 @@ import {
   Plus,
   Redo2,
   Repeat,
+  Repeat2,
   RotateCcw,
   Save,
   ScanSearch,
@@ -38,6 +40,7 @@ import {
   Trash2,
   Volume2,
   VolumeX,
+  Waves,
   Wind,
   X,
   ZoomIn,
@@ -58,7 +61,9 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { useHistory } from '@/hooks';
 import { cn } from '@/lib/utils';
 import {
+  alignOverlap,
   audibleRange,
+  autoCrossfade,
   autoFire,
   clipEnd,
   computePeaks,
@@ -68,8 +73,10 @@ import {
   distance,
   editTrackRange,
   encodeWav,
+  extendLoop,
   fade,
   fadeCurve,
+  findLoopEnd,
   fromAudioBuffer,
   fxActive,
   gain,
@@ -96,6 +103,7 @@ import {
   silence,
   splitAt,
   sweep,
+  texture,
   toMono,
   trackEnd,
   trackStart,
@@ -184,10 +192,18 @@ const REVERB_PRESETS: { name: string; set: Omit<ReverbSettings, 'mix'> }[] = [
 /** Hz; 0 = the project rate */
 const CRUSH_RATES = [0, 22050, 16000, 11025, 8000, 6000, 4000, 2000];
 const LOOP_FADES = [10, 20, 50, 100, 200, 500];
+/** Seconds a loop or texture is extended to */
+const EXTEND_LENS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300];
+/** ms; texture grain size */
+const GRAIN_SIZES = [100, 150, 250, 400, 600, 1000];
+/** How far a dropped clip may be nudged to line up in phase with the clip it overlaps, s */
+const ALIGN_MAX = 0.02;
 const LUFS_TARGETS = [-12, -14, -16, -18, -20, -23];
 const NOISE_COLORS: NoiseColor[] = ['white', 'pink', 'brown'];
 const FX_DEFAULT = {
   loopMs: 50,
+  extendLen: 30,
+  grainMs: 250,
   noiseColor: 'white' as NoiseColor,
   /** Seconds, of a noise burst or a thump */
   genLen: 0.5,
@@ -753,6 +769,10 @@ const seoContent = (
             'every track has its own live effect chain: volume, pan, pitch, pitch envelope, volume gate, punch, overdrive, lo-fi, filters, EQ, clipper, low pass gate, flanger, delay and reverb, in that order. Changes are heard right away and can be undone. Bake renders them into the audio. Copy a chain to another track, or save it as a preset.'
           )}
           {guideItem(
+            'Seamless loops:',
+            'Make seamless loop finds the end that matches the start and blends it in. Extend by looping repeats that loop to a set length; Extend as texture rebuilds steady sounds (hum, fans, wind) from random pieces so nothing repeats. Overlap two clips and auto crossfade blends them, lining the dropped one up in phase.'
+          )}
+          {guideItem(
             'Fades, normalize, reverse:',
             'the toolbar buttons process the selection, or the whole track when nothing is selected.'
           )}
@@ -866,6 +886,7 @@ const AudioEditor = () => {
   /** Where the current drag snapped, seconds */
   const [snapAt, setSnapAt] = useState<number | null>(null);
   const [snap, toggleSnap] = useStoredToggle('audio-editor:snap');
+  const [autoXfade, toggleAutoXfade] = useStoredToggle('audio-editor:auto-crossfade');
   /** Where dragged selections or clips would land, and how long they are (seconds) */
   const [move, setMove] = useState<{ track: number; at: number; len: number }[] | null>(null);
   const [playhead, setPlayhead] = useState(0);
@@ -1238,10 +1259,18 @@ const AudioEditor = () => {
   };
 
   // ---- edits ----
+  /** Overlapping clips get crossfades when auto crossfade is on; unchanged tracks keep their identity */
+  const crossfaded = (next: Track[]) =>
+    autoXfade
+      ? next.map((t) => {
+          const clips = autoCrossfade(t.clips);
+          return clips === t.clips ? t : { ...t, clips };
+        })
+      : next;
   const apply = (next: Track[], nextSelection: Selection = selection) => {
     if (!project) return;
     stop();
-    commit({ ...project, tracks: next });
+    commit({ ...project, tracks: crossfaded(next) });
     setSelection(nextSelection);
     setPlayhead((p) => Math.min(p, tracksLength(next) / project.sampleRate));
   };
@@ -1286,12 +1315,29 @@ const AudioEditor = () => {
     }
   };
 
-  /** Crossfades the end of the range into its start, closes the gap and loops playback over it */
+  /** The range, minus silence past either end of the active track: loops and extensions never take empty time along */
+  const audioRange = (): [number, number] => {
+    const [s, e] = range();
+    if (!active?.clips.length) return [s, s];
+    const a = Math.max(s, trackStart(active));
+    return [a, Math.max(a, Math.min(e, trackEnd(active)))];
+  };
+  const seamNote = (match: number) =>
+    `Seam match ${Math.round(Math.max(0, match) * 100)}%${match < 0.6 ? ': try a longer crossfade, or Texture' : ''}`;
+
+  /**
+   * Finds where the range loops best (its end moved back to match the start in phase and level),
+   * crossfades that end into the start, closes the gap and loops playback over it
+   */
   const makeSeamless = () => {
     if (!active) return;
-    const [s, e] = range();
-    const xf = Math.min(toSample(fx.loopMs / 1000), Math.floor((e - s) / 2));
+    const [s, e0] = audioRange();
+    const want = toSample(fx.loopMs / 1000);
+    const found = findLoopEnd(renderClips(active.clips, sampleRate, s, e0), want);
+    const e = s + found.end;
+    const xf = Math.min(want, Math.floor((e - s) / 2));
     if (xf < 1) return;
+    toast.success(seamNote(found.match));
     apply(
       mapActive((t) => {
         const looped = editTrackRange(t, sampleRate, s, e, (p) => makeLoop(p, xf));
@@ -1301,6 +1347,31 @@ const AudioEditor = () => {
     );
     setLoopRegion({ start: s / sampleRate, end: (e - xf) / sampleRate });
     setLoop(true);
+  };
+
+  /** Replaces the range with a longer version of itself: whole loop cycles, or a texture rebuilt from grains */
+  const extendRange = (how: 'loop' | 'texture') => {
+    if (!active) return;
+    const [s, e] = audioRange();
+    const target = toSample(fx.extendLen);
+    if (e - s >= target) {
+      toast.info(`Already ${fx.extendLen} s or longer: pick a longer length`);
+      return;
+    }
+    const src = renderClips(active.clips, sampleRate, s, e);
+    const { pcm, match } =
+      how === 'loop'
+        ? extendLoop(src, toSample(fx.loopMs / 1000), target)
+        : texture(src, target, toSample(fx.grainMs / 1000));
+    if (pcm === src) {
+      toast.info('Too short to extend');
+      return;
+    }
+    apply(
+      mapActive((t) => insertIntoTrack(deleteTrackRange(t, s, e), s, pcm)),
+      { track: active.id, start: s / sampleRate, end: (s + pcmLength(pcm)) / sampleRate }
+    );
+    toast.success(`Extended to ${pcmDuration(pcm).toFixed(1)} s. ${seamNote(match)}`);
   };
 
   /** A generated sound on a new track at the cursor, with a fast curved fade-out */
@@ -1355,9 +1426,31 @@ const AudioEditor = () => {
     );
   };
 
-  /** Moves (or copies) whole clips, fades and all, `lanes` tracks down and `shift` samples later; they stay picked */
-  const moveGroup = (clips: Clip[], lanes: number, shift: number, copy: boolean) => {
-    const { tracks: next, moved } = moveClips(tracks, clips, lanes, shift, copy);
+  /**
+   * Moves (or copies) whole clips, fades and all, `lanes` tracks down and `shift` samples later; they stay picked.
+   * With auto crossfade one clip dropped over another is nudged into phase with it, unless placed freely (Alt).
+   */
+  const moveGroup = (clips: Clip[], lanes: number, shift: number, copy: boolean, free = false) => {
+    const result = moveClips(tracks, clips, lanes, shift, copy);
+    let raw = result.tracks;
+    if (autoXfade && !free && result.moved.length === 1) {
+      const m = result.moved[0];
+      const lane = raw.findIndex((t) => t.clips.includes(m));
+      const nudge = alignOverlap(raw[lane].clips, raw[lane].clips.indexOf(m), toSample(ALIGN_MAX));
+      if (nudge) {
+        const aligned = { ...m, at: m.at + nudge };
+        raw = raw.map((t, i) =>
+          i === lane ? { ...t, clips: t.clips.map((c) => (c === m ? aligned : c)) } : t
+        );
+        result.moved[0] = aligned;
+      }
+    }
+    // Crossfading replaces faded clips, so follow the moved ones to their new objects
+    const next = crossfaded(raw);
+    const moved = result.moved.map((m) => {
+      const lane = raw.findIndex((t) => t.clips.includes(m));
+      return next[lane].clips[raw[lane].clips.indexOf(m)];
+    });
     const one = moved.length === 1 ? moved[0] : null;
     const owner = one && next.find((t) => t.clips.includes(one));
     apply(
@@ -1940,7 +2033,8 @@ const AudioEditor = () => {
     // Ctrl while dropping copies instead of moving
     const copyDrop = e.ctrlKey || e.metaKey;
     if (d.moved) {
-      if (d.clips) moveGroup(d.clips, d.lanes, toSample(d.at) - toSample(d.start), copyDrop);
+      if (d.clips)
+        moveGroup(d.clips, d.lanes, toSample(d.at) - toSample(d.start), copyDrop, e.altKey);
       else moveSelection(tracks[d.lane0 + d.lanes].id, d.at, copyDrop);
     } else if (d.toggle) {
       // Ctrl+click a header picks or unpicks that clip
@@ -2017,7 +2111,9 @@ const AudioEditor = () => {
     const lane = tracks.findIndex((t) => t.id === d.track);
     const clip = tracks[lane]?.clips[d.clip];
     if (!clip) return null;
-    const own = clip[fadeKey(d.edge)] ?? { length: 0, curve: 0 };
+    // A fade edited by hand is no longer automatic
+    const { length, curve } = clip[fadeKey(d.edge)] ?? { length: 0, curve: 0 };
+    const own: Fade = { length, curve };
     if (d.part === 'curve') {
       const top = (lanesRef.current?.getBoundingClientRect().top ?? 0) + lane * laneHeight;
       return { ...own, curve: curveThrough(1 - (e.clientY - top) / laneHeight) };
@@ -2884,6 +2980,14 @@ const AudioEditor = () => {
                     toggleSnap,
                     Magnet,
                     { pressed: snap }
+                  )}
+                  {iconBtn(
+                    autoXfade
+                      ? 'Auto crossfade on: overlapping clips blend, and a dropped clip lines up in phase with the one under it (hold Alt to place it exactly)'
+                      : 'Auto crossfade off: overlapping clips just add up',
+                    toggleAutoXfade,
+                    Blend,
+                    { pressed: autoXfade }
                   )}
                   <span className="mx-0.5 h-5 w-px bg-white/10" aria-hidden="true" />
                   {iconBtn('Add a marker at the cursor', addMarker, Flag, { shortcut: 'M' })}
@@ -4117,7 +4221,37 @@ const AudioEditor = () => {
                     makeSeamless,
                     Repeat,
                     false,
-                    'Blend the end into the start so it loops without a click, then loop playback over it'
+                    'Find the end that matches the start best in phase and level, blend it into the start so it loops without a seam, then loop playback over it'
+                  )}
+                  {listSlider(
+                    'Extend to',
+                    EXTEND_LENS,
+                    fx.extendLen,
+                    (v) => setFx({ extendLen: v }),
+                    (v) => `${v} s`,
+                    busy
+                  )}
+                  {actionBtn(
+                    'Extend by looping',
+                    () => extendRange('loop'),
+                    Repeat2,
+                    false,
+                    'Repeat its best loop in whole cycles until it is long enough. The real start and end stay. Best for sounds with a rhythm'
+                  )}
+                  {listSlider(
+                    'Grain',
+                    GRAIN_SIZES,
+                    fx.grainMs,
+                    (v) => setFx({ grainMs: v }),
+                    (v) => `${v} ms`,
+                    busy
+                  )}
+                  {actionBtn(
+                    'Extend as texture',
+                    () => extendRange('texture'),
+                    Waves,
+                    false,
+                    'Rebuild it from pieces taken at random places, each matched in phase to the one before, so it never repeats. Best for steady sounds: hum, motors, fans, wind, rain'
                   )}
                 </>
               )}

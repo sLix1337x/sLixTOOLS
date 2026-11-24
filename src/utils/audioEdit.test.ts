@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alignOverlap,
   audibleRange,
+  autoCrossfade,
   autoFire,
   bitcrush,
   computePeaks,
   copyRange,
+  crossfadeGains,
   cutFilter,
   cutResponse,
   cutClips,
@@ -13,9 +16,11 @@ import {
   distance,
   editTrackRange,
   encodeWav,
+  extendLoop,
   equalize,
   eqResponse,
   fadeCurve,
+  findLoopEnd,
   fade,
   fxActive,
   gain,
@@ -49,6 +54,7 @@ import {
   silence,
   splitAt,
   sweep,
+  texture,
   toMono,
   tracksLength,
   transient,
@@ -513,5 +519,95 @@ describe('audioEdit', () => {
     expect(view.getInt16(44, true)).toBe(0x7fff);
     expect(view.getInt16(46, true)).toBe(-0x8000);
     expect(pcmLength(mono())).toBe(0);
+  });
+
+  describe('seams', () => {
+    const sr = 8000;
+    /** A 100 Hz hum (80-sample period) with a quieter 3rd harmonic */
+    const hum = (n: number, phase = 0): Pcm => ({
+      sampleRate: sr,
+      channels: [
+        Float32Array.from({ length: n }, (_, i) => {
+          const w = (2 * Math.PI * (i + phase)) / 80;
+          return 0.5 * Math.sin(w) + 0.2 * Math.sin(3 * w);
+        }),
+      ],
+    });
+    /** Largest jump between neighbouring samples: a seam shows up as a spike above the hum's own slope */
+    const maxStep = (pcm: Pcm) => {
+      const x = pcm.channels[0];
+      let m = 0;
+      for (let i = 1; i < x.length; i++) m = Math.max(m, Math.abs(x[i] - x[i - 1]));
+      return m;
+    };
+    /** Seeded so grain choices repeat */
+    const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+
+    it('keeps the level through a crossfade: linear for a match, equal power for unrelated audio', () => {
+      const [i1, o1] = crossfadeGains(0.5, 1);
+      expect(i1 + o1).toBeCloseTo(1, 6);
+      for (const t of [0.1, 0.5, 0.8]) {
+        const [i0, o0] = crossfadeGains(t, 0);
+        expect(i0 * i0 + o0 * o0).toBeCloseTo(1, 6);
+      }
+      expect(crossfadeGains(0, 0.5)).toEqual([0, 1]);
+      expect(crossfadeGains(1, 0.5)).toEqual([1, 0]);
+    });
+
+    it('finds a loop end in phase with the start and repeats it without a seam', () => {
+      const src = hum(1237);
+      const { end, match } = findLoopEnd(src, 100);
+      expect((end - 100) % 80).toBe(0);
+      expect(match).toBeGreaterThan(0.999);
+      const { pcm, match: m } = extendLoop(src, 100, 5000);
+      expect(m).toBeGreaterThan(0.999);
+      expect(pcmLength(pcm)).toBeGreaterThanOrEqual(5000);
+      expect(maxStep(pcm)).toBeLessThan(maxStep(src) * 1.01);
+      // The real start and end stay
+      expect(values(pcm).slice(0, 50)).toEqual(values(src).slice(0, 50));
+      expect(values(pcm).slice(-50)).toEqual(values(src).slice(-50));
+      expect(extendLoop(src, 100, 1000).pcm).toBe(src);
+    });
+
+    it('rebuilds a hum from random grains, each in phase with the one before', () => {
+      const src = hum(4000);
+      const { pcm, match } = texture(src, 20000, 600, seeded(7));
+      expect(Math.abs(pcmLength(pcm) - 20000)).toBeLessThanOrEqual(Math.round(sr * 0.025));
+      expect(match).toBeGreaterThan(0.99);
+      expect(maxStep(pcm)).toBeLessThan(maxStep(src) * 1.05);
+      expect(values(pcm).slice(0, 50)).toEqual(values(src).slice(0, 50));
+      expect(values(pcm).slice(-50)).toEqual(values(src).slice(-50));
+      expect(texture(src, 3000, 600).pcm).toBe(src);
+    });
+
+    it('crossfades overlapping clips, follows the overlap and leaves hand-made fades alone', () => {
+      const a: Clip = { at: 0, pcm: hum(1000) };
+      const b: Clip = { at: 800, pcm: hum(1000) };
+      const [fa, fb] = autoCrossfade([a, b]);
+      expect(fa.fadeOut).toEqual({ length: 200, curve: 0, auto: true });
+      expect(fb.fadeIn).toEqual({ length: 200, curve: 0, auto: true });
+      // Already right: nothing changes
+      const same = [fa, fb];
+      expect(autoCrossfade(same)).toBe(same);
+      // Pulled apart: the automatic fades go
+      const apart = autoCrossfade([fa, { ...fb, at: 1200 }]);
+      expect(apart[0].fadeOut).toBeUndefined();
+      expect(apart[1].fadeIn).toBeUndefined();
+      // Out of phase: near equal power instead of linear
+      const off = autoCrossfade([a, { ...b, pcm: hum(1000, 40) }]);
+      expect(off[1].fadeIn?.curve).toBeGreaterThan(0);
+      // A hand-made fade stays
+      const own = { length: 30, curve: -0.5 };
+      expect(autoCrossfade([a, { ...b, fadeIn: own }])[1].fadeIn).toBe(own);
+    });
+
+    it('nudges an overlapping clip into phase', () => {
+      const a: Clip = { at: 0, pcm: hum(2000) };
+      const b: Clip = { at: 1513, pcm: hum(2000) };
+      const shift = alignOverlap([a, b], 1, 60);
+      expect((((1513 + shift) % 80) + 80) % 80).toBe(0);
+      expect(Math.abs(shift)).toBeLessThanOrEqual(40);
+      expect(alignOverlap([a, { ...b, at: 2500 }], 1, 60)).toBe(0);
+    });
   });
 });
